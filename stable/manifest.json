@@ -3,14 +3,14 @@
   "channel": "stable",
   "version": "1.0.1",
   "minimum_version": "1.0.1",
-  "published_at": "2026-08-21T14:08:24.242679Z",
+  "published_at": "2026-08-21T14:16:27.645878Z",
   "release_notes": "Personal Skin Manager v1.0.1 - signed updater bootstrap",
   "package": {
     "type": "inno",
-    "url": "https://raw.githubusercontent.com/vanarquilos/PersonalSkinManager-Updates/main/releases/v1.0.1/PersonalSkinManager_Setup.exe",
+    "url": "https://github.com/vanarquilos/PersonalSkinManager-Updates/releases/download/v1.0.1/PersonalSkinManager_Setup.exe",
     "sha256": "3cf2e47baeac15376f759c0f7ca0c21c0011b36577e004b582105ad1779641bb",
     "size": 26315501,
     "filename": "PersonalSkinManager_Setup.exe"
   },
-  "signature": "XXeFNxMbP/EbvBVXds44Ka3k4FZZY9e37ooRQzHHrLg5wP22fY294EezGHfAJWOc2eqQj6uv3bO/uobhD+EsDA=="
+  "signature": "juwsHou1tgcTh1AWYDnuyDAdLtb4J86T5l7X5PpFz1gpWSvJPoPzsScgd9do5Xh0Bu4GSuPpane2ROt07F5mCg=="
 }
