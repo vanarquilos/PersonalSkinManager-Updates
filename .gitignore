@@ -1,0 +1,164 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.pyc
+# Ignore runtime overlay and mods data, but allow Python source files
+injection/overlay/*
+!injection/overlay/
+!injection/overlay/*.py
+!injection/overlay/__init__.py
+injection/mods/*
+!injection/mods/
+!injection/mods/*.py
+!injection/mods/__init__.py
+skins/*
+logs/*
+
+# Installer artifacts
+build/
+develop-eggs/
+dist/
+dist_updater/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+*.csv
+MANIFEST
+
+# PyInstaller / Nuitka build outputs
+main.build/
+main.dist/
+main.exe
+main.bin
+updater.exe
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# IDE / Editor
+.vscode/
+.idea/
+.claude/settings.local.json
+
+# Local / temp
+vibeship-ai-fix-prompt-383e53c2-917d-4722-b35e-0f17148c8af5.txt
+temp_fix.txt
+build_local_sign.ps1
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+nul
+
+# Application specific
+# Note: injection/mods/ and injection/overlay/ Python source files are tracked
+# Only runtime data in these directories is ignored (see Python section above)
+injection/tools/hashes.game.txt
+
+state/*.json
+state/*.lock
+*.log
+logs/
+
+# Allow Pengu Loader assets to be tracked
+!Pengu Loader/**
+# Pengu Loader is rebuilt from the vendored source during every packaged build.
+Pengu Loader/Pengu Loader.exe
+Pengu Loader/Pengu Loader.exe.config
+vendor/PenguLoader-1.1.6/loader/bin/
+vendor/PenguLoader-1.1.6/loader/obj/
+# Installer
+installer/
+Output/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+
+license.dat
+config.ini
+injection/tools/hashes.game.txt
+Pengu Loader/datastore
+injection/tools/.hashes_state.json
+
+chroma_issue.txt
+CLAUDE.md
+injection/tools/cslol-dll.dll
+Pengu Loader/pengu.log
+*.log.old
+
+# Test artifacts
+test_party_punch.py
+test_party_relay.py
+Rose_PunchTest*.spec
+Rose_PartyTest.spec
+relay_server.py
+
+# Relay config (contains Worker URL — keep secret)
+party/network/relay_config.py
+
+# Cython build artifacts
+*.pyd
+*.c
+*.py.bak
+_cython_setup.py
+
+# Workers (deployed separately to Cloudflare)
+relay-worker/node_modules/
+skin-key-worker/node_modules/
+relay-worker/.wrangler/
+
+# Local test suites
+/test/
+# Personal Skin Manager update signing secrets
+*.pem
+update-signing-key*
+manifest.private.json
+
+# Local Personal Skin Manager audit outputs
+personal-audit-*.json
+personal-build-manifest.json
+personal-critical-*.json
+personal-rose-exe-hash.txt
+phase3-rebrand-inventory.txt
+
+# Public-source safety
+.env
+.env.*
+!.env.example
+*.key
+*.pfx
+*.p12
+*.keystore
+*.jks
+*.secrets.*
+secrets/
+credentials/
+PSM_Revenant_*_Audit.txt
+PSM_Revenant_*_Compare.txt
+PSM_*_Audit.txt
+PSM_*_Compare.txt

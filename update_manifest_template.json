@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "channel": "stable",
+  "version": "1.0.1",
+  "minimum_version": "1.0.0",
+  "published_at": "YYYY-MM-DDTHH:MM:SSZ",
+  "release_notes": "Compatibility update",
+  "package": {
+    "type": "inno",
+    "url": "https://example.invalid/PersonalSkinManager_Setup.exe",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "size": 1,
+    "filename": "PersonalSkinManager_Setup.exe"
+  },
+  "signature": ""
+}
