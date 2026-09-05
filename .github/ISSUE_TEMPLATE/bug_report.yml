@@ -1,0 +1,72 @@
+name: Bug report
+description: Report a reproducible Personal Skin Manager problem
+title: "[Bug] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a PSM issue. Remove passwords, tokens, private keys, Riot credentials, personal data, and sensitive local paths from anything you attach.
+
+        Do not use this form to request anti-cheat bypass/evasion, stealth, process concealment, driver-based circumvention, or security-control disabling.
+
+  - type: input
+    id: version
+    attributes:
+      label: PSM version
+      description: Example: v1.0.1
+      placeholder: v1.0.1
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe what happened.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Give the smallest reliable sequence that reproduces the issue.
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs or diagnostics
+      description: Paste only relevant output after removing secrets and personal data. Leave blank if not applicable.
+      render: text
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I removed secrets, credentials, signing material, and sensitive personal data from this report.
+          required: true
+        - label: This report is about PSM correctness/compatibility and not about bypassing or weakening anti-cheat/security controls.
+          required: true
