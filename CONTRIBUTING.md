@@ -6,7 +6,7 @@ PSM is a compatibility-first Windows project derived from Rose. Contributions sh
 
 ## Development baseline
 
-Use the latest maintained public source baseline as your starting point.
+Use the current `main` branch in this public repository as your starting point.
 
 Recommended branch names:
 
@@ -25,11 +25,13 @@ For code changes:
 
 1. install dependencies from `requirements.txt`
 2. run the most relevant targeted checks/tests for the area changed
-3. build with `python .\scripts\build_pyinstaller.py` when the change affects the frozen application
+3. build with `python .\scripts\build_pyinstaller.py` when the change affects packaged application behavior
 4. verify that no generated build output, local configuration, logs, signing material, or local-only binaries were added
 5. describe what changed, why it changed, and how it was verified
 
 Do not claim a check passed unless you actually ran it.
+
+Every pull request also runs lightweight public-source checks for Python compilation, tracked-secret/local-file hygiene, generated-output boundaries, and stable-manifest structure. These automated checks do not replace Windows/runtime QA when the behavior being changed requires it.
 
 ## Project boundaries
 
@@ -65,6 +67,14 @@ Avoid broad rewrites of the League/LCU integration, game monitor, content synchr
 
 Compatibility fixes should not weaken integrity checks or package/signature verification.
 
+## Stable update channel
+
+`stable/manifest.json` is compatibility-critical for supported installed clients.
+
+Do not modify the stable manifest as part of unrelated work. Any intentional release/update-channel change must preserve signing-key secrecy, package verification, published release provenance, and backward-compatible URLs where required.
+
+Do not rewrite an already-published release tag merely to reorganize source history.
+
 ## Documentation
 
 Documentation changes should reflect the actual code and release state. Do not document a feature, compatibility claim, build result, or release status that has not been verified.
@@ -75,8 +85,11 @@ Documentation changes should reflect the actual code and release state. Do not d
 - [ ] no secrets or private signing material
 - [ ] no local-only `cslol-dll.dll`
 - [ ] no generated build/cache/log output
+- [ ] stable manifest unchanged unless intentionally part of reviewed release work
+- [ ] existing release/tag provenance preserved
 - [ ] third-party licensing/provenance reviewed if applicable
 - [ ] relevant checks/tests run
+- [ ] Windows/runtime QA performed when required
 - [ ] user-visible behavior documented when needed
 - [ ] `THIRD_PARTY_NOTICES.md` updated when needed
 
