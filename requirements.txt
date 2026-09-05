@@ -1,0 +1,15 @@
+# Requires Python >= 3.11
+
+# App requirements
+# Security: All dependencies pinned to specific versions to prevent supply chain attacks
+psutil==5.9.8
+requests==2.31.0
+urllib3==2.0.7
+websocket-client==1.7.0
+websockets==12.0
+Pillow==10.4.0
+pystray==0.19.5
+cryptography==49.0.0  # Ed25519 verification for signed PSM update manifests
+
+# Build requirements
+pyinstaller==6.3.0
