@@ -1,10 +1,55 @@
 # Personal Skin Manager
 
-**Current stable version: 1.0.1**
+Personal Skin Manager (PSM) is an open-source Windows skin-management application for League of Legends, derived from the open-source **Rose** project by Alban and Florent.
 
-Personal Skin Manager (PSM) is a Windows skin-management application for League of Legends derived from the open-source **Rose** project by Alban and Florent.
+**Current stable release:** `v1.0.1`  
+**Platform:** Windows 10/11 x64  
+**Language:** Python  
+**License:** MIT for the PSM/Rose-derived source, with separate terms for third-party components
 
-This repository is the **canonical public repository** for Personal Skin Manager. It contains the sanitized application source, public documentation, signed stable update channel, GitHub release history, and read-only compatibility diagnostics.
+[Download v1.0.1](https://github.com/vanarquilos/PersonalSkinManager-Updates/releases/tag/v1.0.1) · [Source](https://github.com/vanarquilos/PersonalSkinManager-Updates) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
+
+> This repository is the canonical public source, release, update-channel, diagnostics, and documentation repository for Personal Skin Manager.
+
+## What PSM does
+
+PSM preserves the working skin-management foundations inherited from Rose while removing services that are not part of the PSM maintenance model.
+
+Supported project areas include:
+
+- League/LCU integration
+- skins and chromas
+- compatible custom mods
+- supported forms and variants
+- Pengu Loader integration
+- CSLOL/mod tooling
+- game monitoring and process coordination
+- local bridge/content synchronization
+- game-hash/data checks
+- local settings and logs
+- the existing content-injection pipeline
+
+## Current release
+
+### Personal Skin Manager v1.0.1
+
+Installer:
+
+```text
+PersonalSkinManager_Setup.exe
+```
+
+SHA-256:
+
+```text
+3CF2E47BAEAC15376F759C0F7CA0C21C0011B36577E004B582105AD1779641BB
+```
+
+The installer is published through the official GitHub Release:
+
+[Personal Skin Manager v1.0.1](https://github.com/vanarquilos/PersonalSkinManager-Updates/releases/tag/v1.0.1)
+
+PSM does not mirror or distribute `cslol-dll.dll`.
 
 ## Repository layout
 
@@ -13,15 +58,19 @@ main.py
 config.py
 PersonalSkinManager.spec
 
+assets/
 injection/
 launcher/
-ui/
-utils/
+lcu/
+main/
+pengu/
 psm_update/
 scripts/
-tests/
+state/
+threads/
+ui/
+utils/
 vendor/
-assets/
 
 stable/
   manifest.json
@@ -34,15 +83,15 @@ tools/
   diagnostics/
 ```
 
-`stable/manifest.json` is a compatibility-critical path used by already-installed supported PSM builds and must not be moved casually.
+`stable/manifest.json` is a compatibility-critical path used by supported installed PSM builds and should not be moved or renamed casually.
 
-## Status
+## Project status
 
 The current stable application baseline is **v1.0.1**.
 
 Completed release work includes:
 
-- sanitization of inherited analytics/community/update plumbing not used by PSM
+- sanitization of inherited analytics/community/update plumbing that is not used by PSM
 - dependency and provenance review
 - V1 application identity and UI finalization
 - runtime and functional regression QA
@@ -50,24 +99,9 @@ Completed release work includes:
 - signed stable-channel updater bootstrap
 - SHA-256 installer verification
 - Ed25519 manifest verification
+- publication of the sanitized application source
 
-The historical `v1.0.1` release predates the source integration into this repository. Its installer/tag are retained unchanged for release provenance and compatibility. Future releases should tag the canonical application source in this repository.
-
-## Preserved functionality
-
-PSM intentionally preserves the working Rose foundations used by the application:
-
-- League/LCU integration
-- skins and chromas
-- custom mods
-- supported forms and variants
-- Pengu Loader integration
-- CSLOL/mod tooling
-- game monitoring and process coordination
-- local bridge/content synchronization
-- game-hash/data checks
-- local settings and logs
-- the existing content-injection pipeline
+The historical `v1.0.1` release predates source integration into this repository. Its existing release/tag are intentionally retained for provenance and compatibility rather than rewritten.
 
 ## Removed from the Rose baseline
 
@@ -145,15 +179,13 @@ PSM's stable application updater:
 1. fetches `stable/manifest.json` over HTTPS
 2. verifies the manifest's Ed25519 signature
 3. validates manifest schema/version information
-4. verifies the installer SHA-256 and exact size
+4. verifies installer SHA-256 and exact size
 5. defers installation while League is running
 6. installs only a verified PSM release
 
 The private Ed25519 signing key is maintained outside source control. Only the public verification key belongs in source.
 
-Existing v1.0.1 clients use the stable manifest in this repository. Preserve the stable manifest path and release asset URLs when maintaining backward compatibility.
-
-For future releases, installers should be published as **GitHub Release assets**. Do not add new installer binaries to ordinary Git history unless there is a specific provenance requirement.
+Existing v1.0.1 clients use the stable manifest in this repository. Release engineering must preserve the manifest path and published release asset URLs when backward compatibility depends on them.
 
 Game hash synchronization is handled separately from application releases; ordinary League data changes do not automatically require a new PSM application version.
 
@@ -178,6 +210,18 @@ This project does not add or improve:
 Compatibility work should remain focused on application correctness, content/data compatibility, provenance, verification, reproducible builds, and supported runtime behavior.
 
 See [`SECURITY.md`](SECURITY.md) for reporting guidance.
+
+## Public source checks
+
+Pull requests and pushes to `main` run lightweight public-source checks that:
+
+- compile Python source
+- reject tracked private/signing material
+- reject tracked local-only `cslol-dll.dll`
+- reject generated top-level build output
+- validate the stable manifest structure
+
+These checks are source-hygiene gates, not a substitute for Windows runtime or gameplay QA.
 
 ## Diagnostics
 
@@ -209,7 +253,7 @@ Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request.
 
 ## Development model
 
-The maintainer's full historical/internal development repository remains private. Public development and contributions should be based on this repository's maintained source.
+The maintainer's historical/internal development repository remains private. Public development and contributions should use this repository as the maintained public source.
 
 Release engineering must preserve:
 
