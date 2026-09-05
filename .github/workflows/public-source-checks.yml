@@ -1,0 +1,128 @@
+name: Public source checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  source-hygiene:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile Python source
+        run: python -m compileall -q .
+
+      - name: Validate public-source boundary
+        shell: python
+        run: |
+          import json
+          import pathlib
+          import re
+          import subprocess
+          import sys
+
+          tracked = subprocess.check_output(
+              ["git", "ls-files"],
+              text=True,
+              encoding="utf-8",
+          ).splitlines()
+
+          errors = []
+
+          blocked_exact = {
+              "cslol-dll.dll",
+              ".env",
+              "license.dat",
+              "config.ini",
+          }
+          blocked_suffixes = (
+              ".pem",
+              ".pfx",
+              ".p12",
+              ".key",
+              ".keystore",
+              ".jks",
+          )
+          blocked_roots = (
+              "build/",
+              "dist/",
+              "dist_updater/",
+              "installer/",
+              "Output/",
+              "secrets/",
+              "credentials/",
+          )
+
+          for raw in tracked:
+              path = raw.replace("\\", "/")
+              name = pathlib.PurePosixPath(path).name
+              lowered = path.lower()
+
+              if name.lower() in blocked_exact:
+                  errors.append(f"blocked tracked file: {path}")
+
+              if lowered.endswith(blocked_suffixes):
+                  errors.append(f"blocked signing/secret file: {path}")
+
+              if path.startswith(blocked_roots):
+                  errors.append(f"blocked generated/private path: {path}")
+
+              if name.startswith(".env.") and name != ".env.example":
+                  errors.append(f"blocked environment file: {path}")
+
+          manifest_path = pathlib.Path("stable/manifest.json")
+          if not manifest_path.is_file():
+              errors.append("stable/manifest.json is missing")
+          else:
+              try:
+                  manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+              except Exception as exc:
+                  errors.append(f"stable/manifest.json is invalid JSON: {exc}")
+              else:
+                  if manifest.get("schema") != 1:
+                      errors.append("stable manifest schema must be 1")
+                  if manifest.get("channel") != "stable":
+                      errors.append("stable manifest channel must be 'stable'")
+
+                  package = manifest.get("package") or {}
+                  if package.get("filename") != "PersonalSkinManager_Setup.exe":
+                      errors.append("stable installer filename changed unexpectedly")
+
+                  package_url = package.get("url", "")
+                  if not package_url.startswith(
+                      "https://github.com/vanarquilos/PersonalSkinManager-Updates/releases/download/"
+                  ):
+                      errors.append("stable installer URL is outside the canonical GitHub release path")
+
+                  sha256 = package.get("sha256", "")
+                  if not re.fullmatch(r"[0-9a-fA-F]{64}", sha256):
+                      errors.append("stable installer SHA-256 is malformed")
+
+                  size = package.get("size")
+                  if not isinstance(size, int) or size <= 0:
+                      errors.append("stable installer size is invalid")
+
+                  signature = manifest.get("signature")
+                  if not isinstance(signature, str) or not signature.strip():
+                      errors.append("stable manifest signature is missing")
+
+          if errors:
+              print("Public-source validation failed:")
+              for error in errors:
+                  print(f"- {error}")
+              sys.exit(1)
+
+          print("Public-source validation passed.")
