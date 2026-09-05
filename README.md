@@ -47,6 +47,12 @@ This repository does not publish:
 
 `cslol-dll.dll` is subject to the League Toolkit CSLOL DLL License Addendum and is not distributed by PSM.
 
+## Open-source scope
+
+Original documentation and diagnostic tooling in this repository are released under the root [`LICENSE`](LICENSE).
+
+Published/historical application installers can contain third-party components with their own license terms. The root MIT license does **not** relicense those components. See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+
 ## Source and attribution
 
 Personal Skin Manager is derived from the open-source **Rose** project by Alban and Florent. The application source retains its upstream license and third-party notices.
