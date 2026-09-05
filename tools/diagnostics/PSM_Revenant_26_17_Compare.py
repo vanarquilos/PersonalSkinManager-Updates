@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+r"""
 PSM Revenant Reign Viego — current League baseline comparator.
 
 READ-ONLY:
