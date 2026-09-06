@@ -29,6 +29,14 @@ Supported project areas include:
 - local settings and logs
 - the existing content-injection pipeline
 
+## Requirements
+
+- Windows 10/11 x64
+- League of Legends installed
+- External runtime dependency: `cslol-dll.dll` is **not bundled, mirrored, or distributed by PSM**. If your setup requires it, obtain it from an authorized source and comply with the current [League Toolkit CSLOL DLL License Addendum](https://github.com/LeagueToolkit/cslol-manager/blob/master/LICENSE-CSLOL.md).
+
+PSM does not provide redistribution rights for `cslol-dll.dll` and does not publish a download mirror for that component.
+
 ## Current release
 
 ### Personal Skin Manager v1.0.1
@@ -193,7 +201,9 @@ Game hash synchronization is handled separately from application releases; ordin
 
 `cslol-dll.dll` is **not part of this repository and is not distributed by PSM**.
 
-The DLL is governed by the League Toolkit **CSLOL DLL License Addendum (Distribution & Use Policy)**, which applies independently of the broader CSLOL project's license. PSM does not grant redistribution rights for that component.
+If a PSM setup requires the DLL, obtain it from an **authorized source** and follow the current [League Toolkit CSLOL DLL License Addendum (Distribution & Use Policy)](https://github.com/LeagueToolkit/cslol-manager/blob/master/LICENSE-CSLOL.md).
+
+The DLL is governed by that separate upstream policy independently of the broader CSLOL project's license. PSM does not grant redistribution rights for the component and does not provide a mirror or bundled copy.
 
 Do not commit, bundle, mirror, or attach `cslol-dll.dll` to PSM source or release artifacts unless the distributor independently satisfies the upstream license terms.
 
