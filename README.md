@@ -5,9 +5,10 @@ Personal Skin Manager (PSM) is an open-source Windows skin-management applicatio
 **Current stable release:** `v1.0.1`  
 **Platform:** Windows 10/11 x64  
 **Language:** Python  
-**License:** MIT for the PSM/Rose-derived source, with separate terms for third-party components
+**License:** MIT for the PSM/Rose-derived source, with separate terms for third-party components  
+**Website:** https://psm.vanarquilos.dev
 
-[Download v1.0.1](https://github.com/vanarquilos/PersonalSkinManager-Updates/releases/tag/v1.0.1) · [Source](https://github.com/vanarquilos/PersonalSkinManager-Updates) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
+[Website](https://psm.vanarquilos.dev) · [Download v1.0.1](https://github.com/vanarquilos/PersonalSkinManager-Updates/releases/tag/v1.0.1) · [Source](https://github.com/vanarquilos/PersonalSkinManager-Updates) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 
 > This repository is the canonical public source, release, update-channel, diagnostics, and documentation repository for Personal Skin Manager.
 
