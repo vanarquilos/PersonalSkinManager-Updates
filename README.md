@@ -33,9 +33,30 @@ Supported project areas include:
 
 - Windows 10/11 x64
 - League of Legends installed
-- External runtime dependency: `cslol-dll.dll` is **not bundled, mirrored, or distributed by PSM**. If your setup requires it, obtain it from an authorized source and comply with the current [League Toolkit CSLOL DLL License Addendum](https://github.com/LeagueToolkit/cslol-manager/blob/master/LICENSE-CSLOL.md).
+- Administrator permission for the PSM installer
+- External runtime dependency: `cslol-dll.dll` is **required by the current PSM runtime but is not bundled, mirrored, or distributed by PSM**
+
+Official League Toolkit DLL file page used by the PSM setup guide:
+
+[Get `cslol-dll.dll` from League Toolkit](https://github.com/LeagueToolkit/cslol-manager/blob/23f230858bc2359ce279e07ed129d482fe3b00bf/cslol-tools/vendor/cslol-patcher/cslol-dll.dll)
+
+Upstream DLL policy for that pinned source state:
+
+[CSLOL DLL License Addendum (Distribution & Use Policy)](https://github.com/LeagueToolkit/cslol-manager/blob/23f230858bc2359ce279e07ed129d482fe3b00bf/LICENSE-CSLOL.md)
 
 PSM does not provide redistribution rights for `cslol-dll.dll` and does not publish a download mirror for that component.
+
+### External DLL setup
+
+After installing PSM:
+
+1. Launch Personal Skin Manager.
+2. If the startup check reports that `cslol-dll.dll` is missing, choose **Open tools folder**.
+3. Open the official League Toolkit DLL file page above and use GitHub's download control to save `cslol-dll.dll`.
+4. Place the file in the exact tools folder PSM opened.
+5. Restart PSM.
+
+PSM validates the DLL before normal startup. If the file is reported as invalid or outdated, do **not** disable or bypass that integrity check; use a supported upstream DLL.
 
 ## Current release
 
@@ -201,11 +222,17 @@ Game hash synchronization is handled separately from application releases; ordin
 
 `cslol-dll.dll` is **not part of this repository and is not distributed by PSM**.
 
-If a PSM setup requires the DLL, obtain it from an **authorized source** and follow the current [League Toolkit CSLOL DLL License Addendum (Distribution & Use Policy)](https://github.com/LeagueToolkit/cslol-manager/blob/master/LICENSE-CSLOL.md).
+PSM v1.0.1 checks for the DLL before normal startup. If the file is missing, PSM's startup dialog can open the exact tools folder where the DLL belongs.
 
-The DLL is governed by that separate upstream policy independently of the broader CSLOL project's license. PSM does not grant redistribution rights for the component and does not provide a mirror or bundled copy.
+Obtain the DLL directly from the official League Toolkit repository:
+
+[Official League Toolkit `cslol-dll.dll` file page](https://github.com/LeagueToolkit/cslol-manager/blob/23f230858bc2359ce279e07ed129d482fe3b00bf/cslol-tools/vendor/cslol-patcher/cslol-dll.dll)
+
+The component is governed by the League Toolkit [CSLOL DLL License Addendum (Distribution & Use Policy)](https://github.com/LeagueToolkit/cslol-manager/blob/23f230858bc2359ce279e07ed129d482fe3b00bf/LICENSE-CSLOL.md), independently of the broader CSLOL project's license. PSM does not grant redistribution rights for the component and does not provide a mirror or bundled copy.
 
 Do not commit, bundle, mirror, or attach `cslol-dll.dll` to PSM source or release artifacts unless the distributor independently satisfies the upstream license terms.
+
+Do not disable or bypass PSM's DLL integrity check.
 
 ## Security and compatibility boundary
 
