@@ -9,6 +9,7 @@ import threading
 from typing import Optional
 
 from automation import AutomationController
+from automation.champ_select import ChampSelectAutomationController
 from config import (
     WS_PING_INTERVAL_DEFAULT, WS_PING_TIMEOUT_DEFAULT, TIMER_HZ_DEFAULT,
     FALLBACK_LOADOUT_MS_DEFAULT
@@ -60,6 +61,7 @@ class WSEventThread(threading.Thread):
             lcu, state, timer_hz, fallback_ms, injection_manager, skin_scraper
         )
         self.automation_controller = AutomationController(lcu)
+        self.champ_select_automation_controller = ChampSelectAutomationController(lcu)
         self.event_handler = WebSocketEventHandler(
             lcu,
             state,
@@ -103,6 +105,7 @@ class WSEventThread(threading.Thread):
                     phase = payload.get("data")
                     if isinstance(phase, str):
                         self.automation_controller.handle_phase_change(phase)
+                        self.champ_select_automation_controller.handle_phase_change(phase)
                 elif uri == "/lol-lobby/v2/lobby":
                     self.automation_controller.handle_lobby_event(payload)
                 elif uri in {
@@ -110,6 +113,8 @@ class WSEventThread(threading.Thread):
                     "/lol-matchmaking/v1/search",
                 }:
                     self.automation_controller.handle_search_state_event(payload)
+                elif uri == "/lol-champ-select/v1/session":
+                    self.champ_select_automation_controller.handle_session_event(payload)
         except Exception as exc:  # noqa: BLE001
             log.debug("[AUTOMATION] WebSocket routing skipped: %s", type(exc).__name__)
 
@@ -118,6 +123,7 @@ class WSEventThread(threading.Thread):
     def stop(self):
         """Stop the WebSocket thread gracefully"""
         self.automation_controller.stop()
+        self.champ_select_automation_controller.stop()
         self.connection.stop()
     
     # Backward compatibility properties
