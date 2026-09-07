@@ -53,7 +53,7 @@ class LCUAPI:
         """Invalidate cached GET responses.
 
         Clears any cache entry whose path starts with ``path_prefix`` AND any
-        ancestor of ``path_prefix`` (since a PATCH/PUT on a child resource
+        ancestor of ``path_prefix`` (since a PATCH/PUT/POST on a child resource
         logically mutates its parents too). Passing an empty string clears the
         entire cache.
         """
@@ -130,6 +130,57 @@ class LCUAPI:
                 except Exception:
                     return _store(None)
             except requests.exceptions.RequestException:
+                return None
+
+    def post(
+        self,
+        path: str,
+        json_data=None,
+        timeout: float = 1.0,
+        headers: Optional[dict] = None,
+    ) -> Optional[requests.Response]:
+        """Make POST request to LCU API.
+
+        Mutating POSTs invalidate cached GET data for the target path and its
+        ancestors. On a connection failure the existing LCU connection lifecycle
+        is refreshed once, then the request is retried against the refreshed
+        localhost base URL.
+        """
+        if not self.connection.ok:
+            self.connection.refresh_if_needed()
+            if not self.connection.ok:
+                return None
+
+        self.invalidate(path)
+
+        def _send():
+            return self.connection.session.post(
+                (self.connection.base or "") + path,
+                json=json_data,
+                timeout=timeout,
+                headers=headers,
+            )
+
+        try:
+            t0 = time.perf_counter()
+            resp = _send()
+            dt_ms = (time.perf_counter() - t0) * 1000.0
+            log.info(f"[LCU] POST {path} -> {getattr(resp, 'status_code', 'None')} in {dt_ms:.1f}ms")
+            return resp
+        except requests.exceptions.RequestException as exc:
+            log.warning(f"[LCU] POST {path} failed ({type(exc).__name__}); refreshing connection")
+            self.connection.refresh_if_needed(force=True)
+            if not self.connection.ok:
+                log.warning(f"[LCU] POST {path} - connection lost after refresh")
+                return None
+            try:
+                t0 = time.perf_counter()
+                resp = _send()
+                dt_ms = (time.perf_counter() - t0) * 1000.0
+                log.info(f"[LCU] POST(retry) {path} -> {getattr(resp, 'status_code', 'None')} in {dt_ms:.1f}ms")
+                return resp
+            except requests.exceptions.RequestException as exc2:
+                log.warning(f"[LCU] POST(retry) {path} failed ({type(exc2).__name__})")
                 return None
     
     def put(self, path: str, json_data, timeout: float, headers: Optional[dict] = None) -> Optional[requests.Response]:
