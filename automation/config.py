@@ -11,6 +11,7 @@ from config import get_config_option
 _SECTION = "ClientAutomation"
 _ALLOWED_ACCEPT_DELAYS_MS = {0, 500, 1000, 2000, 3000}
 _ALLOWED_POSITIONS = {"TOP", "JUNGLE", "MIDDLE", "UTILITY", "BOTTOM", "FILL"}
+_MAX_CHAMPION_PRIORITY = 10
 
 
 def _read_bool(option: str, fallback: bool = False) -> bool:
@@ -55,14 +56,41 @@ def _read_position(option: str) -> Optional[str]:
     return value if value in _ALLOWED_POSITIONS else None
 
 
+def _read_champion_priority(option: str) -> tuple[int, ...]:
+    """Read a comma-separated ordered champion-ID list.
+
+    Invalid/non-positive values are ignored, duplicates keep their first
+    position, and the list is bounded so malformed config cannot create an
+    unbounded sequence of LCU mutation attempts.
+    """
+    raw = get_config_option(_SECTION, option)
+    if raw is None:
+        return ()
+
+    out: list[int] = []
+    seen: set[int] = set()
+    for piece in str(raw).split(","):
+        try:
+            champion_id = int(piece.strip())
+        except (TypeError, ValueError):
+            continue
+        if champion_id <= 0 or champion_id in seen:
+            continue
+        out.append(champion_id)
+        seen.add(champion_id)
+        if len(out) >= _MAX_CHAMPION_PRIORITY:
+            break
+    return tuple(out)
+
+
 @dataclass(frozen=True)
 class ClientAutomationConfig:
     """Current persisted Client Automation settings.
 
     Every child feature is gated by the master ``enabled`` switch. Queue and
-    requeue additionally require a positive configured queue ID. Position
-    preferences are persisted now so the Phase G UI can expose the complete
-    Matchmaking settings without changing the config contract again.
+    requeue additionally require a positive configured queue ID. Champion
+    priority lists are stored as ordered champion IDs and default empty so an
+    enabled child feature cannot make an unconfigured destructive choice.
     """
 
     enabled: bool = False
@@ -77,6 +105,9 @@ class ClientAutomationConfig:
 
     auto_requeue_enabled: bool = False
 
+    auto_pick_enabled: bool = False
+    pick_priority: tuple[int, ...] = ()
+
     @property
     def auto_queue_active(self) -> bool:
         return self.enabled and self.auto_queue_enabled and self.queue_id is not None
@@ -88,6 +119,10 @@ class ClientAutomationConfig:
     @property
     def auto_requeue_active(self) -> bool:
         return self.enabled and self.auto_requeue_enabled and self.queue_id is not None
+
+    @property
+    def auto_pick_active(self) -> bool:
+        return self.enabled and self.auto_pick_enabled and bool(self.pick_priority)
 
 
 def load_client_automation_config() -> ClientAutomationConfig:
@@ -101,4 +136,6 @@ def load_client_automation_config() -> ClientAutomationConfig:
         auto_accept_enabled=_read_bool("auto_accept_enabled", False),
         auto_accept_delay_ms=_read_accept_delay_ms(),
         auto_requeue_enabled=_read_bool("auto_requeue_enabled", False),
+        auto_pick_enabled=_read_bool("auto_pick_enabled", False),
+        pick_priority=_read_champion_priority("pick_priority"),
     )
