@@ -16,14 +16,7 @@ log = get_logger()
 
 
 class AutomationController:
-    """Coordinate automatic League-client actions.
-
-    The controller is the only layer that decides whether an automatic LCU
-    mutation is allowed. WebSocket handlers only forward state changes here.
-    Phase C provides Auto Accept; Phase D adds Auto Queue and Auto Requeue with
-    lobby authority checks, bounded reconciliation, idempotency, and manual
-    cancellation suppression.
-    """
+    """Own all decisions for automatic League-client mutations."""
 
     LOBBY_PHASE = "Lobby"
     MATCHMAKING_PHASE = "Matchmaking"
@@ -31,6 +24,7 @@ class AutomationController:
     CHAMP_SELECT_PHASE = "ChampSelect"
     IN_PROGRESS_PHASE = "InProgress"
     POST_GAME_PHASES = {"PreEndOfGame", "EndOfGame", "WaitingForStats"}
+    _UNKNOWN_LOBBY = "__unknown_lobby__"
 
     def __init__(
         self,
@@ -44,11 +38,13 @@ class AutomationController:
         self._timer_factory = timer_factory
         self._lock = threading.RLock()
 
+        # Auto Accept state.
         self._pending_ready_timer: Optional[threading.Timer] = None
         self._ready_check_active = False
         self._ready_check_generation = 0
         self._ready_check_attempted_generation: Optional[int] = None
 
+        # Auto Queue / Requeue state.
         self._pending_queue_timer: Optional[threading.Timer] = None
         self._queue_attempt_generation = 0
         self._queue_attempted_key: Optional[str] = None
@@ -62,10 +58,9 @@ class AutomationController:
         self._stopped = False
 
     # ------------------------------------------------------------------
-    # Public event/reconciliation surface
+    # Event surface
     # ------------------------------------------------------------------
     def handle_ready_check_event(self, payload: dict) -> None:
-        """Process an LCU ready-check event without mutating from the WS thread."""
         if not isinstance(payload, dict):
             return
         data = payload.get("data")
@@ -73,7 +68,6 @@ class AutomationController:
         self._process_ready_check_state(state, source="event")
 
     def handle_lobby_event(self, payload: dict) -> None:
-        """Observe lobby material changes and reconcile queue eligibility."""
         if not isinstance(payload, dict):
             return
         data = payload.get("data")
@@ -87,7 +81,6 @@ class AutomationController:
             self.reconcile_matchmaking()
 
     def handle_search_state_event(self, payload: dict) -> None:
-        """Track matchmaking state and suppress immediate restarts after stop/error."""
         if not isinstance(payload, dict):
             return
         data = payload.get("data")
@@ -101,19 +94,15 @@ class AutomationController:
             phase = self._current_phase
             fingerprint = self._last_lobby_fingerprint
 
-            if blocking_reason and fingerprint:
-                self._queue_suppressed_lobby = fingerprint
+            if blocking_reason:
+                self._queue_suppressed_lobby = fingerprint or self._UNKNOWN_LOBBY
+                self._cancel_pending_queue_timer_locked()
 
-            # If a search that was active stops before ChampSelect/InProgress,
-            # treat it as a manual cancellation or failed search. Do not fight
-            # the user by immediately starting the same lobby again.
             if was_active and not active and phase in {self.LOBBY_PHASE, self.MATCHMAKING_PHASE}:
-                if fingerprint:
-                    self._queue_suppressed_lobby = fingerprint
+                self._queue_suppressed_lobby = fingerprint or self._UNKNOWN_LOBBY
                 self._cancel_pending_queue_timer_locked()
 
     def handle_phase_change(self, phase: str) -> None:
-        """Coordinate automation state across League gameflow transitions."""
         if not isinstance(phase, str):
             return
 
@@ -121,15 +110,14 @@ class AutomationController:
             previous = self._current_phase
             self._current_phase = phase
 
-        # Ready-check lifecycle.
+        # Ready check lifecycle.
         if phase == self.READY_CHECK_PHASE:
             self.reconcile_ready_check()
         else:
             with self._lock:
                 self._clear_ready_check_locked()
 
-        # A completed game arms Auto Requeue. We wait for an eligible Lobby
-        # transition rather than hammering Play Again or polling post-game UI.
+        # Completed game: arm requeue, but wait for League to return to Lobby.
         if phase in self.POST_GAME_PHASES:
             with self._lock:
                 self._post_game_pending = True
@@ -138,7 +126,6 @@ class AutomationController:
                 self._cancel_pending_queue_timer_locked()
             return
 
-        # Starting a real game closes the previous queue lifecycle.
         if phase == self.IN_PROGRESS_PHASE:
             with self._lock:
                 self._post_game_pending = False
@@ -166,11 +153,9 @@ class AutomationController:
                     and not self._post_game_pending
                 )
                 if returned_without_completed_game:
-                    # Search cancel, failed ready check, dodge, or another
-                    # non-game return to lobby: preserve user control and wait
-                    # for a material lobby change before trying again.
-                    if self._last_lobby_fingerprint:
-                        self._queue_suppressed_lobby = self._last_lobby_fingerprint
+                    self._queue_suppressed_lobby = (
+                        self._last_lobby_fingerprint or self._UNKNOWN_LOBBY
+                    )
                     self._search_active = False
                     self._queue_started_by_automation = False
                     self._cancel_pending_queue_timer_locked()
@@ -183,14 +168,15 @@ class AutomationController:
         with self._lock:
             self._cancel_pending_queue_timer_locked()
 
+    # ------------------------------------------------------------------
+    # Reconciliation / lifecycle
+    # ------------------------------------------------------------------
     def reconcile_ready_check(self) -> None:
-        """Read current state to recover if PSM missed the initial WS event."""
         config = self._safe_config()
         if not config.auto_accept_active:
             with self._lock:
                 self._clear_ready_check_locked()
             return
-
         try:
             state = self.lcu.ready_check()
         except Exception as exc:  # noqa: BLE001
@@ -199,18 +185,22 @@ class AutomationController:
         self._process_ready_check_state(state, source="reconcile")
 
     def reconcile_matchmaking(self) -> None:
-        """Schedule one bounded queue/requeue eligibility pass while in Lobby."""
         config = self._safe_config()
         with self._lock:
             if self._stopped or self._current_phase != self.LOBBY_PHASE:
                 return
+
             mode = "requeue" if self._post_game_pending else "queue"
             if mode == "requeue":
                 if not config.auto_requeue_active:
                     return
             elif not config.auto_queue_active:
                 return
+
             if self._search_active or self._pending_queue_timer is not None:
+                return
+
+            if self._queue_suppressed_lobby == self._UNKNOWN_LOBBY:
                 return
             if (
                 self._last_lobby_fingerprint
@@ -233,22 +223,24 @@ class AutomationController:
             timer.start()
 
     def stop(self) -> None:
-        """Cancel pending automation and prevent future scheduled actions."""
         with self._lock:
             self._stopped = True
             self._clear_ready_check_locked()
             self._cancel_pending_queue_timer_locked()
 
-    # ------------------------------------------------------------------
-    # Ready check / Auto Accept
-    # ------------------------------------------------------------------
     def _safe_config(self) -> ClientAutomationConfig:
         try:
             return self._config_loader()
         except Exception as exc:  # noqa: BLE001
-            log.warning("[AUTOMATION] Failed to load settings (%s); automation disabled", type(exc).__name__)
+            log.warning(
+                "[AUTOMATION] Failed to load settings (%s); automation disabled",
+                type(exc).__name__,
+            )
             return ClientAutomationConfig()
 
+    # ------------------------------------------------------------------
+    # Auto Accept
+    # ------------------------------------------------------------------
     def _process_ready_check_state(self, state: Optional[dict], *, source: str) -> None:
         config = self._safe_config()
         actionable = self.lcu.ready_check_is_actionable(state)
@@ -257,13 +249,14 @@ class AutomationController:
             if self._stopped or not config.auto_accept_active:
                 self._clear_ready_check_locked()
                 return
-
             if not actionable:
                 if self._ready_check_active:
-                    log.debug("[READY CHECK] No longer actionable (%s); pending accept cancelled", source)
+                    log.debug(
+                        "[READY CHECK] No longer actionable (%s); pending accept cancelled",
+                        source,
+                    )
                 self._clear_ready_check_locked()
                 return
-
             if self._ready_check_active:
                 return
 
@@ -272,7 +265,6 @@ class AutomationController:
             generation = self._ready_check_generation
             self._ready_check_attempted_generation = None
             delay_seconds = config.auto_accept_delay_ms / 1000.0
-
             timer = self._timer_factory(
                 delay_seconds,
                 self._execute_ready_check_accept,
@@ -283,7 +275,6 @@ class AutomationController:
             except Exception:
                 pass
             self._pending_ready_timer = timer
-
             log.info("[READY CHECK] Auto-accept scheduled: %.1fs", delay_seconds)
             timer.start()
 
@@ -297,7 +288,6 @@ class AutomationController:
                 return
             if self._ready_check_attempted_generation == generation:
                 return
-
             self._ready_check_attempted_generation = generation
             self._pending_ready_timer = None
 
@@ -309,7 +299,10 @@ class AutomationController:
         try:
             current = self.lcu.ready_check()
         except Exception as exc:  # noqa: BLE001
-            log.warning("[READY CHECK] Revalidation failed (%s); accept skipped", type(exc).__name__)
+            log.warning(
+                "[READY CHECK] Revalidation failed (%s); accept skipped",
+                type(exc).__name__,
+            )
             return
 
         if not self.lcu.ready_check_is_actionable(current):
@@ -324,15 +317,16 @@ class AutomationController:
             log.warning("[READY CHECK] Accept failed (%s)", type(exc).__name__)
             return
 
-        status_code = getattr(response, "status_code", None)
         if self._response_ok(response):
             log.info("[READY CHECK] Accepted")
-            return
-
-        log.warning("[READY CHECK] Accept failed: HTTP %s", status_code if status_code is not None else "no response")
+        else:
+            log.warning(
+                "[READY CHECK] Accept failed: HTTP %s",
+                getattr(response, "status_code", None),
+            )
 
     # ------------------------------------------------------------------
-    # Matchmaking / Auto Queue / Auto Requeue
+    # Auto Queue / Auto Requeue
     # ------------------------------------------------------------------
     def _execute_queue_attempt(self, generation: int, mode: str) -> None:
         with self._lock:
@@ -356,6 +350,19 @@ class AutomationController:
         elif not config.auto_queue_active:
             return
 
+        # Get lobby identity first so any blocking search state can be tied to
+        # one material party/queue and cannot cause a retry loop on WS updates.
+        try:
+            lobby = self.lcu.matchmaking_lobby()
+        except Exception as exc:  # noqa: BLE001
+            log.debug("[AUTOMATION] Lobby read failed: %s", type(exc).__name__)
+            return
+
+        fingerprint = self._observe_lobby(lobby) if isinstance(lobby, dict) else None
+        with self._lock:
+            if fingerprint and self._queue_suppressed_lobby == fingerprint:
+                return
+
         try:
             search_state = self.lcu.matchmaking_search_state()
         except Exception as exc:  # noqa: BLE001
@@ -369,19 +376,13 @@ class AutomationController:
 
         blocking_reason = self._search_blocking_reason(search_state)
         if blocking_reason:
-            with self._lock:
-                fingerprint = self._last_lobby_fingerprint
-            self._suppress_lobby(fingerprint, f"search blocked: {blocking_reason}")
+            self._suppress_lobby(
+                fingerprint,
+                f"search blocked: {blocking_reason}",
+            )
             return
 
-        try:
-            lobby = self.lcu.matchmaking_lobby()
-        except Exception as exc:  # noqa: BLE001
-            log.debug("[AUTOMATION] Lobby read failed: %s", type(exc).__name__)
-            return
-
-        # No current lobby: creating the configured standard queue is a safe,
-        # bounded action because there is no premade party to mutate.
+        # No lobby: create exactly one configured solo lobby, then revalidate.
         if not isinstance(lobby, dict):
             create_key = f"{mode}:create:{queue_id}"
             if not self._claim_queue_attempt(create_key):
@@ -392,7 +393,10 @@ class AutomationController:
                 log.warning("[AUTOMATION] Lobby creation failed (%s)", type(exc).__name__)
                 return
             if not self._response_ok(response):
-                log.warning("[AUTOMATION] Lobby creation failed: HTTP %s", getattr(response, "status_code", None))
+                log.warning(
+                    "[AUTOMATION] Lobby creation failed: HTTP %s",
+                    getattr(response, "status_code", None),
+                )
                 return
             try:
                 lobby = self.lcu.matchmaking_lobby()
@@ -401,29 +405,25 @@ class AutomationController:
             if not isinstance(lobby, dict):
                 log.warning("[AUTOMATION] Lobby creation could not be revalidated")
                 return
-
-        fingerprint = self._observe_lobby(lobby)
-        with self._lock:
-            if fingerprint and self._queue_suppressed_lobby == fingerprint:
-                return
-
-        lobby_reason = self._lobby_blocking_reason(lobby)
-        if lobby_reason:
-            self._suppress_lobby(fingerprint, lobby_reason)
-            return
+            fingerprint = self._observe_lobby(lobby)
 
         current_queue_id = self._lobby_queue_id(lobby)
         member_count = self._lobby_member_count(lobby)
+        local_member = lobby.get("localMember") or {}
+
+        # Premade authority is required before any queue mutation.
+        if member_count > 1 and local_member.get("isLeader") is not True:
+            self._suppress_lobby(fingerprint, "local member is not premade lobby leader")
+            return
 
         if current_queue_id != queue_id:
-            # Never silently change a premade party's queue, even when the
-            # local player is leader. The configured queue can be applied once
-            # the lobby becomes solo/materially changes.
+            # Do not silently change a premade party's queue even when leader.
             if member_count > 1:
-                self._suppress_lobby(fingerprint, "configured queue differs from premade lobby")
+                self._suppress_lobby(
+                    fingerprint,
+                    "configured queue differs from premade lobby",
+                )
                 return
-
-            local_member = lobby.get("localMember") or {}
             if local_member.get("allowedChangeActivity") is False:
                 self._suppress_lobby(fingerprint, "local member cannot change queue")
                 return
@@ -445,22 +445,26 @@ class AutomationController:
             except Exception:
                 lobby = None
             if not isinstance(lobby, dict) or self._lobby_queue_id(lobby) != queue_id:
-                self._suppress_lobby(fingerprint, "queue switch could not be revalidated")
+                self._suppress_lobby(
+                    fingerprint,
+                    "queue switch could not be revalidated",
+                )
                 return
             fingerprint = self._observe_lobby(lobby)
 
-            lobby_reason = self._lobby_blocking_reason(lobby)
-            if lobby_reason:
-                self._suppress_lobby(fingerprint, lobby_reason)
-                return
+        lobby_reason = self._lobby_blocking_reason(lobby)
+        if lobby_reason:
+            self._suppress_lobby(fingerprint, lobby_reason)
+            return
 
-        # Re-read immediately before the mutating start request. This protects
-        # against a manual search start, penalty, or lobby error occurring while
-        # the eligibility checks above were running.
+        # Final revalidation immediately before POST /matchmaking/search.
         try:
             current_search = self.lcu.matchmaking_search_state()
         except Exception as exc:  # noqa: BLE001
-            log.debug("[AUTOMATION] Final search-state revalidation failed: %s", type(exc).__name__)
+            log.debug(
+                "[AUTOMATION] Final search-state revalidation failed: %s",
+                type(exc).__name__,
+            )
             return
 
         if self._search_state_is_active(current_search):
@@ -470,7 +474,10 @@ class AutomationController:
 
         blocking_reason = self._search_blocking_reason(current_search)
         if blocking_reason:
-            self._suppress_lobby(fingerprint, f"search blocked: {blocking_reason}")
+            self._suppress_lobby(
+                fingerprint,
+                f"search blocked: {blocking_reason}",
+            )
             return
 
         start_key = f"{mode}:start:{fingerprint}:{queue_id}"
@@ -480,7 +487,10 @@ class AutomationController:
         try:
             response = self.lcu.start_matchmaking()
         except Exception as exc:  # noqa: BLE001
-            self._suppress_lobby(fingerprint, f"queue start failed: {type(exc).__name__}")
+            self._suppress_lobby(
+                fingerprint,
+                f"queue start failed: {type(exc).__name__}",
+            )
             return
 
         if not self._response_ok(response):
@@ -496,16 +506,11 @@ class AutomationController:
             if mode == "requeue":
                 self._post_game_pending = False
 
-        if mode == "requeue":
-            log.info("[AUTOMATION] Requeue started")
-        else:
-            log.info("[AUTOMATION] Queue started")
+        log.info("[AUTOMATION] %s started", "Requeue" if mode == "requeue" else "Queue")
 
     def _claim_queue_attempt(self, key: str) -> bool:
         with self._lock:
-            if self._stopped:
-                return False
-            if self._queue_attempted_key == key:
+            if self._stopped or self._queue_attempted_key == key:
                 return False
             self._queue_attempted_key = key
             return True
@@ -514,21 +519,28 @@ class AutomationController:
         fingerprint = self._lobby_fingerprint(lobby)
         with self._lock:
             if fingerprint != self._last_lobby_fingerprint:
+                previous = self._last_lobby_fingerprint
                 self._last_lobby_fingerprint = fingerprint
                 self._queue_attempted_key = None
-                # Suppression belongs to one material lobby identity. A party,
-                # queue, or member-set change is the natural recovery boundary.
-                if self._queue_suppressed_lobby != fingerprint:
+
+                if self._queue_suppressed_lobby == self._UNKNOWN_LOBBY:
+                    # We learned the identity after a blocking search event;
+                    # attach the suppression to this first observed lobby.
+                    self._queue_suppressed_lobby = fingerprint
+                elif previous is not None and self._queue_suppressed_lobby != fingerprint:
+                    # A real party/queue/member-set change is the recovery gate.
                     self._queue_suppressed_lobby = None
             return fingerprint
 
     def _suppress_lobby(self, fingerprint: Optional[str], reason: str) -> None:
         with self._lock:
-            if fingerprint:
-                self._queue_suppressed_lobby = fingerprint
+            self._queue_suppressed_lobby = fingerprint or self._UNKNOWN_LOBBY
             self._cancel_pending_queue_timer_locked()
         log.info("[AUTOMATION] Queue skipped: %s", reason)
 
+    # ------------------------------------------------------------------
+    # Normalizers / guards
+    # ------------------------------------------------------------------
     @staticmethod
     def _lobby_queue_id(lobby: dict) -> Optional[int]:
         game_config = lobby.get("gameConfig") or {}
@@ -554,7 +566,11 @@ class AutomationController:
         for member in lobby.get("members") or []:
             if not isinstance(member, dict):
                 continue
-            identity = member.get("puuid") or member.get("summonerId") or member.get("summonerName")
+            identity = (
+                member.get("puuid")
+                or member.get("summonerId")
+                or member.get("summonerName")
+            )
             if identity is not None:
                 members.append(str(identity))
         members.sort()
@@ -568,31 +584,25 @@ class AutomationController:
         restrictions = lobby.get("restrictions")
         if isinstance(restrictions, list) and restrictions:
             return "lobby has active restrictions"
-
         if lobby.get("canStartActivity") is False:
             return "lobby cannot start matchmaking"
 
         local_member = lobby.get("localMember")
         if not isinstance(local_member, dict):
             return "local lobby member unavailable"
-
         if local_member.get("allowedStartActivity") is False:
             return "local member cannot start matchmaking"
-
         if cls._lobby_member_count(lobby) > 1 and local_member.get("isLeader") is not True:
             return "local member is not premade lobby leader"
-
         return None
 
     @staticmethod
     def _search_state_is_active(state: Optional[dict]) -> bool:
         if not isinstance(state, dict):
             return False
-
         in_queue = state.get("isCurrentlyInQueue")
         if isinstance(in_queue, bool):
             return in_queue
-
         search_state = str(state.get("searchState") or "").strip().lower()
         if not search_state:
             return False
@@ -638,7 +648,6 @@ class AutomationController:
                     return "low-priority matchmaking penalty is active"
             except (TypeError, ValueError):
                 pass
-
         return None
 
     @staticmethod
