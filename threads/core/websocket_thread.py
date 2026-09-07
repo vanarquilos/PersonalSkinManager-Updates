@@ -7,6 +7,7 @@ WebSocket event thread
 import threading
 from typing import Optional
 
+from automation import AutomationController
 from config import (
     WS_PING_INTERVAL_DEFAULT, WS_PING_TIMEOUT_DEFAULT, TIMER_HZ_DEFAULT,
     FALLBACK_LOADOUT_MS_DEFAULT
@@ -57,9 +58,16 @@ class WSEventThread(threading.Thread):
         self.timer_manager = TimerManager(
             lcu, state, timer_hz, fallback_ms, injection_manager, skin_scraper
         )
+        self.automation_controller = AutomationController(lcu)
         self.event_handler = WebSocketEventHandler(
-            lcu, state, self.champion_lock_handler, self.game_mode_detector, self.timer_manager, injection_manager,
+            lcu,
+            state,
+            self.champion_lock_handler,
+            self.game_mode_detector,
+            self.timer_manager,
+            injection_manager,
             swiftplay_handler=swiftplay_handler,
+            automation_controller=self.automation_controller,
         )
         
         # Initialize WebSocket connection
@@ -82,6 +90,7 @@ class WSEventThread(threading.Thread):
     
     def stop(self):
         """Stop the WebSocket thread gracefully"""
+        self.automation_controller.stop()
         self.connection.stop()
     
     # Backward compatibility properties
