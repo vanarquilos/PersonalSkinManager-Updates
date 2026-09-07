@@ -4,6 +4,7 @@
 WebSocket event thread
 """
 
+import json
 import threading
 from typing import Optional
 
@@ -67,7 +68,6 @@ class WSEventThread(threading.Thread):
             self.timer_manager,
             injection_manager,
             swiftplay_handler=swiftplay_handler,
-            automation_controller=self.automation_controller,
         )
         
         # Initialize WebSocket connection
@@ -85,7 +85,27 @@ class WSEventThread(threading.Thread):
         self.connection.run()
     
     def _on_message(self, ws, msg):
-        """WebSocket message received (delegates to event handler)"""
+        """Route automation events, then delegate to the existing event handler."""
+        try:
+            decoded = json.loads(msg)
+            payload = None
+            if isinstance(decoded, list) and len(decoded) >= 3:
+                if decoded[0] == 8 and isinstance(decoded[2], dict):
+                    payload = decoded[2]
+            elif isinstance(decoded, dict) and "uri" in decoded:
+                payload = decoded
+
+            if payload:
+                uri = payload.get("uri")
+                if uri == "/lol-matchmaking/v1/ready-check":
+                    self.automation_controller.handle_ready_check_event(payload)
+                elif uri == "/lol-gameflow/v1/gameflow-phase":
+                    phase = payload.get("data")
+                    if isinstance(phase, str):
+                        self.automation_controller.handle_phase_change(phase)
+        except Exception as exc:  # noqa: BLE001
+            log.debug("[AUTOMATION] WebSocket routing skipped: %s", type(exc).__name__)
+
         self.event_handler.handle_message(ws, msg)
     
     def stop(self):
