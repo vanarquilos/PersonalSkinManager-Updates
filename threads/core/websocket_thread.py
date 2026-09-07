@@ -103,6 +103,13 @@ class WSEventThread(threading.Thread):
                     phase = payload.get("data")
                     if isinstance(phase, str):
                         self.automation_controller.handle_phase_change(phase)
+                elif uri == "/lol-lobby/v2/lobby":
+                    self.automation_controller.handle_lobby_event(payload)
+                elif uri in {
+                    "/lol-lobby/v2/lobby/matchmaking/search-state",
+                    "/lol-matchmaking/v1/search",
+                }:
+                    self.automation_controller.handle_search_state_event(payload)
         except Exception as exc:  # noqa: BLE001
             log.debug("[AUTOMATION] WebSocket routing skipped: %s", type(exc).__name__)
 
