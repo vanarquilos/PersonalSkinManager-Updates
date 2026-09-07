@@ -108,6 +108,10 @@ class ClientAutomationConfig:
     auto_pick_enabled: bool = False
     pick_priority: tuple[int, ...] = ()
 
+    auto_ban_enabled: bool = False
+    ban_priority: tuple[int, ...] = ()
+    protect_ally_intents: bool = True
+
     @property
     def auto_queue_active(self) -> bool:
         return self.enabled and self.auto_queue_enabled and self.queue_id is not None
@@ -124,6 +128,10 @@ class ClientAutomationConfig:
     def auto_pick_active(self) -> bool:
         return self.enabled and self.auto_pick_enabled and bool(self.pick_priority)
 
+    @property
+    def auto_ban_active(self) -> bool:
+        return self.enabled and self.auto_ban_enabled and bool(self.ban_priority)
+
 
 def load_client_automation_config() -> ClientAutomationConfig:
     """Load Client Automation settings from the existing config.ini store."""
@@ -138,4 +146,7 @@ def load_client_automation_config() -> ClientAutomationConfig:
         auto_requeue_enabled=_read_bool("auto_requeue_enabled", False),
         auto_pick_enabled=_read_bool("auto_pick_enabled", False),
         pick_priority=_read_champion_priority("pick_priority"),
+        auto_ban_enabled=_read_bool("auto_ban_enabled", False),
+        ban_priority=_read_champion_priority("ban_priority"),
+        protect_ally_intents=_read_bool("protect_ally_intents", True),
     )
