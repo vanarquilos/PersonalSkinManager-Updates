@@ -15,20 +15,21 @@ class PsmUiPolishTests(unittest.TestCase):
     def setUpClass(cls):
         cls.source = PLUGIN.read_text(encoding="utf-8")
 
-    def test_all_main_settings_sections_receive_icons(self):
+    def test_all_main_settings_sections_receive_icons_and_final_numbering(self):
         for token in (
             "01 / RUNTIME",
-            "02 / STARTUP",
-            "03 / GAME",
-            "04 / CONTENT",
-            "05 / TOOLS",
-            "06 / ABOUT",
+            "03 / STARTUP",
+            "04 / GAME",
+            "05 / CONTENT",
+            "06 / TOOLS",
+            "07 / ABOUT",
         ):
             self.assertIn(token, self.source)
         self.assertIn("psm-core-section-icon", self.source)
 
-    def test_client_automation_is_numbered_after_main_settings(self):
-        self.assertIn("07 / CLIENT AUTOMATION", self.source)
+    def test_client_automation_is_promoted_to_second_control_center_section(self):
+        self.assertIn("02 / CLIENT AUTOMATION", self.source)
+        self.assertIn("insertBefore(launcher, startupHeading)", self.source)
 
     def test_matchmaking_layout_is_reordered_into_coherent_rows(self):
         self.assertIn("psm-ca-final-matchmaking", self.source)
@@ -42,6 +43,12 @@ class PsmUiPolishTests(unittest.TestCase):
             "#psm-ca-accept-delay",
         ):
             self.assertIn(control_id, self.source)
+
+    def test_search_controls_preserve_icon_padding_and_compact_dropdown(self):
+        self.assertIn("padding:0 12px 0 34px", self.source)
+        self.assertIn("max-height:190px", self.source)
+        self.assertIn("psm-ca-suggestions::-webkit-scrollbar", self.source)
+        self.assertIn("focus-within", self.source)
 
     def test_protect_ally_intents_is_grouped_with_ban_priority(self):
         self.assertIn("#psm-ca-protect-ally", self.source)
