@@ -209,11 +209,11 @@ def _queue_display_name(item: dict, queue_id: int) -> str:
     raw_name = _clean_queue_text(item.get("name") or item.get("shortName"))
     description = _clean_queue_text(item.get("description") or item.get("detailedDescription"))
 
-    if "RANKED_SOLO" in queue_type:
+    if "RANKED SOLO" in queue_type:
         return "Ranked Solo/Duo"
-    if "RANKED_FLEX" in queue_type:
+    if "RANKED FLEX" in queue_type:
         return "Ranked Flex"
-    if queue_type == "ARAM_UNRANKED_5X5":
+    if queue_type == "ARAM UNRANKED 5X5":
         return "ARAM"
     if "SWIFTPLAY" in queue_type:
         return "Swiftplay"
