@@ -1,6 +1,6 @@
 # Client Automation vNext — Phase H Integration Hardening
 
-Status: automated hardening complete; first live QA findings remediated; repeat live League-client QA pending
+Status: automated hardening complete; live catalog/function remediation implemented; repeat live League-client QA pending
 Branch: `codex/client-automation-vnext`
 Stable release protected: `v1.0.1`
 
@@ -8,7 +8,7 @@ Stable release protected: `v1.0.1`
 
 Phase H hardens the Phase B-G Client Automation implementation before any release-candidate decision or live-user rollout.
 
-This phase does not change the product scope. Client Automation remains limited to League client workflow automation:
+Client Automation remains limited to League client workflow automation:
 
 - Auto Queue
 - Auto Accept
@@ -18,18 +18,23 @@ This phase does not change the product scope. Client Automation remains limited 
 
 It does not automate gameplay, interact with Vanguard, weaken anti-cheat behavior, automate AFK behavior, or perform in-game combat/movement actions.
 
+## Main settings placement
+
+Client Automation is the second visible PSM control-center section:
+
+1. Runtime
+2. Client Automation
+3. Startup
+4. Game
+5. Content
+6. Tools
+7. About
+
 ## Authoritative Auto Accept path
 
 The event-driven Python controller is the only authoritative Auto Accept implementation in vNext.
 
-The inherited Rose/Jade `AA.js` addon previously:
-
-- watched ready-check DOM state
-- scheduled its own timer
-- issued a direct POST to `/lol-matchmaking/v1/ready-check/accept`
-- optionally hid the ready-check modal and muted related sound requests
-
-That creates an unsafe duplicate-controller condition when the new PSM Auto Accept implementation is enabled. Phase H therefore turns the inherited addon into an inert compatibility shim.
+The inherited Rose/Jade `AA.js` addon is an inert compatibility shim. It no longer polls ready-check DOM state or posts to `/lol-matchmaking/v1/ready-check/accept`.
 
 Historical Jade DataStore values are intentionally left untouched, but they no longer perform ready-check mutations. New behavior is configured only through PSM Client Automation.
 
@@ -51,237 +56,143 @@ On LCU WebSocket open:
 4. Champion Select automation reconciles that phase
 5. if already in Champion Select, PSM performs one bounded current-session reconciliation
 
-The WebSocket transport callback is isolated so a consumer failure cannot crash the underlying connection loop.
-
 ## Settings hot reload
 
-Client Automation settings are written to the dedicated `[ClientAutomation]` config section.
+Client Automation settings are stored only in `[ClientAutomation]`.
 
-After persistence succeeds, the Pengu bridge invokes a shared-state callback owned by the LCU WebSocket thread. This immediately reconciles the currently active League phase.
+After persistence succeeds, the Pengu bridge invokes the shared Client Automation settings callback and reconciles the active League state. Normal users should not need to restart PSM when changing automation settings.
 
-Consequences:
+## Queue catalog — finalized function contract
 
-- enabling Auto Accept during an active actionable ready check can reconcile without restarting PSM
-- enabling Auto Queue while already in an eligible Lobby can reconcile without restarting PSM
-- enabling Auto Pick/Auto Ban while already in Champion Select triggers one bounded session reconciliation
-- disabling a feature prevents delayed operations from executing because controllers re-read config before mutation
+Client Automation must not dump Riot's entire queue-definition collection into the user-facing selector.
 
-If the hot-reload callback itself fails, the saved settings remain valid and controllers still reload configuration on the next League event. Persistence success is not falsely reported as failure.
+Primary source:
 
-## Runtime telemetry
+`/lol-game-queues/v1/matchmaking-queues`
 
-The settings bridge exposes:
+Compatibility fallback only:
 
-- current phase
-- whether the Client Automation master switch is enabled
-- current coarse activity/status
-- LCU WebSocket connected/disconnected state
-- transport label
-- queue catalog availability
-- champion catalog availability
+`/lol-game-queues/v1/queues`
 
-When the automation master switch is enabled but the LCU WebSocket is disconnected, the status becomes `League disconnected` instead of presenting stale lobby/gameflow text as current.
+The normalizer:
 
-## Catalog behavior
+- rejects hidden queues
+- rejects disabled/platform-disabled queues
+- rejects custom queue definitions
+- derives player-facing names from Riot's live queue type/name/description metadata
+- labels `Ranked Solo/Duo` and `Ranked Flex` explicitly
+- keeps ordinary `ARAM` distinct from named variants such as `ARAM: Mayhem`
+- preserves genuinely distinct live variants
+- removes semantically identical duplicate definitions deterministically
+- retains the numeric queue ID as an advanced fallback
 
-Queue and champion catalogs continue to come from the connected local League client. PSM does not hard-code Riot's permanent queue-name table.
+This avoids the live-QA failure where historical/event/custom entries such as several different ARAM IDs or custom Classic definitions all appeared as if they were equivalent selectable queues.
 
-The bridge reports availability independently for each catalog so live QA can distinguish:
+## Champion catalog — finalized roster contract
 
-- League not connected
-- League connected but queue catalog unavailable
-- League connected but champion catalog unavailable
-- both catalogs available
+Primary source:
 
-Numeric IDs remain a deliberate fallback for champion priorities and queue configuration; PSM does not silently invent catalog entries.
+`/lol-game-data/assets/v1/champion-summary.json`
 
-## Live-QA remediation implemented
+Compatibility fallback:
 
-The first live League-client UI pass exposed two integration/UX problems:
+`/lol-game-data/assets/v1/champions.json`
 
-1. champion and queue controls were too ID-centric and did not provide a proper search interaction
-2. catalog data could remain unavailable in an already-open panel until the client/PSM lifecycle was restarted or the modal reopened
+Patch 26.15+ may expose both the current modern League roster and League Classic roster in the same local summary. League Classic entries use a separate +60000 champion-ID namespace for confirmed same-name pairs.
 
-Phase H now includes the following remediation on the same branch.
+PSM now classifies confirmed pairs and exposes the roster directly in the existing champion search metadata:
 
-### Searchable champion priorities
+- `Modern League · <champion title>`
+- `League Classic · <champion title>`
 
-Pick and Ban priority editors now use custom searchable comboboxes instead of relying on a plain datalist.
+Modern entries sort before their Classic counterpart. Exact-name resolution therefore remains predictable while users can deliberately choose the League Classic entry when required.
 
-- case-insensitive name search
-- prefix/word-prefix/substring ranking
+Examples from live QA:
+
+- modern Twitch `#29`
+- League Classic Twitch `#60029`
+- modern Leona `#89`
+- League Classic Leona `#60089`
+
+The cache normalizer preserves this classification without repeatedly prefixing display metadata.
+
+## Catalog lifecycle
+
+- live and cached availability are tracked independently
+- last-known-good queue/champion metadata is cached locally
+- cache is display/editing assistance only
+- live League state remains authoritative for queue/pick/ban mutations
+- reconnect triggers catalog refresh
+- bounded retries cover endpoints not ready immediately after League connects
+- manual Refresh Data remains available
+
+## Search/control surface
+
+Champion Pick/Ban priorities use custom searchable comboboxes with:
+
+- case-insensitive prefix/word-prefix/substring search
 - keyboard Up/Down/Enter/Escape navigation
 - mouse selection
-- champion title and ID as secondary metadata when available
-- champion portrait path retained from League's local catalog when available, with a non-destructive fallback avatar
-- exact numeric champion ID remains supported as an advanced fallback
-- duplicate/max-10 rules remain enforced
+- portrait/name/roster-title/internal-ID metadata
+- numeric champion ID fallback
+- duplicate and max-10 validation
 
-The backend still stores ordered champion IDs only.
-
-### Searchable queue selection
-
-Queue configuration now uses a searchable selector populated from League's current local queue catalog.
-
-- search by current queue name
-- keyboard and mouse selection
-- selected queue name plus internal queue ID displayed to the user
-- numeric queue ID remains available as a fallback
-- live queue validity is still rechecked by the existing backend before automation acts
-
-### Last-known-good catalog cache
-
-The bridge persists a local display cache under PSM state storage after a successful live catalog fetch.
-
-The cache may be used for:
-
-- champion display names/titles/icons while League is temporarily unavailable
-- queue display names while League is temporarily unavailable
-
-The cache is not execution authority. Live League state remains authoritative before matchmaking, pick, or ban mutations.
-
-The catalog response distinguishes:
-
-- live data
-- cached data
-- mixed live/cache data
-- unavailable data
-
-and reports live availability separately for queue and champion catalogs.
-
-### Automatic catalog recovery
-
-The Client Automation UI automatically requests fresh catalogs when it observes the LCU transport reconnecting.
-
-If League reports connected but one or both catalog endpoints are not ready yet, the UI performs a bounded retry sequence while the modal is open. This is not a new permanent LCU polling loop.
-
-Opening the modal also requests fresh catalog data, and a user-accessible `Refresh Data` control is available as a diagnostic/manual fallback.
-
-Normal users should not need to restart PSM merely because a catalog was unavailable during an earlier request.
-
-### Runtime/status UX
-
-The runtime card now shows:
-
-- League/transport state
-- current gameflow state
-- queue live/cached/unavailable status and count
-- champion live/cached/unavailable status and count
-- last catalog refresh age when available
-- manual `Refresh Data`
-
-Save feedback is state-aware rather than always claiming changes wait for the next client state.
-
-### Section/icon treatment
-
-The Client Automation UI now has visible icons for its major hierarchy instead of leaving numbered section headers visually empty:
-
-- Client Automation launcher/header
-- runtime/activity card
-- `01 / MATCHMAKING`
-- `02 / CHAMPION SELECT`
-- queue, delay, role, and priority field labels where useful
-
-Icons are inline UI SVGs so no additional external asset or image dependency is introduced.
+Queue selection uses the live filtered matchmaking catalog with keyboard/mouse search and numeric fallback.
 
 ## Phase H automated gates
 
 CI must pass:
 
 - Python compileall
-- PSM Client Automation plugin JavaScript syntax
-- retired Rose/Jade AutoAccept shim JavaScript syntax
+- Client Automation plugin JavaScript syntax
+- PSM UI-polish JavaScript syntax
+- retired Rose/Jade AutoAccept shim syntax
 - repository unit tests
 - Client Automation hardening invariants
+- current matchmaking queue-source invariants
+- queue filtering/naming/deduplication tests
+- modern/League Classic champion-pair tests
 - public-source boundary validation
 
-Hardening tests specifically guard that:
-
-- the legacy Jade AutoAccept file no longer contains the ready-check accept endpoint or polling controller
-- WebSocket `on_open` consumers run only after JSON API subscription succeeds
-- disconnect cancellation and reconnect reconciliation hooks remain wired
-- settings hot-reload callback/provider wiring remains present
-- disconnected runtime status is explicitly surfaced
-- catalog connection/availability telemetry remains present
-- champion catalog normalization preserves safe display metadata while IDs remain authoritative
-
-The last fully verified pre-remediation baseline passed the complete `Public source checks` workflow. The live-QA remediation commits require a fresh successful workflow before Phase H can be considered synthetically re-verified.
-
-Automated verification never substitutes for live League-client endpoint/UI QA.
+Automated verification does not replace live League-client endpoint/UI QA.
 
 ## Repeat live League-client QA required
 
-### Connection lifecycle
+### Catalog / UI
 
-- launch PSM before League
-- launch League after PSM
-- close/reopen League while PSM remains running
-- force a temporary LCU/WebSocket disconnect if practical
-- reconnect while in Lobby
-- reconnect while in ReadyCheck
-- reconnect while in Champion Select
-- verify no stale action executes after disconnect
-- verify an already-open Client Automation modal refreshes catalog state after reconnect without restarting PSM
+- Client Automation appears as section 02
+- queue list contains only current usable automatic-matchmaking choices
+- Ranked Solo/Duo and Ranked Flex are explicit
+- ARAM and ARAM variants are distinguishable
+- custom/historical duplicate queues are absent
+- champion search visibly differentiates Modern League and League Classic when both exist
+- exact-name search prefers the modern entry while both remain selectable
+- selected priority rows preserve roster metadata
+- reconnect refreshes catalogs without restarting PSM
+- manual Refresh Data works without resetting saved settings
 
-### Catalog/control surface
+### Functional automation
 
-- queue search returns current League queue names
-- numeric queue ID fallback still works
-- champion search resolves partial names such as `yas` to expected matches
-- keyboard champion search navigation works
-- champion IDs persist internally after name selection
-- Pick/Ban priority move/remove controls remain correct
-- live queue/champion counts are shown when available
-- cached catalog labels are clearly marked when live data is unavailable
-- manual Refresh Data updates the modal without resetting saved automation settings
-- section/header icons render without missing assets
-
-### Settings hot reload
-
-- master OFF -> enable while in Lobby
-- enable/disable Auto Accept during ReadyCheck before its delay expires
-- enable Auto Pick during an active local pick action
-- enable Auto Ban during an active local ban action
-- disable Auto Pick/Auto Ban during the 350 ms completion window and confirm no stale completion occurs
-
-### Matchmaking
-
-- eligible solo lobby
-- already searching
-- premade non-leader
-- premade leader
-- queue mismatch in premade
-- queue change in solo lobby
-- role preferences accepted
-- role preferences rejected/unsupported
-- active penalty/restriction
-- manual queue cancellation
-- post-game Auto Requeue
-
-### Champion Select
-
-- manual pick before PSM acts
-- manual pick change during completion delay
-- manual ban before PSM acts
-- manual ban change during completion delay
-- ally intent appears before Auto Ban selection
-- ally intent appears during completion delay
-- priority #1 unavailable -> fallback candidate
-- no valid candidate -> no mutation
-
-### UI/control surface
-
-- Client Automation launcher survives PSM settings panel reopen
-- modal survives normal League navigation
-- disconnected state is visible and non-destructive
-- save feedback matches the active client state
-- no duplicate legacy Rose/Jade AutoAccept settings path remains operational
+- Auto Accept configured delay
+- manual Accept wins
+- manual Decline wins
+- ready-check expiration cancels
+- exactly one accept mutation
+- Auto Queue in an eligible solo lobby
+- configured live queue selection
+- primary/secondary role preferences accepted/rejected fail-closed
+- premade non-leader authority
+- penalty/restriction handling
+- manual queue cancellation suppression
+- Auto Requeue only after a completed game
+- Auto Pick ordered fallback and manual override
+- Auto Ban ordered fallback and manual override
+- ally-intent protection including an intent appearing during delay
+- disconnect/reconnect with pending work leaves no stale action
 
 ## Release gate
 
-Phase H completion does not itself authorize a release.
-
-Do not modify:
+Do not modify yet:
 
 - application version
 - `v1.0.1` tag
@@ -290,4 +201,4 @@ Do not modify:
 - updater signing state
 - production website release target
 
-A later explicit release-candidate phase must decide semantic version, build/sign/package the installer, execute live QA, verify hashes/signatures, and only then update the signed stable release channel.
+Phase H closes only after repeat live League QA passes. A later explicit Phase I release-candidate gate decides semantic version, packaging, signing, final regression, merge, tag/release, and stable-channel publication.
