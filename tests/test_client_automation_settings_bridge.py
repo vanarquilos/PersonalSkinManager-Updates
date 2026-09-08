@@ -176,9 +176,44 @@ class ClientAutomationSettingsContractTests(unittest.TestCase):
 
     def test_catalog_normalizers_filter_hidden_sort_and_preserve_display_metadata(self):
         queues = normalize_queue_catalog([
-            {"id": 420, "name": "Ranked Solo/Duo", "isVisible": True},
-            {"id": 450, "name": "ARAM", "isVisible": True},
-            {"id": 999, "name": "Hidden", "isVisible": False},
+            {
+                "id": 420,
+                "name": "CLASSIC",
+                "type": "RANKED_SOLO_5x5",
+                "description": "5v5 Ranked Solo games",
+                "queueAvailability": "Available",
+                "isVisible": True,
+                "isRanked": True,
+                "mapId": 11,
+            },
+            {
+                "id": 440,
+                "name": "CLASSIC RIFT",
+                "type": "RANKED_FLEX_SR",
+                "description": "5v5 Ranked Flex games",
+                "queueAvailability": "Available",
+                "isVisible": True,
+                "isRanked": True,
+                "mapId": 11,
+            },
+            {
+                "id": 450,
+                "name": "ARAM",
+                "type": "ARAM_UNRANKED_5x5",
+                "queueAvailability": "Available",
+                "isVisible": True,
+            },
+            {
+                "id": 999,
+                "name": "Hidden",
+                "isVisible": False,
+            },
+            {
+                "id": 998,
+                "name": "Disabled",
+                "queueAvailability": "PlatformDisabled",
+                "isVisible": True,
+            },
             {"id": 450, "name": "Duplicate", "isVisible": True},
         ])
         champions = normalize_champion_catalog([
@@ -193,7 +228,15 @@ class ClientAutomationSettingsContractTests(unittest.TestCase):
             {"id": 0, "name": "Invalid"},
         ])
 
-        self.assertEqual([item["id"] for item in queues], [450, 420])
+        self.assertEqual(
+            [(item["id"], item["name"]) for item in queues],
+            [(450, "ARAM"), (440, "Ranked Flex"), (420, "Ranked Solo/Duo")],
+        )
+        ranked_solo = next(item for item in queues if item["id"] == 420)
+        self.assertEqual(ranked_solo["queueType"], "RANKED SOLO 5x5")
+        self.assertEqual(ranked_solo["description"], "5v5 Ranked Solo games")
+        self.assertTrue(ranked_solo["isRanked"])
+
         self.assertEqual([item["name"] for item in champions], ["Kayn", "Viego"])
         viego = next(item for item in champions if item["id"] == 234)
         self.assertEqual(viego["title"], "The Ruined King")
