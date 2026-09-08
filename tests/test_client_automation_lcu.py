@@ -31,6 +31,10 @@ class FakeFeatureAPI:
         self.calls.append(("post", path, json_data, timeout))
         return FakeResponse()
 
+    def put(self, path, json_data, timeout=1.0, headers=None):
+        self.calls.append(("put", path, json_data, timeout))
+        return FakeResponse()
+
     def patch(self, path, json_data, timeout=1.0):
         self.calls.append(("patch", path, json_data, timeout))
         return FakeResponse()
@@ -158,6 +162,29 @@ class MatchmakingTests(unittest.TestCase):
                 ("post", "/lol-lobby/v2/lobby/matchmaking/search", None, 2.0),
             ],
         )
+
+    def test_position_preferences_validate_and_use_expected_endpoint(self):
+        api = FakeFeatureAPI()
+        feature = LCUMatchmaking(api)
+
+        feature.set_position_preferences("JUNGLE", "MIDDLE")
+
+        self.assertEqual(
+            api.calls,
+            [
+                (
+                    "put",
+                    "/lol-lobby/v2/lobby/members/localMember/position-preferences",
+                    {"firstPreference": "JUNGLE", "secondPreference": "MIDDLE"},
+                    1.5,
+                )
+            ],
+        )
+
+        with self.assertRaises(ValueError):
+            feature.set_position_preferences("JUNGLE", "JUNGLE")
+        with self.assertRaises(ValueError):
+            feature.set_position_preferences("INVALID", "MIDDLE")
 
 
 class ChampSelectAutomationTests(unittest.TestCase):
