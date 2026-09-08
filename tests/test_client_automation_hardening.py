@@ -1,12 +1,33 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Phase H source-level invariants for Client Automation integration glue."""
+"""Phase H invariants for Client Automation integration hardening."""
 
+import importlib.util
 from pathlib import Path
 import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def load_websocket_connection_module():
+    path = ROOT / "threads/websocket/websocket_connection.py"
+    spec = importlib.util.spec_from_file_location("psm_websocket_connection_test", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec is not None and spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+class FakeWS:
+    def __init__(self, *, fail_send=False):
+        self.fail_send = fail_send
+        self.sent = []
+
+    def send(self, payload):
+        if self.fail_send:
+            raise RuntimeError("subscription failed")
+        self.sent.append(payload)
 
 
 class ClientAutomationHardeningTests(unittest.TestCase):
@@ -22,13 +43,34 @@ class ClientAutomationHardeningTests(unittest.TestCase):
         self.assertIn("Legacy Rose/Jade AutoAccept is disabled", source)
 
     def test_websocket_connection_invokes_open_consumer_after_subscription(self):
-        source = (ROOT / "threads/websocket/websocket_connection.py").read_text(
-            encoding="utf-8"
-        )
+        module = load_websocket_connection_module()
+        connection = module.WebSocketConnection.__new__(module.WebSocketConnection)
+        connection.is_connected = False
+        connection._retry_attempt = 4
+        connection.app_status_callback = None
+        calls = []
+        connection.on_open = lambda ws: calls.append(ws)
 
-        self.assertIn('ws.send(\'[5,"OnJsonApiEvent"]\')', source)
-        self.assertIn("if subscribed and self.on_open:", source)
-        self.assertIn("self.on_open(ws)", source)
+        ws = FakeWS()
+        connection._on_open(ws)
+
+        self.assertTrue(connection.is_connected)
+        self.assertEqual(connection._retry_attempt, 0)
+        self.assertEqual(ws.sent, ['[5,"OnJsonApiEvent"]'])
+        self.assertEqual(calls, [ws])
+
+    def test_websocket_open_consumer_is_not_called_when_subscription_fails(self):
+        module = load_websocket_connection_module()
+        connection = module.WebSocketConnection.__new__(module.WebSocketConnection)
+        connection.is_connected = False
+        connection._retry_attempt = 2
+        connection.app_status_callback = None
+        calls = []
+        connection.on_open = lambda ws: calls.append(ws)
+
+        connection._on_open(FakeWS(fail_send=True))
+
+        self.assertEqual(calls, [])
 
     def test_websocket_thread_cancels_and_reconciles_automation(self):
         source = (ROOT / "threads/core/websocket_thread.py").read_text(
