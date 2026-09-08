@@ -29,6 +29,12 @@ log = logging.getLogger(__name__)
 _SECTION = "ClientAutomation"
 _CATALOG_CACHE_VERSION = 1
 _CATALOG_CACHE_FILE = "client_automation_catalog.json"
+_CHAMPION_CATALOG_PATHS = (
+    "/lol-game-data/assets/v1/champion-summary.json",
+    # Compatibility fallback for older clients/builds that exposed the larger
+    # aggregate asset under this path.
+    "/lol-game-data/assets/v1/champions.json",
+)
 
 
 class ClientAutomationMessageHandler(MessageHandler):
@@ -213,6 +219,28 @@ class ClientAutomationMessageHandler(MessageHandler):
                 pass
             return previous.get("updatedAt")
 
+    def _fetch_live_champion_catalog(self, lcu) -> list[dict]:
+        """Read the current League champion catalog with a compatibility fallback."""
+        for path in _CHAMPION_CATALOG_PATHS:
+            try:
+                raw_champions = lcu.get(path, timeout=3.0)
+                champions = normalize_champion_catalog(raw_champions)
+            except Exception as exc:  # noqa: BLE001
+                log.debug(
+                    "[AUTOMATION] Champion catalog path %s unavailable: %s",
+                    path,
+                    type(exc).__name__,
+                )
+                continue
+            if champions:
+                log.debug(
+                    "[AUTOMATION] Champion catalog loaded from %s (%d champions)",
+                    path,
+                    len(champions),
+                )
+                return champions
+        return []
+
     def _handle_client_automation_catalog_request(self) -> None:
         cached = self._load_catalog_cache()
         cached_queues = cached.get("queues") or []
@@ -242,14 +270,7 @@ class ClientAutomationMessageHandler(MessageHandler):
             except Exception as exc:  # noqa: BLE001
                 log.debug("[AUTOMATION] Queue catalog unavailable: %s", type(exc).__name__)
 
-            try:
-                raw_champions = lcu.get(
-                    "/lol-game-data/assets/v1/champions.json",
-                    timeout=3.0,
-                )
-                live_champions = normalize_champion_catalog(raw_champions)
-            except Exception as exc:  # noqa: BLE001
-                log.debug("[AUTOMATION] Champion catalog unavailable: %s", type(exc).__name__)
+            live_champions = self._fetch_live_champion_catalog(lcu)
 
         if live_queues or live_champions:
             cache_updated_at = self._save_catalog_cache(live_queues, live_champions)
