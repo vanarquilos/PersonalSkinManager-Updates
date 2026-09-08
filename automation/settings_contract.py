@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import Iterable, Optional
 
 from .config import ClientAutomationConfig
@@ -11,6 +12,7 @@ from .config import ClientAutomationConfig
 ALLOWED_DELAYS_MS = {0, 500, 1000, 2000, 3000}
 ALLOWED_POSITIONS = {"TOP", "JUNGLE", "MIDDLE", "UTILITY", "BOTTOM", "FILL"}
 MAX_PRIORITY = 10
+_CLASSIC_CHAMPION_ID_OFFSET = 60000
 
 
 def as_bool(value, fallback: bool) -> bool:
@@ -200,20 +202,24 @@ def _clean_queue_text(value) -> str:
 
 
 def _queue_display_name(item: dict, queue_id: int) -> str:
-    """Prefer user-facing queue semantics over generic internal mode labels.
-
-    This intentionally derives names from Riot's live queue type/metadata rather
-    than keeping a permanent queue-ID table in PSM.
-    """
+    """Prefer player-facing queue semantics over generic internal mode labels."""
     queue_type = _clean_queue_text(item.get("type") or item.get("queueType")).upper()
     raw_name = _clean_queue_text(item.get("name") or item.get("shortName"))
     description = _clean_queue_text(item.get("description") or item.get("detailedDescription"))
+    raw_upper = raw_name.upper()
 
     if "RANKED SOLO" in queue_type:
         return "Ranked Solo/Duo"
     if "RANKED FLEX" in queue_type:
         return "Ranked Flex"
     if queue_type == "ARAM UNRANKED 5X5":
+        # Riot currently exposes several ARAM-derived queues. Keep the ordinary
+        # queue short, but preserve the specific live variant name (Mayhem,
+        # Classic-ish, etc.) so several different queue IDs never all read ARAM.
+        if raw_name and raw_upper not in {"ARAM", "ALL RANDOM ALL MID"}:
+            if raw_upper.startswith("ARAM"):
+                return raw_name
+            return f"ARAM: {raw_name}"
         return "ARAM"
     if "SWIFTPLAY" in queue_type:
         return "Swiftplay"
@@ -222,7 +228,7 @@ def _queue_display_name(item: dict, queue_id: int) -> str:
     if queue_type == "CLASH":
         return "Clash"
     if queue_type.startswith("BOT"):
-        suffix = raw_name if raw_name and raw_name.upper() not in {"CLASSIC", "BOT"} else "Co-op vs AI"
+        suffix = raw_name if raw_name and raw_upper not in {"CLASSIC", "BOT"} else "Co-op vs AI"
         return suffix
     if queue_type == "NORMAL":
         lowered = f"{raw_name} {description}".lower()
@@ -230,14 +236,22 @@ def _queue_display_name(item: dict, queue_id: int) -> str:
             return "Normal Draft"
         if "blind" in lowered:
             return "Normal Blind"
-        if raw_name and raw_name.upper() not in {"CLASSIC", "CLASSIC RIFT", "NORMAL"}:
+        if raw_name and raw_upper not in {"CLASSIC", "CLASSIC RIFT", "NORMAL"}:
             return raw_name
         return "Normal"
 
-    # Event queues generally have useful display names. Avoid surfacing generic
-    # engine labels like CLASSIC when a more descriptive text field exists.
+    # The new League Classic product is exposed through the same client. Do not
+    # confuse its player-facing "Classic" label with the old CLASSIC gameMode
+    # value used by ordinary Summoner's Rift queues.
+    combined = f"{raw_name} {description}".lower()
+    if "league classic" in combined:
+        detail = raw_name if raw_name and raw_upper != "CLASSIC" else ""
+        return f"League Classic · {detail}" if detail else "League Classic"
+    if raw_upper == "CLASSIC" and queue_type not in {"CLASSIC", "NORMAL"}:
+        return "League Classic"
+
     generic = {"CLASSIC", "CLASSIC RIFT", "NORMAL", "MATCHED GAME"}
-    if raw_name and raw_name.upper() not in generic:
+    if raw_name and raw_upper not in generic:
         return raw_name
     if description and description.upper() not in generic:
         cleaned = description
@@ -252,8 +266,33 @@ def _queue_display_name(item: dict, queue_id: int) -> str:
     return f"Queue {queue_id}"
 
 
+def _queue_is_usable_matchmaking_choice(item: dict) -> bool:
+    if item.get("isVisible") is False or item.get("isEnabled") is False:
+        return False
+    if item.get("isCustom") is True:
+        return False
+
+    availability = _clean_queue_text(item.get("queueAvailability")).lower()
+    if availability and availability not in {"available", "unknown"}:
+        return False
+
+    queue_type = _clean_queue_text(item.get("type") or item.get("queueType")).upper()
+    game_type = _clean_queue_text(item.get("gameType")).upper()
+    raw_name = _clean_queue_text(item.get("name") or item.get("shortName")).upper()
+    if "CUSTOM" in queue_type or "CUSTOM" in game_type or "CUSTOM" in raw_name:
+        return False
+    return True
+
+
 def normalize_queue_catalog(raw_queues) -> list[dict]:
     queues: list[dict] = []
+    if isinstance(raw_queues, dict):
+        # Some LCU builds wrap matchmaking queues in an object.
+        for key in ("queues", "matchmakingQueues", "data"):
+            value = raw_queues.get(key)
+            if isinstance(value, list):
+                raw_queues = value
+                break
     if not isinstance(raw_queues, list):
         return queues
 
@@ -262,13 +301,7 @@ def normalize_queue_catalog(raw_queues) -> list[dict]:
         if not isinstance(item, dict):
             continue
         queue_id = safe_positive_int(item.get("id") or item.get("queueId"))
-        if queue_id is None or queue_id in seen:
-            continue
-        if item.get("isVisible") is False or item.get("isEnabled") is False:
-            continue
-
-        availability = _clean_queue_text(item.get("queueAvailability")).lower()
-        if availability and availability not in {"available", "unknown"}:
+        if queue_id is None or queue_id in seen or not _queue_is_usable_matchmaking_choice(item):
             continue
 
         queue_type = _clean_queue_text(item.get("type") or item.get("queueType"))
@@ -295,8 +328,32 @@ def normalize_queue_catalog(raw_queues) -> list[dict]:
         queues.append(normalized)
         seen.add(queue_id)
 
-    queues.sort(key=lambda item: (item["name"].lower(), item["id"]))
-    return queues
+    # If Riot returns semantically identical duplicate queue definitions, keep
+    # one deterministic choice. Distinct variants remain separate because their
+    # display name/type/mode/map fingerprint differs.
+    deduped: dict[tuple, dict] = {}
+    for item in queues:
+        fingerprint = (
+            item["name"].casefold(),
+            str(item.get("queueType") or "").casefold(),
+            str(item.get("gameMode") or "").casefold(),
+            item.get("mapId"),
+        )
+        previous = deduped.get(fingerprint)
+        if previous is None or item["id"] < previous["id"]:
+            deduped[fingerprint] = item
+
+    result = list(deduped.values())
+    result.sort(key=lambda item: (item["name"].lower(), item["id"]))
+    return result
+
+
+def _strip_roster_prefix(value: object) -> str:
+    text = str(value or "").strip()
+    for prefix in ("Modern League · ", "League Classic · ", "Modern League", "League Classic"):
+        if text.startswith(prefix):
+            return text[len(prefix):].strip(" ·")
+    return text
 
 
 def normalize_champion_catalog(raw_champions) -> list[dict]:
@@ -305,7 +362,7 @@ def normalize_champion_catalog(raw_champions) -> list[dict]:
     if not isinstance(raw_champions, list):
         return []
 
-    champions: list[dict] = []
+    candidates: list[dict] = []
     seen: set[int] = set()
     for item in raw_champions:
         if not isinstance(item, dict):
@@ -315,13 +372,15 @@ def normalize_champion_catalog(raw_champions) -> list[dict]:
         if champion_id is None or not name or champion_id in seen:
             continue
 
+        raw_title = _strip_roster_prefix(item.get("rawTitle") or item.get("title"))
         normalized = {
             "id": champion_id,
             "name": str(name),
+            "rawTitle": raw_title,
         }
-        title = item.get("title")
-        if title:
-            normalized["title"] = str(title)
+        explicit_variant = str(item.get("variant") or "").strip().lower()
+        if explicit_variant in {"modern", "classic"}:
+            normalized["variant"] = explicit_variant
 
         icon_path = (
             item.get("squarePortraitPath")
@@ -331,8 +390,46 @@ def normalize_champion_catalog(raw_champions) -> list[dict]:
         if isinstance(icon_path, str) and icon_path.strip():
             normalized["iconPath"] = icon_path.strip()
 
-        champions.append(normalized)
+        candidates.append(normalized)
         seen.add(champion_id)
 
-    champions.sort(key=lambda item: item["name"].lower())
-    return champions
+    # Patch 26.15+ can expose both the current roster ID and a League Classic
+    # roster ID offset by 60000 under the same name. Classify only confirmed
+    # name+offset pairs, so a future unrelated high champion ID is not guessed.
+    ids_by_name: dict[str, set[int]] = defaultdict(set)
+    for champion in candidates:
+        ids_by_name[champion["name"].casefold()].add(champion["id"])
+
+    for champion in candidates:
+        if champion.get("variant") not in {"modern", "classic"}:
+            champion_id = champion["id"]
+            same_name_ids = ids_by_name[champion["name"].casefold()]
+            base_id = champion_id - _CLASSIC_CHAMPION_ID_OFFSET
+            paired_classic = (
+                champion_id > _CLASSIC_CHAMPION_ID_OFFSET
+                and base_id in same_name_ids
+            )
+            paired_modern = (
+                champion_id + _CLASSIC_CHAMPION_ID_OFFSET in same_name_ids
+            )
+            if paired_classic:
+                champion["variant"] = "classic"
+                champion["canonicalId"] = base_id
+            else:
+                champion["variant"] = "modern"
+                if paired_modern:
+                    champion["canonicalId"] = champion_id
+
+        variant_label = "League Classic" if champion["variant"] == "classic" else "Modern League"
+        raw_title = champion.get("rawTitle") or ""
+        champion["title"] = f"{variant_label} · {raw_title}" if raw_title else variant_label
+
+    variant_order = {"modern": 0, "classic": 1}
+    candidates.sort(
+        key=lambda item: (
+            item["name"].lower(),
+            variant_order.get(item.get("variant"), 9),
+            item["id"],
+        )
+    )
+    return candidates
