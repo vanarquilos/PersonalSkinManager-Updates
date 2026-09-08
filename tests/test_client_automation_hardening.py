@@ -116,6 +116,15 @@ class ClientAutomationHardeningTests(unittest.TestCase):
         self.assertIn('"catalogSource": source', source)
         self.assertIn('"catalogUpdatedAt": cache_updated_at', source)
 
+    def test_champion_catalog_uses_current_summary_asset_with_compatibility_fallback(self):
+        source = (
+            ROOT / "pengu/communication/client_automation_message_handler.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('/lol-game-data/assets/v1/champion-summary.json', source)
+        self.assertIn('/lol-game-data/assets/v1/champions.json', source)
+        self.assertIn("def _fetch_live_champion_catalog", source)
+
     def test_catalog_cache_is_local_and_not_execution_authority(self):
         source = (
             ROOT / "pengu/communication/client_automation_message_handler.py"
