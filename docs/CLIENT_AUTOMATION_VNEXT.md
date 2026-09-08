@@ -1,6 +1,6 @@
 # Personal Skin Manager — Client Automation vNext
 
-Status: implementation in progress through Phase G
+Status: implementation complete through Phase H automated hardening; live League-client QA pending
 Branch: `codex/client-automation-vnext`
 Stable release protected: `v1.0.1`
 
@@ -55,10 +55,11 @@ Master toggle:
 
 ### Activity
 
-The Phase G control surface exposes current League phase/status, including states such as:
+The control surface exposes current League phase/status, including states such as:
 
 - Disabled
 - Waiting for League
+- League disconnected
 - Lobby ready
 - Searching for match
 - Match found
@@ -66,7 +67,7 @@ The Phase G control surface exposes current League phase/status, including state
 - In game
 - Post-game
 
-Fine-grained last-action telemetry such as the exact champion currently being picked/banned may be added during integration hardening without changing the settings contract.
+The bridge also reports LCU WebSocket connection state plus queue/champion catalog availability for integration QA.
 
 ## Settings baseline
 
@@ -118,6 +119,8 @@ Auto Accept must:
 4. cancel if the user already accepted, declined, or the ready check ended
 5. send accept only once
 
+The new event-driven Python controller is the only authoritative Auto Accept path. The inherited Rose/Jade DOM-driven AutoAccept addon is intentionally inert in vNext so it cannot issue a competing ready-check mutation.
+
 ### Auto Requeue
 
 - `auto_requeue_enabled: bool = false`
@@ -143,8 +146,9 @@ Before completing the local pick action, PSM revalidates:
 - the action is still a pick
 - the user has not manually changed the selection/action state
 - the configured champion is still valid
+- Auto Pick is still enabled
 
-If a manual action changes the state during a pending automation delay, automation cancels for that action.
+If a manual action or settings change invalidates the pending operation during the completion delay, automation cancels for that action.
 
 ### Auto Ban
 
@@ -156,7 +160,7 @@ The list is ordered and bounded to 10 champion IDs. PSM selects the first curren
 
 When `protect_ally_intents` is enabled, PSM skips champions currently indicated/hovered by allies when that information is available in the champion-select session. The protection is rechecked before completing the ban so a newly appearing ally intent cancels a pending automated ban.
 
-Before completing a ban, PSM revalidates the active action and current session exactly as for Auto Pick.
+Before completing a ban, PSM revalidates the active action, current session, current protection state, and whether Auto Ban is still enabled.
 
 ## State machine
 
@@ -195,6 +199,8 @@ Lobby
 
 The controllers tolerate non-linear transitions, cancellation, dodges, declined ready checks, reconnects, lobby changes, penalties, and League restarts.
 
+On LCU WebSocket disconnect, pending matchmaking, ready-check, pick, and ban timers are cancelled by routing the controllers into a disconnected lifecycle state. On reconnect, PSM waits for the JSON API subscription, reads the authoritative current gameflow phase, and reconciles that phase. Champion Select additionally performs one bounded current-session reconciliation.
+
 ## Internal architecture
 
 ```text
@@ -219,6 +225,8 @@ pengu/
 Pengu Loader/plugins/
   PSM-ClientAutomation/
     index.js
+  ROSE-Jade/config/js/addons/
+    AA.js  # inert compatibility shim in vNext
 ```
 
 ### `LCUAPI`
@@ -247,7 +255,7 @@ Coordinates Auto Queue, Auto Requeue, and Auto Accept decisions with duplicate/s
 
 ### `automation/champ_select.py`
 
-Coordinates Auto Pick and Auto Ban with ordered fallback, manual override, delayed revalidation, ally-intent protection, and action-id idempotency.
+Coordinates Auto Pick and Auto Ban with ordered fallback, manual override, delayed revalidation, ally-intent protection, action-id idempotency, and settings revalidation before completion.
 
 ### `automation/lcu_adapter.py`
 
@@ -255,11 +263,13 @@ Applies optional persisted role preferences immediately before queue start while
 
 ### `automation/settings_contract.py`
 
-Pure UI/backend validation and serialization contract for Phase G. It validates queue/role settings, priority lists, delay presets, status labels, and local queue/champion catalog normalization without importing the full Pengu runtime dependency graph.
+Pure UI/backend validation and serialization contract. It validates queue/role settings, priority lists, delay presets, status labels, and local queue/champion catalog normalization without importing the full Pengu runtime dependency graph.
 
 ### `pengu/communication/client_automation_message_handler.py`
 
 Extends the existing bridge with dedicated Client Automation messages. It deliberately does not overload the inherited General `settings-save` path.
+
+After a successful settings save it invokes a shared-state hot-reload callback owned by the LCU WebSocket thread. If that callback fails, persistence remains successful and the controllers still reload configuration on the next League event.
 
 Supported requests:
 
@@ -279,6 +289,10 @@ Supported responses:
 
 Adds a Client Automation launcher to the existing PSM settings flyout and opens a dedicated control surface for all five automation features. Queue and champion choices are sourced from the local League client when available; numeric IDs remain an explicit fallback rather than hard-coded stale catalogs.
 
+### `ROSE-Jade/config/js/addons/AA.js`
+
+The inherited AutoAccept addon is now an inert compatibility shim. It no longer polls the ready-check DOM, hides ready-check state, patches ready-check sound requests, exposes a second AutoAccept settings path, or posts to the ready-check accept endpoint.
+
 ## Event model
 
 Primary automation trigger source: existing authenticated `OnJsonApiEvent` WebSocket subscription.
@@ -290,7 +304,7 @@ Relevant event families:
 - lobby/matchmaking state changes
 - champion-select session/action changes
 
-Polling is limited to bounded reconciliation where an event could have been missed. Phase G runtime UI status requests run only while the configuration modal is open and read existing shared phase state rather than repeatedly polling LCU.
+Polling is limited to bounded reconciliation where an event could have been missed. Runtime UI status requests run only while the configuration modal is open and read existing shared phase/transport state rather than repeatedly polling LCU.
 
 ## Concurrency and idempotency
 
@@ -301,6 +315,8 @@ The implementation protects against:
 - multiple scheduled actions for the same state
 - stale delayed actions
 - League state changing between selection and completion
+- a disconnect occurring while an action is pending
+- a settings change occurring while an action is pending
 
 Guards include:
 
@@ -308,6 +324,7 @@ Guards include:
 - one pick completion attempt per champion-select action id
 - one ban completion attempt per champion-select action id
 - one queue-start attempt per eligible lobby transition unless state materially changes
+- disconnect cancellation before reconnect reconciliation
 
 ## Manual override rule
 
@@ -338,6 +355,9 @@ Examples:
 [CHAMP SELECT] Auto Pick complete: champion <id>
 [CHAMP SELECT] Auto Ban selected champion <id>; revalidating before lock
 [CHAMP SELECT] Auto Ban complete: champion <id>
+[AUTOMATION] Pending actions cancelled after LCU disconnect
+[AUTOMATION] Reconciled after LCU WebSocket reconnect: <phase>
+[AUTOMATION] Settings hot-reloaded for phase: <phase>
 ```
 
 Never log:
@@ -358,152 +378,79 @@ Never log:
 - Auto Accept OFF -> never accepts
 - valid ready check -> accepts once
 - duplicate event -> no duplicate action
-- already accepted -> no action
-- already declined -> no action
-- manual accept during delay -> cancel
-- manual decline during delay -> cancel
-- ready check expires during delay -> cancel
-- reconnect during ready check -> bounded reconciliation
+- manual accept/decline during delay -> pending PSM accept cancels
+- disable Auto Accept during delay -> pending PSM accept does not execute
+- disconnect during delay -> pending PSM accept is cancelled
+- reconnect into ReadyCheck -> bounded state reconciliation
 
-### Queue/Requeue
+### Matchmaking
 
-- valid solo lobby -> queues once
-- already matchmaking -> no duplicate start
-- premade non-leader -> no queue attempt
-- blocking penalty/error -> no retry loop
-- manual stop/cancel -> no immediate unwanted requeue
-- post-game eligible lobby -> requeues once when enabled
-- configured role pair -> applied before queue start
-- incomplete/duplicate role pair -> fail closed
-- League-rejected role preference -> no queue start
+- Auto Queue OFF -> never queues
+- already searching -> no duplicate queue start
+- invalid/restricted lobby -> fail closed
+- solo queue switch -> revalidate before start
+- premade non-leader -> no start
+- premade queue mismatch -> no silent change
+- role preferences rejected -> no queue start
+- manual cancellation -> no immediate restart loop
+- completed-game Auto Requeue -> at most one eligible restart
+- reconnect into Lobby -> reconcile current lobby once through normal guards
 
-### Pick
+### Champion Select
 
-- preferred champion available -> select/complete once
-- first preference unavailable -> use next valid fallback
-- no valid preference -> no destructive fallback
-- manual selection change -> automation cancels
+- Auto Pick/Ban OFF -> no mutation
+- priority #1 unavailable -> use next configured valid candidate
+- no valid candidate -> no destructive fallback
+- manual selection before automation -> preserve manual choice
+- manual selection during completion delay -> cancel automation
+- disable feature during completion delay -> cancel completion
+- ally intent protection -> skip/cancel protected ban candidate
 - duplicate session events -> no duplicate completion
+- disconnect during completion delay -> cancel pending completion
+- reconnect into ChampSelect -> bounded session reconciliation
 
-### Ban
+### UI and bridge
 
-- preferred ban available -> ban once
-- first preference unavailable -> next valid fallback
-- ally intent protected -> candidate skipped
-- new ally intent during completion delay -> cancel
-- manual ban change -> automation cancels
+- settings persist only to `[ClientAutomation]`
+- successful save hot-reloads current phase without requiring PSM restart
+- queue/champion catalogs are local-client sourced when available
+- catalog payload reports connection and availability independently
+- disconnected runtime status does not present stale lobby/gameflow text as current
+- legacy Rose/Jade AutoAccept cannot compete with PSM Auto Accept
 
-### Settings/control surface
+## Phase H automated verification
 
-- master and all child feature settings round-trip through the dedicated bridge
-- queue required before Auto Queue/Requeue can be enabled
-- role pair validation is enforced on both UI and backend contract
-- Pick/Ban priorities preserve order, deduplicate, and cap at 10
-- Auto Pick/Ban cannot be enabled without at least one configured champion
-- queue/champion catalogs fail gracefully when League is unavailable
-- status reflects current shared gameflow phase
-- Client Automation plugin JavaScript passes syntax validation
+The repository CI additionally validates:
 
-### Regression
+- Python compileall
+- `PSM-ClientAutomation/index.js` syntax
+- retired `ROSE-Jade/.../AA.js` shim syntax
+- WebSocket `on_open` consumer behavior after JSON API subscription
+- Client Automation integration/hot-reload wiring invariants
+- full repository unit-test discovery/execution
+- public-source boundary validation
 
-Must remain unchanged:
+The detailed live-client matrix is recorded in `docs/CLIENT_AUTOMATION_PHASE_H.md`.
 
-- skin selection
-- chroma handling
-- custom mods
-- Swiftplay handling
-- gameflow monitoring
-- WebSocket reconnect behavior
-- updater/signature behavior
-- installer/uninstaller behavior
+## Release gate
 
-## Development phases
+Automated Phase H completion does not authorize a release.
 
-### Phase A — Architecture and specification — COMPLETE
+Before a new stable release:
 
-### Phase B — LCU primitives — COMPLETE
+1. run the live League-client QA matrix
+2. record actual endpoint/control-surface results
+3. fix any compatibility defects on the same feature branch
+4. rerun full automated verification
+5. decide the semantic version explicitly
+6. build/sign/package only after explicit release approval
+7. verify installer hash/signature/provenance
+8. update the signed stable manifest only at the final publication gate
 
-### Phase C — Auto Accept — COMPLETE
+Until then, do not modify:
 
-### Phase D — Auto Queue and Auto Requeue — COMPLETE
-
-### Phase E — Auto Pick — COMPLETE
-
-### Phase F — Auto Ban — COMPLETE
-
-### Phase G — UI and persistence — IMPLEMENTED / SYNTHETIC GATE PASSED
-
-Implemented:
-
-- dedicated Client Automation settings bridge
-- isolated settings validation/serialization contract
-- one Client Automation launcher inside the existing settings surface
-- dedicated configuration modal
-- master toggle and all child controls
-- queue input/catalog
-- optional role preferences
-- Auto Accept delay presets
-- ordered Pick/Ban priority editors with add/reorder/remove
-- local League champion catalog when available
-- phase-based runtime status
-- role preferences applied before queue start
-- JavaScript syntax gate
-- synthetic settings/adapter/catalog tests
-
-Live League-client UI/endpoint QA remains part of integration hardening and release-candidate QA; Phase G completion does not imply those live checks have already been performed.
-
-### Phase H — Integration hardening — NEXT
-
-- verify reconnect/reload behavior across all automation controllers
-- validate dedicated bridge lifecycle in a live League client
-- validate queue/champion catalog endpoint shapes live
-- validate role preference endpoint behavior across queue types
-- harden settings hot-reload/transition behavior
-- ensure the inherited legacy Rose/Jade AutoAccept path cannot compete with the new authoritative Python Auto Accept pipeline
-- expand diagnostics/activity telemetry where it materially improves QA
-
-### Phase I — QA and release candidate
-
-- full synthetic test suite
-- live League QA
-- regression QA
-- release notes draft
-
-### Phase J — Release gate
-
-Only after all prior phases pass:
-
-- choose next semantic version
-- build/package
-- sign required release metadata
-- verify installer hash/size
-- publish GitHub release
-- update signed stable manifest
-- update website/README/docs
-
-## Explicitly out of scope for this vNext baseline
-
-- gameplay automation
-- anti-AFK behavior
-- Vanguard bypass/evasion
-- anti-cheat weakening
-- memory/driver manipulation
-- auto dodge
-- auto chat
-- auto honor
-- automatic runes/spells
-- pick-order trade automation
-- role-swap automation
-
-These are not silently added during implementation. Any later expansion requires an explicit new scope decision.
-
-## Current release protection
-
-Until Phase J is explicitly authorized and passed, do not change:
-
-- application version `1.0.1`
-- published `v1.0.1` tag
-- existing v1.0.1 installer/release asset
+- `APP_VERSION`
+- `v1.0.1` tag
+- existing `PersonalSkinManager_Setup.exe`
 - `stable/manifest.json`
-- signed stable updater state
-- production website release target
+- published updater signing state
