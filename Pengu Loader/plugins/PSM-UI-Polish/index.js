@@ -16,13 +16,16 @@
     about: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M6 20c.6-4 2.6-6 6-6s5.4 2 6 6"/></svg>`,
   };
 
+  // Client Automation is promoted to the second visible control-center section.
+  // Existing core sections are renumbered visually without changing their IDs or
+  // save contracts in the inherited settings plugin.
   const SECTION_MAP = [
-    { token: "01 / RUNTIME", icon: "runtime" },
-    { token: "02 / STARTUP", icon: "startup" },
-    { token: "03 / GAME", icon: "game" },
-    { token: "04 / CONTENT", icon: "content" },
-    { token: "05 / TOOLS", icon: "tools" },
-    { token: "06 / ABOUT", icon: "about" },
+    { tokens: ["01 / RUNTIME"], icon: "runtime", display: "01 / RUNTIME" },
+    { tokens: ["02 / STARTUP", "03 / STARTUP"], icon: "startup", display: "03 / STARTUP" },
+    { tokens: ["03 / GAME", "04 / GAME"], icon: "game", display: "04 / GAME" },
+    { tokens: ["04 / CONTENT", "05 / CONTENT"], icon: "content", display: "05 / CONTENT" },
+    { tokens: ["05 / TOOLS", "06 / TOOLS"], icon: "tools", display: "06 / TOOLS" },
+    { tokens: ["06 / ABOUT", "07 / ABOUT"], icon: "about", display: "07 / ABOUT" },
   ];
 
   function svgIcon(name) {
@@ -78,6 +81,9 @@
       }
       ${SETTINGS_FLYOUT} .psm-core-section-copy .psm-section-description {
         margin-top:3px !important;
+      }
+      ${SETTINGS_FLYOUT} #psm-client-automation-launcher {
+        margin:18px 0 20px !important;
       }
 
       /* -------------------------------------------------------------
@@ -152,14 +158,60 @@
         box-sizing:border-box !important;
       }
       ${AUTOMATION_MODAL} .psm-ca-search-shell {
+        position:relative !important;
         min-height:40px !important;
+        border:1px solid #304354 !important;
         border-radius:5px !important;
+        background:#090f15 !important;
+        box-sizing:border-box !important;
+        transition:border-color .12s ease,box-shadow .12s ease !important;
+      }
+      ${AUTOMATION_MODAL} .psm-ca-search-shell:focus-within {
+        border-color:#31d6e8 !important;
+        box-shadow:0 0 0 2px rgba(49,214,232,.07) !important;
       }
       ${AUTOMATION_MODAL} .psm-ca-search-shell input {
+        width:100% !important;
         height:38px !important;
         margin-top:0 !important;
+        padding:0 12px 0 34px !important;
         border:0 !important;
+        border-radius:5px !important;
         background:transparent !important;
+        outline:none !important;
+      }
+      ${AUTOMATION_MODAL} .psm-ca-search-shell > .psm-ca-icon {
+        left:11px !important;
+        z-index:3 !important;
+      }
+      ${AUTOMATION_MODAL} .psm-ca-suggestions {
+        top:calc(100% + 6px) !important;
+        max-height:190px !important;
+        padding:5px !important;
+        border-color:#304354 !important;
+        border-radius:6px !important;
+        background:#080e14 !important;
+        scrollbar-width:thin !important;
+        scrollbar-color:#304b5c #0a1118 !important;
+      }
+      ${AUTOMATION_MODAL} .psm-ca-suggestions::-webkit-scrollbar {
+        width:7px !important;
+      }
+      ${AUTOMATION_MODAL} .psm-ca-suggestions::-webkit-scrollbar-track {
+        background:#0a1118 !important;
+        border-radius:8px !important;
+      }
+      ${AUTOMATION_MODAL} .psm-ca-suggestions::-webkit-scrollbar-thumb {
+        background:#304b5c !important;
+        border-radius:8px !important;
+      }
+      ${AUTOMATION_MODAL} .psm-ca-suggestion {
+        min-height:36px !important;
+        padding:7px 9px !important;
+        border-radius:4px !important;
+      }
+      ${AUTOMATION_MODAL} .psm-ca-suggestion + .psm-ca-suggestion {
+        margin-top:2px !important;
       }
       ${AUTOMATION_MODAL} .psm-ca-add-row {
         grid-template-columns:minmax(0,1fr) 88px !important;
@@ -260,41 +312,56 @@
     document.head.appendChild(style);
   }
 
+  function headingEyebrow(heading) {
+    return String(heading?.querySelector(".psm-section-eyebrow")?.textContent || "")
+      .trim()
+      .toUpperCase();
+  }
+
   function decorateCoreSections() {
     const flyout = document.querySelector(SETTINGS_FLYOUT);
     if (!flyout) return;
 
     flyout.querySelectorAll(".psm-section-heading").forEach((heading) => {
-      if (heading.classList.contains("psm-core-decorated")) return;
-      const eyebrow = String(heading.querySelector(".psm-section-eyebrow")?.textContent || "")
-        .trim()
-        .toUpperCase();
-      const config = SECTION_MAP.find((entry) => eyebrow.includes(entry.token));
+      const eyebrow = headingEyebrow(heading);
+      const config = SECTION_MAP.find((entry) =>
+        entry.tokens.some((token) => eyebrow.includes(token))
+      );
       if (!config) return;
 
-      const iconBox = document.createElement("div");
-      iconBox.className = "psm-core-section-icon";
-      iconBox.innerHTML = svgIcon(config.icon);
+      if (!heading.classList.contains("psm-core-decorated")) {
+        const iconBox = document.createElement("div");
+        iconBox.className = "psm-core-section-icon";
+        iconBox.innerHTML = svgIcon(config.icon);
 
-      const copy = document.createElement("div");
-      copy.className = "psm-core-section-copy";
-      while (heading.firstChild) copy.appendChild(heading.firstChild);
+        const copy = document.createElement("div");
+        copy.className = "psm-core-section-copy";
+        while (heading.firstChild) copy.appendChild(heading.firstChild);
 
-      heading.appendChild(iconBox);
-      heading.appendChild(copy);
-      heading.classList.add("psm-core-decorated");
+        heading.appendChild(iconBox);
+        heading.appendChild(copy);
+        heading.classList.add("psm-core-decorated");
+      }
+
+      const label = heading.querySelector(".psm-section-eyebrow");
+      if (label && label.textContent.trim() !== config.display) {
+        label.textContent = config.display;
+      }
     });
 
-    // Client Automation is visually the next section after 06 / ABOUT.
-    const automationEyebrow = flyout.querySelector("#psm-client-automation-launcher .psm-ca-eyebrow span:last-child");
-    if (automationEyebrow && automationEyebrow.textContent.trim() !== "07 / CLIENT AUTOMATION") {
-      automationEyebrow.textContent = "07 / CLIENT AUTOMATION";
+    const launcher = flyout.querySelector("#psm-client-automation-launcher");
+    const automationEyebrow = launcher?.querySelector(".psm-ca-eyebrow span:last-child");
+    if (automationEyebrow && automationEyebrow.textContent.trim() !== "02 / CLIENT AUTOMATION") {
+      automationEyebrow.textContent = "02 / CLIENT AUTOMATION";
     }
-  }
 
-  function directParent(selector, parentClass) {
-    const node = document.querySelector(selector);
-    return node?.closest(parentClass) || null;
+    // Put Client Automation directly after Runtime and before Startup so the
+    // feature is discoverable without scrolling through the entire settings UI.
+    const startupHeading = Array.from(flyout.querySelectorAll(".psm-section-heading"))
+      .find((heading) => headingEyebrow(heading).includes("03 / STARTUP"));
+    if (launcher && startupHeading && launcher.nextElementSibling !== startupHeading) {
+      startupHeading.parentNode?.insertBefore(launcher, startupHeading);
+    }
   }
 
   function finalizeAutomationLayout() {
