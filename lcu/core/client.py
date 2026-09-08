@@ -199,6 +199,17 @@ class LCU:
         """Create a lobby for the configured queue."""
         return self._matchmaking.create_lobby(queue_id)
 
+    def set_matchmaking_position_preferences(
+        self,
+        primary_position: str,
+        secondary_position: str,
+    ):
+        """Apply the local player's role preferences for the current lobby."""
+        return self._matchmaking.set_position_preferences(
+            primary_position,
+            secondary_position,
+        )
+
     def start_matchmaking(self):
         """Start matchmaking in the current lobby."""
         return self._matchmaking.start_search()
