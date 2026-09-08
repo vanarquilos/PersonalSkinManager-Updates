@@ -19,7 +19,7 @@ from utils.core.utilities import find_free_port, write_bridge_port, delete_bridg
 
 from .websocket_server import WebSocketServer
 from .http_handler import HTTPHandler
-from ..communication.message_handler import MessageHandler
+from ..communication.client_automation_message_handler import ClientAutomationMessageHandler
 from injection.mods.storage import ModStorageService
 from ..processing.skin_processor import SkinProcessor
 from ..processing.skin_mapping import SkinMapping
@@ -89,7 +89,7 @@ class PenguSkinMonitorThread(threading.Thread):
         self.broadcaster = Broadcaster(self.websocket_server, shared_state, self.skin_mapping, skin_scraper)
 
         # Initialize message handler
-        self.message_handler = MessageHandler(
+        self.message_handler = ClientAutomationMessageHandler(
             shared_state=shared_state,
             websocket_server=self.websocket_server,
             broadcaster=self.broadcaster,

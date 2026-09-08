@@ -4,9 +4,13 @@
 WebSocket event thread
 """
 
+import json
 import threading
 from typing import Optional
 
+from automation import AutomationController
+from automation.champ_select import ChampSelectAutomationController
+from automation.lcu_adapter import AutomationLCUAdapter
 from config import (
     WS_PING_INTERVAL_DEFAULT, WS_PING_TIMEOUT_DEFAULT, TIMER_HZ_DEFAULT,
     FALLBACK_LOADOUT_MS_DEFAULT
@@ -57,31 +61,132 @@ class WSEventThread(threading.Thread):
         self.timer_manager = TimerManager(
             lcu, state, timer_hz, fallback_ms, injection_manager, skin_scraper
         )
+        self.automation_lcu = AutomationLCUAdapter(lcu)
+        self.automation_controller = AutomationController(self.automation_lcu)
+        self.champ_select_automation_controller = ChampSelectAutomationController(lcu)
         self.event_handler = WebSocketEventHandler(
-            lcu, state, self.champion_lock_handler, self.game_mode_detector, self.timer_manager, injection_manager,
+            lcu,
+            state,
+            self.champion_lock_handler,
+            self.game_mode_detector,
+            self.timer_manager,
+            injection_manager,
             swiftplay_handler=swiftplay_handler,
         )
         
-        # Initialize WebSocket connection
+        # Initialize WebSocket connection. Automation receives explicit
+        # lifecycle callbacks so pending timers cannot survive a disconnect and
+        # reconnects reconcile the authoritative current League phase.
         self.connection = WebSocketConnection(
             lcu,
             state,
             ping_interval,
             ping_timeout,
+            on_open=self._on_connection_open,
             on_message=self._on_message,
+            on_close=self._on_connection_close,
             app_status_callback=app_status_callback,
         )
     
     def run(self):
         """Main WebSocket loop"""
         self.connection.run()
+
+    def _on_connection_open(self, ws) -> None:
+        """Reconcile Client Automation after an LCU WebSocket reconnect."""
+        try:
+            phase = self.lcu.phase
+        except Exception as exc:  # noqa: BLE001
+            log.debug(
+                "[AUTOMATION] Reconnect phase reconciliation unavailable: %s",
+                type(exc).__name__,
+            )
+            return
+
+        if not isinstance(phase, str) or not phase:
+            return
+
+        self.state.phase = phase
+        self.automation_controller.handle_phase_change(phase)
+        self.champ_select_automation_controller.handle_phase_change(phase)
+        if phase == "ChampSelect":
+            # handle_phase_change only performs the bounded session read on a
+            # real phase transition. Reconnects may occur while already in the
+            # same phase, so reconcile explicitly as well.
+            self.champ_select_automation_controller.reconcile_session()
+        log.info("[AUTOMATION] Reconciled after LCU WebSocket reconnect: %s", phase)
+
+    def _on_connection_close(self, ws, status, msg) -> None:
+        """Cancel all pending Client Automation actions on disconnect."""
+        self.automation_controller.handle_phase_change("__Disconnected__")
+        self.champ_select_automation_controller.handle_phase_change("__Disconnected__")
+        log.info("[AUTOMATION] Pending actions cancelled after LCU disconnect")
+
+    def handle_automation_settings_changed(self) -> None:
+        """Apply freshly persisted settings without requiring an app restart."""
+        phase = self.state.phase
+        if not isinstance(phase, str) or not phase:
+            try:
+                phase = self.lcu.phase
+            except Exception:
+                phase = None
+
+        if not isinstance(phase, str) or not phase:
+            return
+
+        self.automation_controller.handle_phase_change(phase)
+        self.champ_select_automation_controller.handle_phase_change(phase)
+        if phase == "ChampSelect":
+            self.champ_select_automation_controller.reconcile_session()
+        log.info("[AUTOMATION] Settings hot-reloaded for phase: %s", phase)
+
+    def automation_status_snapshot(self) -> dict:
+        """Return lightweight runtime telemetry for the PSM control surface."""
+        phase = self.state.phase
+        return {
+            "phase": phase,
+            "connected": bool(self.connection.is_connected),
+            "transport": "LCU WebSocket" if self.connection.is_connected else "Disconnected",
+        }
     
     def _on_message(self, ws, msg):
-        """WebSocket message received (delegates to event handler)"""
+        """Route automation events, then delegate to the existing event handler."""
+        try:
+            decoded = json.loads(msg)
+            payload = None
+            if isinstance(decoded, list) and len(decoded) >= 3:
+                if decoded[0] == 8 and isinstance(decoded[2], dict):
+                    payload = decoded[2]
+            elif isinstance(decoded, dict) and "uri" in decoded:
+                payload = decoded
+
+            if payload:
+                uri = payload.get("uri")
+                if uri == "/lol-matchmaking/v1/ready-check":
+                    self.automation_controller.handle_ready_check_event(payload)
+                elif uri == "/lol-gameflow/v1/gameflow-phase":
+                    phase = payload.get("data")
+                    if isinstance(phase, str):
+                        self.automation_controller.handle_phase_change(phase)
+                        self.champ_select_automation_controller.handle_phase_change(phase)
+                elif uri == "/lol-lobby/v2/lobby":
+                    self.automation_controller.handle_lobby_event(payload)
+                elif uri in {
+                    "/lol-lobby/v2/lobby/matchmaking/search-state",
+                    "/lol-matchmaking/v1/search",
+                }:
+                    self.automation_controller.handle_search_state_event(payload)
+                elif uri == "/lol-champ-select/v1/session":
+                    self.champ_select_automation_controller.handle_session_event(payload)
+        except Exception as exc:  # noqa: BLE001
+            log.debug("[AUTOMATION] WebSocket routing skipped: %s", type(exc).__name__)
+
         self.event_handler.handle_message(ws, msg)
     
     def stop(self):
         """Stop the WebSocket thread gracefully"""
+        self.automation_controller.stop()
+        self.champ_select_automation_controller.stop()
         self.connection.stop()
     
     # Backward compatibility properties

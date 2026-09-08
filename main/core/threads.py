@@ -38,6 +38,12 @@ def initialize_threads(lcu, state, args, injection_manager, skin_scraper, app_st
                         skin_scraper=skin_scraper, app_status=app_status,
                         swiftplay_handler=t_phase.swiftplay_handler)
     thread_manager.register("WebSocket", t_ws, stop_method=t_ws.stop)
+
+    # The Pengu settings bridge and the LCU WebSocket thread share this state
+    # object. These callbacks let saved Client Automation settings reconcile
+    # immediately without coupling the UI bridge directly to thread internals.
+    state.client_automation_settings_changed_callback = t_ws.handle_automation_settings_changed
+    state.client_automation_status_provider = t_ws.automation_status_snapshot
     
     # Language callback to update shared state
     def on_language_detected(language: str):
@@ -69,4 +75,3 @@ def initialize_threads(lcu, state, args, injection_manager, skin_scraper, app_st
     app_status.mark_download_process_complete()
     
     return thread_manager, t_phase, t_ui, t_ws, t_lcu_monitor
-
