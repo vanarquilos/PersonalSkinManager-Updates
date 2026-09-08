@@ -117,11 +117,11 @@ Hardening tests specifically guard that:
 
 ### Automated verification result
 
-Verified implementation head before this documentation-only update:
+Verified implementation and documentation head:
 
-`ca2130f19fec901036437aaf58e6128b588b3935`
+`a71c9d038dc9c7e1d8bdc0ca9411b3c39e7e0379`
 
-GitHub Actions `Public source checks` run `#53`: **PASS**.
+GitHub Actions `Public source checks` run `#54`: **PASS**.
 
 Passed steps:
 
