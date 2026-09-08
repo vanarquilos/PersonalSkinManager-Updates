@@ -195,6 +195,63 @@ def status_payload(config: ClientAutomationConfig, phase: Optional[str]) -> dict
     }
 
 
+def _clean_queue_text(value) -> str:
+    return " ".join(str(value or "").replace("_", " ").split()).strip()
+
+
+def _queue_display_name(item: dict, queue_id: int) -> str:
+    """Prefer user-facing queue semantics over generic internal mode labels.
+
+    This intentionally derives names from Riot's live queue type/metadata rather
+    than keeping a permanent queue-ID table in PSM.
+    """
+    queue_type = _clean_queue_text(item.get("type") or item.get("queueType")).upper()
+    raw_name = _clean_queue_text(item.get("name") or item.get("shortName"))
+    description = _clean_queue_text(item.get("description") or item.get("detailedDescription"))
+
+    if "RANKED_SOLO" in queue_type:
+        return "Ranked Solo/Duo"
+    if "RANKED_FLEX" in queue_type:
+        return "Ranked Flex"
+    if queue_type == "ARAM_UNRANKED_5X5":
+        return "ARAM"
+    if "SWIFTPLAY" in queue_type:
+        return "Swiftplay"
+    if "QUICKPLAY" in queue_type:
+        return "Quickplay"
+    if queue_type == "CLASH":
+        return "Clash"
+    if queue_type.startswith("BOT"):
+        suffix = raw_name if raw_name and raw_name.upper() not in {"CLASSIC", "BOT"} else "Co-op vs AI"
+        return suffix
+    if queue_type == "NORMAL":
+        lowered = f"{raw_name} {description}".lower()
+        if "draft" in lowered:
+            return "Normal Draft"
+        if "blind" in lowered:
+            return "Normal Blind"
+        if raw_name and raw_name.upper() not in {"CLASSIC", "CLASSIC RIFT", "NORMAL"}:
+            return raw_name
+        return "Normal"
+
+    # Event queues generally have useful display names. Avoid surfacing generic
+    # engine labels like CLASSIC when a more descriptive text field exists.
+    generic = {"CLASSIC", "CLASSIC RIFT", "NORMAL", "MATCHED GAME"}
+    if raw_name and raw_name.upper() not in generic:
+        return raw_name
+    if description and description.upper() not in generic:
+        cleaned = description
+        for suffix in (" games", " game", " queue"):
+            if cleaned.lower().endswith(suffix):
+                cleaned = cleaned[: -len(suffix)].strip()
+                break
+        if cleaned:
+            return cleaned
+    if queue_type:
+        return queue_type.title()
+    return f"Queue {queue_id}"
+
+
 def normalize_queue_catalog(raw_queues) -> list[dict]:
     queues: list[dict] = []
     if not isinstance(raw_queues, list):
@@ -209,13 +266,33 @@ def normalize_queue_catalog(raw_queues) -> list[dict]:
             continue
         if item.get("isVisible") is False or item.get("isEnabled") is False:
             continue
-        name = (
-            item.get("name")
-            or item.get("shortName")
-            or item.get("description")
-            or f"Queue {queue_id}"
-        )
-        queues.append({"id": queue_id, "name": str(name)})
+
+        availability = _clean_queue_text(item.get("queueAvailability")).lower()
+        if availability and availability not in {"available", "unknown"}:
+            continue
+
+        queue_type = _clean_queue_text(item.get("type") or item.get("queueType"))
+        description = _clean_queue_text(item.get("description") or item.get("detailedDescription"))
+        name = _queue_display_name(item, queue_id)
+
+        normalized = {
+            "id": queue_id,
+            "name": name,
+        }
+        if queue_type:
+            normalized["queueType"] = queue_type
+        if description:
+            normalized["description"] = description
+        game_mode = _clean_queue_text(item.get("gameMode"))
+        if game_mode:
+            normalized["gameMode"] = game_mode
+        map_id = safe_positive_int(item.get("mapId"))
+        if map_id is not None:
+            normalized["mapId"] = map_id
+        if isinstance(item.get("isRanked"), bool):
+            normalized["isRanked"] = item["isRanked"]
+
+        queues.append(normalized)
         seen.add(queue_id)
 
     queues.sort(key=lambda item: (item["name"].lower(), item["id"]))
