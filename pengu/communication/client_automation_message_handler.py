@@ -35,6 +35,14 @@ _CHAMPION_CATALOG_PATHS = (
     # aggregate asset under this path.
     "/lol-game-data/assets/v1/champions.json",
 )
+_QUEUE_CATALOG_PATHS = (
+    # This is the correct user-facing source for automatic matchmaking choices.
+    # It excludes most custom/historical definitions that appear in /queues.
+    "/lol-game-queues/v1/matchmaking-queues",
+    # Compatibility fallback for clients/builds that do not expose the filtered
+    # matchmaking collection.
+    "/lol-game-queues/v1/queues",
+)
 
 
 class ClientAutomationMessageHandler(MessageHandler):
@@ -219,6 +227,28 @@ class ClientAutomationMessageHandler(MessageHandler):
                 pass
             return previous.get("updatedAt")
 
+    def _fetch_live_queue_catalog(self, lcu) -> list[dict]:
+        """Read only current automatic-matchmaking choices, with fallback."""
+        for path in _QUEUE_CATALOG_PATHS:
+            try:
+                raw_queues = lcu.get(path, timeout=2.5)
+                queues = normalize_queue_catalog(raw_queues)
+            except Exception as exc:  # noqa: BLE001
+                log.debug(
+                    "[AUTOMATION] Queue catalog path %s unavailable: %s",
+                    path,
+                    type(exc).__name__,
+                )
+                continue
+            if queues:
+                log.debug(
+                    "[AUTOMATION] Queue catalog loaded from %s (%d queues)",
+                    path,
+                    len(queues),
+                )
+                return queues
+        return []
+
     def _fetch_live_champion_catalog(self, lcu) -> list[dict]:
         """Read the current League champion catalog with a compatibility fallback."""
         for path in _CHAMPION_CATALOG_PATHS:
@@ -264,12 +294,7 @@ class ClientAutomationMessageHandler(MessageHandler):
             except Exception:
                 pass
 
-            try:
-                raw_queues = lcu.get("/lol-game-queues/v1/queues", timeout=2.0)
-                live_queues = normalize_queue_catalog(raw_queues)
-            except Exception as exc:  # noqa: BLE001
-                log.debug("[AUTOMATION] Queue catalog unavailable: %s", type(exc).__name__)
-
+            live_queues = self._fetch_live_queue_catalog(lcu)
             live_champions = self._fetch_live_champion_catalog(lcu)
 
         if live_queues or live_champions:
