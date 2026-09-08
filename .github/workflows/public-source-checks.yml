@@ -31,6 +31,9 @@ jobs:
       - name: Validate Client Automation plugin syntax
         run: node --check "Pengu Loader/plugins/PSM-ClientAutomation/index.js"
 
+      - name: Validate PSM UI polish plugin syntax
+        run: node --check "Pengu Loader/plugins/PSM-UI-Polish/index.js"
+
       - name: Validate retired legacy AutoAccept shim
         run: node --check "Pengu Loader/plugins/ROSE-Jade/config/js/addons/AA.js"
 
