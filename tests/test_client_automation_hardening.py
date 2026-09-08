@@ -93,6 +93,7 @@ class ClientAutomationHardeningTests(unittest.TestCase):
         self.assertIn("self._notify_settings_changed()", bridge)
         self.assertIn("client_automation_settings_changed_callback", bridge)
         self.assertIn("client_automation_status_provider", bridge)
+        self.assertIn('runtime["status"] = "League disconnected"', bridge)
         self.assertIn(
             "state.client_automation_settings_changed_callback = t_ws.handle_automation_settings_changed",
             bootstrap,
