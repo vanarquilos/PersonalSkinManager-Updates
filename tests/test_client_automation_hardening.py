@@ -125,6 +125,19 @@ class ClientAutomationHardeningTests(unittest.TestCase):
         self.assertIn('/lol-game-data/assets/v1/champions.json', source)
         self.assertIn("def _fetch_live_champion_catalog", source)
 
+    def test_queue_catalog_prefers_current_matchmaking_collection_with_fallback(self):
+        source = (
+            ROOT / "pengu/communication/client_automation_message_handler.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('/lol-game-queues/v1/matchmaking-queues', source)
+        self.assertIn('/lol-game-queues/v1/queues', source)
+        self.assertIn("def _fetch_live_queue_catalog", source)
+        self.assertLess(
+            source.index('/lol-game-queues/v1/matchmaking-queues'),
+            source.index('/lol-game-queues/v1/queues'),
+        )
+
     def test_catalog_cache_is_local_and_not_execution_authority(self):
         source = (
             ROOT / "pengu/communication/client_automation_message_handler.py"
