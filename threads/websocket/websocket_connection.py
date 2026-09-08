@@ -6,13 +6,11 @@ Handles WebSocket connection lifecycle and callbacks
 """
 
 import base64
-import json
 import logging
 import os
 import random
 import ssl
 import threading
-import time
 from typing import Optional, Callable
 
 import websocket  # websocket-client
@@ -142,8 +140,6 @@ class WebSocketConnection:
 
     def _on_open(self, ws):
         """WebSocket connection opened"""
-        from utils.core.logging import log_status
-        
         separator = "=" * 80
         log.info(separator)
         log.info("WEBSOCKET CONNECTED")
@@ -157,10 +153,23 @@ class WebSocketConnection:
         if self.app_status_callback:
             self.app_status_callback()
         
+        subscribed = False
         try:
             ws.send('[5,"OnJsonApiEvent"]')
+            subscribed = True
         except Exception as e:
             log.debug(f"WebSocket: Subscribe error: {e}")
+
+        # Call reconnect consumers only after the WAMP subscription is active,
+        # and isolate callback failures from the transport itself.
+        if subscribed and self.on_open:
+            try:
+                self.on_open(ws)
+            except Exception as exc:  # noqa: BLE001
+                log.warning(
+                    "[WS] on_open callback failed: %s",
+                    type(exc).__name__,
+                )
     
     def _on_message(self, ws, msg):
         """WebSocket message received"""
