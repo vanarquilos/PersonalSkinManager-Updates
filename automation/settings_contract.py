@@ -237,7 +237,24 @@ def normalize_champion_catalog(raw_champions) -> list[dict]:
         name = item.get("name")
         if champion_id is None or not name or champion_id in seen:
             continue
-        champions.append({"id": champion_id, "name": str(name)})
+
+        normalized = {
+            "id": champion_id,
+            "name": str(name),
+        }
+        title = item.get("title")
+        if title:
+            normalized["title"] = str(title)
+
+        icon_path = (
+            item.get("squarePortraitPath")
+            or item.get("iconPath")
+            or item.get("icon")
+        )
+        if isinstance(icon_path, str) and icon_path.strip():
+            normalized["iconPath"] = icon_path.strip()
+
+        champions.append(normalized)
         seen.add(champion_id)
 
     champions.sort(key=lambda item: item["name"].lower())
