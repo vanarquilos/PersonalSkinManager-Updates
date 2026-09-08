@@ -57,11 +57,10 @@ class ClientAutomationMessageHandler(MessageHandler):
     # ------------------------------------------------------------------
     def _handle_client_automation_settings_request(self) -> None:
         config = load_client_automation_config()
-        phase = getattr(self.shared_state, "phase", None)
         payload = {
             "type": "client-automation-settings-data",
             **config_payload(config),
-            **status_payload(config, phase),
+            **self._runtime_status_payload(config),
         }
         self._send_response(json.dumps(payload))
 
@@ -90,33 +89,78 @@ class ClientAutomationMessageHandler(MessageHandler):
             return
 
         config = load_client_automation_config()
-        phase = getattr(self.shared_state, "phase", None)
+        self._notify_settings_changed()
         self._send_response(json.dumps({
             "type": "client-automation-settings-saved",
             "success": True,
             **config_payload(config),
-            **status_payload(config, phase),
+            **self._runtime_status_payload(config),
         }))
-        log.info("[AUTOMATION] Client Automation settings saved")
+        log.info("[AUTOMATION] Client Automation settings saved and reloaded")
+
+    def _notify_settings_changed(self) -> None:
+        callback = getattr(
+            self.shared_state,
+            "client_automation_settings_changed_callback",
+            None,
+        )
+        if not callable(callback):
+            return
+        try:
+            callback()
+        except Exception as exc:  # noqa: BLE001
+            # Persistence already succeeded. Do not turn this into a failed save;
+            # the controllers will still reload config on their next LCU event.
+            log.warning(
+                "[AUTOMATION] Settings reload callback failed (%s)",
+                type(exc).__name__,
+            )
 
     # ------------------------------------------------------------------
     # Runtime status / catalogs
     # ------------------------------------------------------------------
     def _handle_client_automation_status_request(self) -> None:
         config = load_client_automation_config()
-        phase = getattr(self.shared_state, "phase", None)
         self._send_response(json.dumps({
             "type": "client-automation-status-data",
-            **status_payload(config, phase),
+            **self._runtime_status_payload(config),
         }))
+
+    def _runtime_status_payload(self, config) -> dict:
+        provider = getattr(
+            self.shared_state,
+            "client_automation_status_provider",
+            None,
+        )
+        if callable(provider):
+            try:
+                provided = provider()
+                if isinstance(provided, dict):
+                    return {
+                        **status_payload(
+                            config,
+                            provided.get("phase", getattr(self.shared_state, "phase", None)),
+                        ),
+                        **provided,
+                        "enabled": config.enabled,
+                    }
+            except Exception as exc:  # noqa: BLE001
+                log.debug(
+                    "[AUTOMATION] Runtime status provider unavailable: %s",
+                    type(exc).__name__,
+                )
+
+        phase = getattr(self.shared_state, "phase", None)
+        return status_payload(config, phase)
 
     def _handle_client_automation_catalog_request(self) -> None:
         queues = []
         champions = []
         current_queue_id = None
         lcu = getattr(self.skin_scraper, "lcu", None) if self.skin_scraper else None
+        league_connected = bool(lcu is not None and getattr(lcu, "ok", False))
 
-        if lcu is not None and getattr(lcu, "ok", False):
+        if league_connected:
             try:
                 lobby = lcu.matchmaking_lobby()
                 if isinstance(lobby, dict):
@@ -147,4 +191,7 @@ class ClientAutomationMessageHandler(MessageHandler):
             "queues": queues,
             "champions": champions,
             "currentQueueId": current_queue_id,
+            "leagueConnected": league_connected,
+            "queueCatalogAvailable": bool(queues),
+            "championCatalogAvailable": bool(champions),
         }))
