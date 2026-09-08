@@ -1,6 +1,6 @@
 # Client Automation vNext — Phase H Integration Hardening
 
-Status: implementation hardening in progress
+Status: automated hardening complete; live League-client QA pending
 Branch: `codex/client-automation-vnext`
 Stable release protected: `v1.0.1`
 
@@ -112,7 +112,27 @@ Hardening tests specifically guard that:
 - WebSocket `on_open` consumers run only after JSON API subscription succeeds
 - disconnect cancellation and reconnect reconciliation hooks remain wired
 - settings hot-reload callback/provider wiring remains present
+- disconnected runtime status is explicitly surfaced
 - catalog connection/availability telemetry remains present
+
+### Automated verification result
+
+Verified implementation head before this documentation-only update:
+
+`ca2130f19fec901036437aaf58e6128b588b3935`
+
+GitHub Actions `Public source checks` run `#53`: **PASS**.
+
+Passed steps:
+
+- dependency setup
+- Python compileall
+- Client Automation JavaScript syntax
+- retired legacy AutoAccept shim syntax
+- full repository unit-test discovery/execution
+- public-source boundary validation
+
+This automated result does not substitute for live League-client endpoint/UI QA.
 
 ## Live League-client QA still required
 
