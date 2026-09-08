@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Synthetic coverage for Phase G settings bridge and queue role adapter."""
+"""Synthetic coverage for Phase G settings contract and queue role adapter."""
 
-import json
 import unittest
-from types import SimpleNamespace
-from unittest.mock import patch
 
 from automation.config import ClientAutomationConfig
 from automation.lcu_adapter import AutomationLCUAdapter
-from pengu.communication.client_automation_message_handler import (
-    ClientAutomationMessageHandler,
+from automation.settings_contract import (
+    config_payload,
+    encode_settings_for_storage,
+    normalize_champion_catalog,
+    normalize_queue_catalog,
+    normalize_settings_payload,
+    status_payload,
 )
 
 
@@ -84,58 +86,29 @@ class AutomationLCUAdapterTests(unittest.TestCase):
         self.assertEqual(lcu.calls, [("start",)])
 
 
-class FakeCatalogLCU:
-    ok = True
-
-    def matchmaking_lobby(self):
-        return {"gameConfig": {"queueId": 420}}
-
-    def get(self, path, timeout=1.0):
-        if path == "/lol-game-queues/v1/queues":
-            return [
-                {"id": 420, "name": "Ranked Solo/Duo", "isVisible": True},
-                {"id": 450, "name": "ARAM", "isVisible": True},
-                {"id": 999, "name": "Hidden", "isVisible": False},
-            ]
-        if path == "/lol-game-data/assets/v1/champions.json":
-            return [
-                {"id": 234, "name": "Viego"},
-                {"id": 141, "name": "Kayn"},
-            ]
-        return None
-
-
-class ClientAutomationSettingsBridgeTests(unittest.TestCase):
-    def make_handler(self, *, phase="Lobby", lcu=None):
-        handler = ClientAutomationMessageHandler.__new__(ClientAutomationMessageHandler)
-        handler.shared_state = SimpleNamespace(phase=phase)
-        handler.skin_scraper = SimpleNamespace(lcu=lcu) if lcu is not None else None
-        handler.sent = []
-        handler._send_response = lambda message: handler.sent.append(json.loads(message))
-        return handler
-
+class ClientAutomationSettingsContractTests(unittest.TestCase):
     def test_normalizer_requires_queue_and_valid_role_pair(self):
         with self.assertRaisesRegex(ValueError, "Choose a queue"):
-            ClientAutomationMessageHandler._normalize_settings_payload({
+            normalize_settings_payload({
                 "enabled": True,
                 "autoQueueEnabled": True,
                 "queueId": None,
             })
 
         with self.assertRaisesRegex(ValueError, "both primary and secondary"):
-            ClientAutomationMessageHandler._normalize_settings_payload({
+            normalize_settings_payload({
                 "primaryPosition": "JUNGLE",
                 "secondaryPosition": None,
             })
 
         with self.assertRaisesRegex(ValueError, "must be different"):
-            ClientAutomationMessageHandler._normalize_settings_payload({
+            normalize_settings_payload({
                 "primaryPosition": "TOP",
                 "secondaryPosition": "TOP",
             })
 
     def test_normalizer_validates_priorities_and_preserves_order(self):
-        result = ClientAutomationMessageHandler._normalize_settings_payload({
+        result = normalize_settings_payload({
             "enabled": True,
             "autoQueueEnabled": True,
             "queueId": 420,
@@ -158,84 +131,80 @@ class ClientAutomationSettingsBridgeTests(unittest.TestCase):
         self.assertEqual(result["ban_priority"], (33, 64))
         self.assertEqual(result["auto_accept_delay_ms"], 500)
 
-    def test_save_persists_dedicated_client_automation_section(self):
-        handler = self.make_handler()
-        saved = {}
-        loaded = ClientAutomationConfig(
+    def test_storage_encoding_matches_existing_config_contract(self):
+        normalized = normalize_settings_payload({
+            "enabled": True,
+            "autoQueueEnabled": True,
+            "queueId": 420,
+            "autoAcceptEnabled": True,
+            "autoAcceptDelayMs": 1000,
+            "autoPickEnabled": True,
+            "pickPriority": [234, 141],
+            "autoBanEnabled": True,
+            "banPriority": [33],
+            "protectAllyIntents": True,
+        })
+
+        stored = encode_settings_for_storage(normalized)
+
+        self.assertEqual(stored["enabled"], "true")
+        self.assertEqual(stored["queue_id"], "420")
+        self.assertEqual(stored["pick_priority"], "234,141")
+        self.assertEqual(stored["ban_priority"], "33")
+        self.assertEqual(stored["primary_position"], "")
+        self.assertEqual(stored["secondary_position"], "")
+
+    def test_payload_and_status_keep_ui_contract_stable(self):
+        config = ClientAutomationConfig(
             enabled=True,
             auto_queue_enabled=True,
             queue_id=420,
-            auto_accept_enabled=True,
-            auto_accept_delay_ms=1000,
-            auto_requeue_enabled=False,
             auto_pick_enabled=True,
             pick_priority=(234,),
             auto_ban_enabled=True,
             ban_priority=(33,),
-            protect_ally_intents=True,
         )
 
-        payload = {
-            "enabled": True,
-            "autoQueueEnabled": True,
-            "queueId": 420,
-            "primaryPosition": None,
-            "secondaryPosition": None,
-            "autoAcceptEnabled": True,
-            "autoAcceptDelayMs": 1000,
-            "autoRequeueEnabled": False,
-            "autoPickEnabled": True,
-            "pickPriority": [234],
-            "autoBanEnabled": True,
-            "banPriority": [33],
-            "protectAllyIntents": True,
-        }
+        payload = config_payload(config)
+        runtime = status_payload(config, "ReadyCheck")
 
-        with patch(
-            "pengu.communication.client_automation_message_handler.set_config_option",
-            side_effect=lambda section, key, value: saved.__setitem__((section, key), value),
-        ), patch(
-            "pengu.communication.client_automation_message_handler.load_client_automation_config",
-            return_value=loaded,
-        ):
-            handler._handle_client_automation_settings_save(payload)
+        self.assertEqual(payload["queueId"], 420)
+        self.assertEqual(payload["pickPriority"], [234])
+        self.assertEqual(payload["banPriority"], [33])
+        self.assertEqual(runtime["status"], "Match found")
+        self.assertEqual(runtime["phase"], "ReadyCheck")
 
-        self.assertEqual(saved[("ClientAutomation", "enabled")], "true")
-        self.assertEqual(saved[("ClientAutomation", "queue_id")], "420")
-        self.assertEqual(saved[("ClientAutomation", "pick_priority")], "234")
-        self.assertEqual(saved[("ClientAutomation", "ban_priority")], "33")
-        self.assertTrue(handler.sent[-1]["success"])
-        self.assertEqual(handler.sent[-1]["type"], "client-automation-settings-saved")
+    def test_catalog_normalizers_filter_hidden_and_sort(self):
+        queues = normalize_queue_catalog([
+            {"id": 420, "name": "Ranked Solo/Duo", "isVisible": True},
+            {"id": 450, "name": "ARAM", "isVisible": True},
+            {"id": 999, "name": "Hidden", "isVisible": False},
+            {"id": 450, "name": "Duplicate", "isVisible": True},
+        ])
+        champions = normalize_champion_catalog([
+            {"id": 234, "name": "Viego"},
+            {"id": 141, "name": "Kayn"},
+            {"id": 141, "name": "Duplicate Kayn"},
+            {"id": 0, "name": "Invalid"},
+        ])
 
-    def test_status_uses_shared_gameflow_phase(self):
-        handler = self.make_handler(phase="ReadyCheck")
-        config = ClientAutomationConfig(enabled=True)
+        self.assertEqual([item["id"] for item in queues], [450, 420])
+        self.assertEqual([item["name"] for item in champions], ["Kayn", "Viego"])
 
-        with patch(
-            "pengu.communication.client_automation_message_handler.load_client_automation_config",
-            return_value=config,
-        ):
-            handler._handle_client_automation_status_request()
+    def test_enabled_pick_and_ban_require_priorities(self):
+        with self.assertRaisesRegex(ValueError, "Auto Pick"):
+            normalize_settings_payload({
+                "enabled": True,
+                "autoPickEnabled": True,
+                "pickPriority": [],
+            })
 
-        self.assertEqual(handler.sent[-1]["status"], "Match found")
-        self.assertEqual(handler.sent[-1]["phase"], "ReadyCheck")
-
-    def test_catalog_is_normalized_from_current_lcu_data(self):
-        handler = self.make_handler(lcu=FakeCatalogLCU())
-
-        handler._handle_client_automation_catalog_request()
-
-        payload = handler.sent[-1]
-        self.assertEqual(payload["type"], "client-automation-catalog-data")
-        self.assertEqual(payload["currentQueueId"], 420)
-        self.assertEqual(
-            {item["id"] for item in payload["queues"]},
-            {420, 450},
-        )
-        self.assertEqual(
-            [item["name"] for item in payload["champions"]],
-            ["Kayn", "Viego"],
-        )
+        with self.assertRaisesRegex(ValueError, "Auto Ban"):
+            normalize_settings_payload({
+                "enabled": True,
+                "autoBanEnabled": True,
+                "banPriority": [],
+            })
 
 
 if __name__ == "__main__":
