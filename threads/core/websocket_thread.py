@@ -74,19 +74,80 @@ class WSEventThread(threading.Thread):
             swiftplay_handler=swiftplay_handler,
         )
         
-        # Initialize WebSocket connection
+        # Initialize WebSocket connection. Automation receives explicit
+        # lifecycle callbacks so pending timers cannot survive a disconnect and
+        # reconnects reconcile the authoritative current League phase.
         self.connection = WebSocketConnection(
             lcu,
             state,
             ping_interval,
             ping_timeout,
+            on_open=self._on_connection_open,
             on_message=self._on_message,
+            on_close=self._on_connection_close,
             app_status_callback=app_status_callback,
         )
     
     def run(self):
         """Main WebSocket loop"""
         self.connection.run()
+
+    def _on_connection_open(self, ws) -> None:
+        """Reconcile Client Automation after an LCU WebSocket reconnect."""
+        try:
+            phase = self.lcu.phase
+        except Exception as exc:  # noqa: BLE001
+            log.debug(
+                "[AUTOMATION] Reconnect phase reconciliation unavailable: %s",
+                type(exc).__name__,
+            )
+            return
+
+        if not isinstance(phase, str) or not phase:
+            return
+
+        self.state.phase = phase
+        self.automation_controller.handle_phase_change(phase)
+        self.champ_select_automation_controller.handle_phase_change(phase)
+        if phase == "ChampSelect":
+            # handle_phase_change only performs the bounded session read on a
+            # real phase transition. Reconnects may occur while already in the
+            # same phase, so reconcile explicitly as well.
+            self.champ_select_automation_controller.reconcile_session()
+        log.info("[AUTOMATION] Reconciled after LCU WebSocket reconnect: %s", phase)
+
+    def _on_connection_close(self, ws, status, msg) -> None:
+        """Cancel all pending Client Automation actions on disconnect."""
+        self.automation_controller.handle_phase_change("__Disconnected__")
+        self.champ_select_automation_controller.handle_phase_change("__Disconnected__")
+        log.info("[AUTOMATION] Pending actions cancelled after LCU disconnect")
+
+    def handle_automation_settings_changed(self) -> None:
+        """Apply freshly persisted settings without requiring an app restart."""
+        phase = self.state.phase
+        if not isinstance(phase, str) or not phase:
+            try:
+                phase = self.lcu.phase
+            except Exception:
+                phase = None
+
+        if not isinstance(phase, str) or not phase:
+            return
+
+        self.automation_controller.handle_phase_change(phase)
+        self.champ_select_automation_controller.handle_phase_change(phase)
+        if phase == "ChampSelect":
+            self.champ_select_automation_controller.reconcile_session()
+        log.info("[AUTOMATION] Settings hot-reloaded for phase: %s", phase)
+
+    def automation_status_snapshot(self) -> dict:
+        """Return lightweight runtime telemetry for the PSM control surface."""
+        phase = self.state.phase
+        return {
+            "phase": phase,
+            "connected": bool(self.connection.is_connected),
+            "transport": "LCU WebSocket" if self.connection.is_connected else "Disconnected",
+        }
     
     def _on_message(self, ws, msg):
         """Route automation events, then delegate to the existing event handler."""
