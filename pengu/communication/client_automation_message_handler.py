@@ -136,11 +136,15 @@ class ClientAutomationMessageHandler(MessageHandler):
             try:
                 provided = provider()
                 if isinstance(provided, dict):
+                    phase = provided.get(
+                        "phase",
+                        getattr(self.shared_state, "phase", None),
+                    )
+                    runtime = status_payload(config, phase)
+                    if config.enabled and provided.get("connected") is False:
+                        runtime["status"] = "League disconnected"
                     return {
-                        **status_payload(
-                            config,
-                            provided.get("phase", getattr(self.shared_state, "phase", None)),
-                        ),
+                        **runtime,
                         **provided,
                         "enabled": config.enabled,
                     }
