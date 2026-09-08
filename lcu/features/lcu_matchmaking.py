@@ -13,7 +13,9 @@ class LCUMatchmaking:
     LOBBY_PATH = "/lol-lobby/v2/lobby"
     SEARCH_PATH = "/lol-lobby/v2/lobby/matchmaking/search"
     SEARCH_STATE_PATH = "/lol-lobby/v2/lobby/matchmaking/search-state"
+    POSITION_PREFERENCES_PATH = "/lol-lobby/v2/lobby/members/localMember/position-preferences"
     PLAY_AGAIN_PATH = "/lol-lobby/v2/play-again"
+    ALLOWED_POSITIONS = {"TOP", "JUNGLE", "MIDDLE", "UTILITY", "BOTTOM", "FILL"}
 
     def __init__(self, api) -> None:
         self.api = api
@@ -43,6 +45,30 @@ class LCUMatchmaking:
             self.LOBBY_PATH,
             json_data={"queueId": queue_id},
             timeout=2.0,
+        )
+
+    def set_position_preferences(
+        self,
+        primary_position: str,
+        secondary_position: str,
+    ) -> Optional[requests.Response]:
+        """Apply local lobby role preferences before matchmaking starts."""
+        primary = str(primary_position or "").strip().upper()
+        secondary = str(secondary_position or "").strip().upper()
+        if primary not in self.ALLOWED_POSITIONS:
+            raise ValueError("primary_position is invalid")
+        if secondary not in self.ALLOWED_POSITIONS:
+            raise ValueError("secondary_position is invalid")
+        if primary == secondary:
+            raise ValueError("primary and secondary positions must differ")
+
+        return self.api.put(
+            self.POSITION_PREFERENCES_PATH,
+            {
+                "firstPreference": primary,
+                "secondPreference": secondary,
+            },
+            timeout=1.5,
         )
 
     def start_search(self) -> Optional[requests.Response]:
