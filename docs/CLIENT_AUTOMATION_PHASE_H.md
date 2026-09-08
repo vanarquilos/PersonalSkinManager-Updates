@@ -117,11 +117,7 @@ Hardening tests specifically guard that:
 
 ### Automated verification result
 
-Verified implementation and documentation head:
-
-`a71c9d038dc9c7e1d8bdc0ca9411b3c39e7e0379`
-
-GitHub Actions `Public source checks` run `#54`: **PASS**.
+Phase H code and documentation have passed the full `Public source checks` workflow. The most recent verified run at the time this document was finalized was run `#55`.
 
 Passed steps:
 
