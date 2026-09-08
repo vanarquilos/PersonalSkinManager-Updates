@@ -103,14 +103,29 @@ class ClientAutomationHardeningTests(unittest.TestCase):
             bootstrap,
         )
 
-    def test_catalog_payload_reports_connection_and_availability(self):
+    def test_catalog_payload_reports_live_cache_connection_and_availability(self):
         source = (
             ROOT / "pengu/communication/client_automation_message_handler.py"
         ).read_text(encoding="utf-8")
 
         self.assertIn('"leagueConnected": league_connected', source)
-        self.assertIn('"queueCatalogAvailable": bool(queues)', source)
-        self.assertIn('"championCatalogAvailable": bool(champions)', source)
+        self.assertIn('"queueCatalogAvailable": bool(live_queues)', source)
+        self.assertIn('"championCatalogAvailable": bool(live_champions)', source)
+        self.assertIn('"queueCatalogCached": bool(not live_queues and cached_queues)', source)
+        self.assertIn('"championCatalogCached": bool(not live_champions and cached_champions)', source)
+        self.assertIn('"catalogSource": source', source)
+        self.assertIn('"catalogUpdatedAt": cache_updated_at', source)
+
+    def test_catalog_cache_is_local_and_not_execution_authority(self):
+        source = (
+            ROOT / "pengu/communication/client_automation_message_handler.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('get_state_dir() / _CATALOG_CACHE_FILE', source)
+        self.assertIn('live_queues or cached_queues', source)
+        self.assertIn('live_champions or cached_champions', source)
+        self.assertIn('queueCatalogAvailable": bool(live_queues)', source)
+        self.assertIn('championCatalogAvailable": bool(live_champions)', source)
 
 
 if __name__ == "__main__":
