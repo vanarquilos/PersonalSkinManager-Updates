@@ -10,6 +10,7 @@ from typing import Optional
 
 from automation import AutomationController
 from automation.champ_select import ChampSelectAutomationController
+from automation.lcu_adapter import AutomationLCUAdapter
 from config import (
     WS_PING_INTERVAL_DEFAULT, WS_PING_TIMEOUT_DEFAULT, TIMER_HZ_DEFAULT,
     FALLBACK_LOADOUT_MS_DEFAULT
@@ -60,7 +61,8 @@ class WSEventThread(threading.Thread):
         self.timer_manager = TimerManager(
             lcu, state, timer_hz, fallback_ms, injection_manager, skin_scraper
         )
-        self.automation_controller = AutomationController(lcu)
+        self.automation_lcu = AutomationLCUAdapter(lcu)
+        self.automation_controller = AutomationController(self.automation_lcu)
         self.champ_select_automation_controller = ChampSelectAutomationController(lcu)
         self.event_handler = WebSocketEventHandler(
             lcu,
