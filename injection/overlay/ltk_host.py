@@ -197,8 +197,16 @@ def run_ltk_patcher_host(
     if sys.platform == "win32":
         creationflags = subprocess.CREATE_NO_WINDOW
 
+    # Current League is protected by Vanguard. Upstream LTK Manager starts
+    # the host with --elevate when the game requires a high-integrity injector;
+    # without it the host can find League but fail to attach the DLL.
     cmd = [str(host_exe)]
-    log.info("[INJECT] Starting LTK patcher-host backend")
+    if sys.platform == "win32":
+        cmd.append("--elevate")
+    log.info(
+        "[INJECT] Starting LTK patcher-host backend"
+        + (" with elevation" if "--elevate" in cmd else "")
+    )
     started_at = time.time()
     proc = None
 
