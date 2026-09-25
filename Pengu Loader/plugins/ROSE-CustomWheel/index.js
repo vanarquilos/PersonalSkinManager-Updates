@@ -2494,7 +2494,13 @@
       selectedModSkinId = Number(detail.skinId || getCurrentSkinContext().skinId);
     }
 
-    if (isOpen) {
+    if (detail.catalogInstalled) {
+      // The backend replaced catalog:<id> with the imported local mod path.
+      // Refresh immediately so the wheel switches from the cloud entry to the
+      // cached local entry without requiring the user to close/reopen it.
+      lastSkinModsRequestAt = 0;
+      requestModsForCurrentSkin();
+    } else if (isOpen) {
       updateModEntries(currentSkinMods);
     }
     refreshSummaryValues();
