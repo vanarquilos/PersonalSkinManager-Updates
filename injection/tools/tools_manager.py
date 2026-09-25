@@ -32,8 +32,13 @@ class ToolsManager:
 
         if missing_tools:
             log.warning(f"Missing runtime injection dependencies: {missing_tools}")
-            log.warning("Please place mod-tools.exe in injection/tools/")
-            log.warning("Download from: https://github.com/CommunityDragon/CDTB")
+            log.warning(f"Expected runtime tools directory: {self.tools_dir}")
+            if "mod-tools.exe" in missing_tools:
+                log.warning(
+                    "Development source checkout does not contain mod-tools.exe; "
+                    "copy the trusted runtime binary from your installed PSM build "
+                    "into injection/tools/ before live injection QA."
+                )
             return False
 
         return True
