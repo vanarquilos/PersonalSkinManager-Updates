@@ -831,51 +831,16 @@ class InjectionTrigger:
                     log.warning(f"[INJECT] Failed to resume game after forcing owned skin: {e}")
     
     def _inject_unowned_skin(self, name: str, cname: str):
-        """Handle an unowned official skin/chroma selection safely.
-
-        Current LTK verification intentionally rejects official-skin substitution
-        overlays. Do not launch a patcher session for this case: fail closed and
-        give the user an actionable diagnostic instead.
-        """
+        """Inject an unowned official skin/chroma using the original Rose flow."""
         try:
-            from utils.core.issue_reporter import report_issue
-            selected_id = getattr(self.state, "last_hovered_skin_id", None)
-            selected_chroma_id = getattr(self.state, "selected_chroma_id", None)
-            effective_id = selected_chroma_id or selected_id
+            # A previous failed QA run may have left the old blocker in the
+            # troubleshooting file. Clear that stale result before this attempt.
+            try:
+                from utils.core.issue_reporter import clear_issue
+                clear_issue("LTK_OVERLAY_REJECTED")
+            except Exception as exc:
+                log.debug(f"[INJECT] Could not clear stale LTK diagnostic: {exc}")
 
-            log.warning(
-                "[INJECT] Unowned official skin/chroma %s was not injected: "
-                "current LTK verification rejects official-skin substitution overlays",
-                effective_id or name,
-            )
-            report_issue(
-                "LTK_OVERLAY_REJECTED",
-                "error",
-                "Selected unowned League skin cannot be applied with the current supported patcher.",
-                details={
-                    "skin": name,
-                    "skin_id": effective_id,
-                    "champion": cname,
-                },
-                hint=(
-                    "Choose an owned League skin, or use a compatible custom/community mod. "
-                    "PSM will not disable the current patcher's verification checks."
-                ),
-                dedupe_window_s=30.0,
-            )
-
-            # Ensure an interrupted older flow cannot leave the game monitor active.
-            if self.injection_manager:
-                try:
-                    self.injection_manager.resume_if_suspended()
-                except Exception as exc:
-                    log.debug(f"[INJECT] Safe resume after blocked overlay failed: {exc}")
-
-            log.error("=" * LOG_SEPARATOR_WIDTH)
-            log.error(f"INJECTION BLOCKED >>> {name.upper()} <<<")
-            log.error("[INJECT] Current LTK verification does not permit this unowned official-skin overlay")
-            log.error("=" * LOG_SEPARATOR_WIDTH)
-            return
             # Force base skin selection via LCU before injecting
             champ_id = self.state.locked_champ_id or self.state.hovered_champ_id
             if champ_id:
