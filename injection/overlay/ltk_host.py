@@ -246,7 +246,6 @@ def run_ltk_patcher_host(
     if sys.platform == "win32" and LTK_ELEVATE_INJECTOR:
         cmd.append("--elevate")
 
-    compatibility_mode = not LTK_ENFORCE_SKINHACK_SCAN
     log.info(
         "[INJECT] Starting LTK patcher-host backend"
         + (" with elevation" if "--elevate" in cmd else " in normal mode")
