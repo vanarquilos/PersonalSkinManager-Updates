@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from utils.core.logging import get_logger
+from utils.core.issue_reporter import report_issue
 from config import PROCESS_MONITOR_SLEEP_S, PROCESS_TERMINATE_TIMEOUT_S
 
 log = get_logger()
@@ -104,6 +105,17 @@ def _parse_stdout(line: str, result: LtkHostResult) -> None:
         if "overlay verification failed, disabling overlay" in lower:
             result.failure = line
             log.error(f"[INJECT][ltk-host] {line}")
+            report_issue(
+                "LTK_OVERLAY_REJECTED",
+                "error",
+                "Skin/mod was not applied because current League Toolkit verification rejected the overlay.",
+                details={"backend": "ltk", "verdict": line},
+                hint=(
+                    "Use an owned League skin or a custom/community mod that passes current "
+                    "League Toolkit verification. PSM will not override this verifier."
+                ),
+                dedupe_window_s=30.0,
+            )
         elif "wad scan failed" in lower:
             log.warning(f"[INJECT][ltk-host] {line}")
         else:
