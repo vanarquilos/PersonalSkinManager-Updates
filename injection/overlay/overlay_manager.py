@@ -52,6 +52,11 @@ DISK_SPACE_ERROR_MARKERS = (
     'errno 28',
 )
 
+# Patch 26.19 accepts the current game WAD header but rejects the older
+# mkoverlay-generated signature/checksum. WAD v3 header layout is:
+# 4 bytes magic+version, 256-byte signature, 8-byte checksum.
+WAD_V3_HEADER_SIZE = 268
+
 
 class OverlayManager:
     """Manages overlay creation and execution"""
@@ -98,6 +103,92 @@ class OverlayManager:
                 return f'{value:.1f} {unit}'
             value /= 1024
         return f'{value:.1f} TB'
+
+    @staticmethod
+    def _restore_game_wad_headers(overlay_dir: Path, game_dir: Path) -> tuple[int, int]:
+        """Rebase overlay WAD headers onto the installed game's current headers.
+
+        Patch 26.19 rejects WADs whose signature/checksum header no longer
+        matches the current installed archive. mkoverlay still produces the
+        modded payload we need, so only bytes 4..267 are copied from the
+        corresponding installed WAD. The overlay contents after the header are
+        left untouched.
+
+        Returns:
+            (restored_count, candidate_count)
+        """
+        restored = 0
+        candidates = 0
+
+        for overlay_wad in overlay_dir.rglob("*.wad.client"):
+            candidates += 1
+            try:
+                relative = overlay_wad.relative_to(overlay_dir)
+            except ValueError:
+                log.warning(
+                    "[INJECT] Overlay WAD escaped overlay root; header not rebased: %s",
+                    overlay_wad,
+                )
+                continue
+
+            game_wad = game_dir / relative
+            if not game_wad.is_file():
+                log.debug(
+                    "[INJECT] No installed WAD header source for overlay: %s",
+                    relative.as_posix(),
+                )
+                continue
+
+            try:
+                with game_wad.open("rb") as source:
+                    game_header = source.read(WAD_V3_HEADER_SIZE)
+
+                if len(game_header) != WAD_V3_HEADER_SIZE or game_header[:2] != b"RW":
+                    log.warning(
+                        "[INJECT] Installed WAD has an unexpected header: %s",
+                        relative.as_posix(),
+                    )
+                    continue
+
+                with overlay_wad.open("r+b") as target:
+                    overlay_prefix = target.read(4)
+                    if overlay_prefix != game_header[:4]:
+                        log.warning(
+                            "[INJECT] WAD magic/version mismatch; not rebasing header: %s",
+                            relative.as_posix(),
+                        )
+                        continue
+                    target.seek(4)
+                    target.write(game_header[4:WAD_V3_HEADER_SIZE])
+                    target.flush()
+
+                # Verify only the header we intentionally changed.
+                with overlay_wad.open("rb") as check:
+                    if check.read(WAD_V3_HEADER_SIZE) != game_header:
+                        log.error(
+                            "[INJECT] WAD header verification failed after rebase: %s",
+                            relative.as_posix(),
+                        )
+                        continue
+
+                restored += 1
+                log.debug(
+                    "[INJECT] Rebased current game WAD header: %s",
+                    relative.as_posix(),
+                )
+            except OSError as exc:
+                log.warning(
+                    "[INJECT] Could not rebase WAD header for %s: %s",
+                    relative.as_posix(),
+                    exc,
+                )
+
+        log.info(
+            "[INJECT] Patch 26.19 WAD header rebase: restored %d/%d overlay WAD(s)",
+            restored,
+            candidates,
+        )
+        return restored, candidates
 
     def _report_low_disk_space_failure(
         self,
@@ -261,6 +352,20 @@ class OverlayManager:
                     'mkoverlay_duration': mkoverlay_duration,
                     'timestamp': time.time()
                 }
+
+                # Patch 26.19 validates the WAD signature/checksum header when
+                # the redirected archive is mounted. Rebase mkoverlay output on
+                # the installed game's current header before starting LTK.
+                restored_wads, candidate_wads = self._restore_game_wad_headers(
+                    overlay_dir,
+                    Path(gpath),
+                )
+                if candidate_wads and restored_wads == 0:
+                    log.error(
+                        "[INJECT] No overlay WAD headers could be rebased; "
+                        "stopping before League can flag the installation for repair"
+                    )
+                    return 65
 
                 # Wipe extracted skin files now that mkoverlay is done with them
                 self._wipe_mods_dir()
