@@ -37,13 +37,10 @@ LTK_DLL_NAME = "ltk_patcher_dll.dll"
 # Upstream LTK Manager uses Info=0x10 and Debug=0x20.
 LTK_LOGLEVEL_DEBUG = 0x20
 
-# LTK's anti-skinhack scan blocks the exact class of official-skin overlays PSM
-# intentionally manages. Upstream LTK exposes a supported opt-out setting
-# (CSLOL_HOOK_OPT_OUT_AH_V1 = 4) that downgrades this scan from blocking to
-# warning while keeping the filesystem overlay and normal hook path enabled.
-# This does not disable Vanguard or bypass Riot's process protection.
-LTK_OPT_OUT_AH_V1 = 4
-LTK_DEFAULT_FLAGS = LTK_OPT_OUT_AH_V1
+# Respect the current LTK verification defaults. Do not disable or downgrade
+# upstream skin/content verification from PSM. If LTK rejects an overlay, PSM
+# must surface that verdict and stop instead of reporting a false success.
+LTK_DEFAULT_FLAGS = 0
 
 # The game should appear immediately after FINALIZATION, but keep this generous
 # enough for slow Riot/League startup without turning a wedged host into a hang.
