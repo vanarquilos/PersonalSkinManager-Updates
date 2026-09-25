@@ -268,8 +268,7 @@ class OverlayManager:
                 # Hide overlay files so they can't be easily browsed
                 self._hide_directory(overlay_dir)
 
-                # DON'T resume game yet - keep it frozen until runoverlay starts
-                log_event(log, "mkoverlay done - keeping game frozen until runoverlay starts", "❄️")
+                log_event(log, "mkoverlay done - overlay ready for patcher backend", "⚡")
                 
         except subprocess.TimeoutExpired:
             log.error("[INJECT] mkoverlay timeout - monitor will auto-resume if needed")
@@ -294,14 +293,36 @@ class OverlayManager:
             self._report_low_disk_space_failure(output_lines + error_lines, mod_names)
             return 1
 
-        # Run overlay
+        # Run overlay. Patch 26.19 live QA showed that the legacy CSLOL
+        # runoverlay path can stop at "Found League" without ever reaching its
+        # patch/wait-exit states. Prefer League Toolkit's current patcher-host
+        # runtime when the user has supplied the official host+DLL pair.
+        ltk_host = tools.get("ltk_host")
+        ltk_dll = tools.get("ltk_dll")
+        if ltk_host and ltk_dll and ltk_host.is_file() and ltk_dll.is_file():
+            from .ltk_host import run_ltk_patcher_host
+            log.info("[INJECT] Using LTK patcher-host compatibility backend")
+            result = run_ltk_patcher_host(
+                self.tools_dir,
+                overlay_dir,
+                stop_callback=stop_callback,
+                process_manager=self.process_manager,
+                injection_manager=injection_manager,
+            )
+            self._wipe_overlay_dir(overlay_dir)
+            return result
+
+        log.warning(
+            "[INJECT] LTK patcher-host runtime not found; falling back to "
+            "legacy CSLOL runoverlay"
+        )
         cfg = overlay_dir / "cslol-config.json"
         cmd = [
             str(exe), "runoverlay", str(overlay_dir), str(cfg),
             f"--game:{gpath}", "--opts:configless"
         ]
         
-        log.debug(f"[INJECT] Running overlay")
+        log.debug(f"[INJECT] Running legacy CSLOL overlay")
         
         try:
             # Hide console window on Windows
