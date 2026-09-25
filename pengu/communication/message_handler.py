@@ -20,6 +20,7 @@ from urllib.parse import quote
 
 from config import get_config_float, get_config_option, set_config_option
 from injection.mods.storage import ModStorageService
+from utils.download.community_catalog import CommunityCatalogService
 from utils.core.paths import get_user_data_dir, get_asset_path, get_injection_dir, open_folder_in_explorer
 from utils.core.issue_reporter import clear_issues, read_issues_tail
 from utils.core.junction import is_junction, safe_remove_entry, link_or_extract
@@ -127,6 +128,10 @@ class MessageHandler:
         self.port = port
         self.mod_storage = mod_storage or ModStorageService()
         self.injection_manager = injection_manager
+        self.community_catalog = CommunityCatalogService(self.mod_storage)
+        # Metadata refresh is background-only; opening the Custom Wheel never
+        # waits on network I/O. Packages themselves remain strictly on-demand.
+        self.community_catalog.refresh_async()
 
     def _is_valid_local_league_path(self, game_path: str) -> bool:
         """Validate a League install path without touching UNC/network paths."""
@@ -872,8 +877,22 @@ class MessageHandler:
                     "relativePath": str(relative_path).replace("\\", "/"),
                     "thumbnailRelativePath": thumbnail_relative_path,
                     "thumbnailUrl": thumbnail_url,
+                    "source": "local",
+                    "installed": True,
                 }
             )
+
+        # Add remote catalog choices without downloading them. Clicking one
+        # downloads + hash-verifies + imports it through the same storage path.
+        try:
+            mods_payload.extend(
+                self.community_catalog.list_for_skin(
+                    int(champion_id),
+                    compatible_skin_ids,
+                )
+            )
+        except Exception as exc:
+            log.debug("[CATALOG] Could not list community entries: %s", exc)
 
         # Get historic custom mod path for this champion if available
         historic_mod_path = None
@@ -996,6 +1015,9 @@ class MessageHandler:
         }
         if error:
             result["error"] = error
+        if payload.get("_catalogId"):
+            result["catalogId"] = payload.get("_catalogId")
+            result["catalogInstalled"] = bool(success and operation == "select")
         if selected_mod is not None:
             try:
                 relative_path = selected_mod.path.relative_to(self.mod_storage.mods_root)
@@ -1295,6 +1317,34 @@ class MessageHandler:
 
         selected_mod = None
         try:
+            # Catalog entries are represented as catalog:<id>. Install only
+            # after the user clicks one, then continue through the existing
+            # local-mod selection pipeline.
+            if isinstance(mod_id, str) and mod_id.startswith("catalog:"):
+                catalog_id = mod_id.split(":", 1)[1].strip()
+                if not catalog_id:
+                    raise ValueError("Catalog entry ID is missing")
+                log.info(
+                    "[CATALOG] One-click install requested: %s (champion=%s skin=%s)",
+                    catalog_id,
+                    champion_id,
+                    skin_id,
+                )
+                installed_entry = self.community_catalog.ensure_installed(
+                    catalog_id,
+                    champion_id,
+                    skin_id,
+                )
+                relative_path = installed_entry.path.relative_to(
+                    self.mod_storage.mods_root
+                ).as_posix()
+                mod_id = relative_path
+                payload = {
+                    **payload,
+                    "modId": relative_path,
+                    "_catalogId": catalog_id,
+                }
+
             # Find the mod in storage (search all skins for this champion)
             if not champion_id:
                 from utils.core.utilities import get_champion_id_from_skin_id
