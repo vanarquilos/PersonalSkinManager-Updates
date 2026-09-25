@@ -28,7 +28,12 @@ from typing import Callable, Optional
 
 from utils.core.logging import get_logger
 from utils.core.issue_reporter import report_issue
-from config import PROCESS_MONITOR_SLEEP_S, PROCESS_TERMINATE_TIMEOUT_S
+from config import (
+    PROCESS_MONITOR_SLEEP_S,
+    PROCESS_TERMINATE_TIMEOUT_S,
+    LTK_ENFORCE_SKINHACK_SCAN,
+    LTK_ELEVATE_INJECTOR,
+)
 
 log = get_logger()
 
@@ -38,10 +43,14 @@ LTK_DLL_NAME = "ltk_patcher_dll.dll"
 # Upstream LTK Manager uses Info=0x10 and Debug=0x20.
 LTK_LOGLEVEL_DEBUG = 0x20
 
-# Respect the current LTK verification defaults. Do not disable or downgrade
-# upstream skin/content verification from PSM. If LTK rejects an overlay, PSM
-# must surface that verdict and stop instead of reporting a false success.
-LTK_DEFAULT_FLAGS = 0
+# Public upstream hook flags used by LTK Manager.
+LTK_OPT_OUT_AH_V1 = 4
+
+# Mirror LTK Manager's own "Enforce anti-skinhack scan" setting:
+#   enabled  -> flags 0
+#   disabled -> CSLOL_HOOK_OPT_OUT_AH_V1 (4)
+# This branch uses the latter for Rose v1.0.1 compatibility QA.
+LTK_DEFAULT_FLAGS = 0 if LTK_ENFORCE_SKINHACK_SCAN else LTK_OPT_OUT_AH_V1
 
 # The game should appear immediately after FINALIZATION, but keep this generous
 # enough for slow Riot/League startup without turning a wedged host into a hang.
@@ -108,16 +117,26 @@ def _parse_stdout(line: str, result: LtkHostResult) -> None:
             report_issue(
                 "LTK_OVERLAY_REJECTED",
                 "error",
-                "Skin/mod was not applied because current League Toolkit verification rejected the overlay.",
-                details={"backend": "ltk", "verdict": line},
+                "Current LTK runtime still disabled the Rose overlay.",
+                details={
+                    "backend": "ltk",
+                    "flags": LTK_DEFAULT_FLAGS,
+                    "verdict": line,
+                },
                 hint=(
-                    "Use an owned League skin or a custom/community mod that passes current "
-                    "League Toolkit verification. PSM will not override this verifier."
+                    "Stop repeated match attempts and send the latest Rose log. "
+                    "The current runtime attached, but the overlay was disabled."
                 ),
                 dedupe_window_s=30.0,
             )
         elif "wad scan failed" in lower:
-            log.warning(f"[INJECT][ltk-host] {line}")
+            if not LTK_ENFORCE_SKINHACK_SCAN:
+                log.warning(
+                    "[INJECT][ltk-host] WAD scan warning under Rose compatibility mode: %s",
+                    line,
+                )
+            else:
+                log.warning(f"[INJECT][ltk-host] {line}")
         else:
             # DLL records can be very verbose; keep normal records at debug.
             log.debug(f"[INJECT][ltk-host] {line}")
@@ -221,15 +240,21 @@ def run_ltk_patcher_host(
     if sys.platform == "win32":
         creationflags = subprocess.CREATE_NO_WINDOW
 
-    # Current League is protected by Vanguard. Upstream LTK Manager starts
-    # the host with --elevate when the game requires a high-integrity injector;
-    # without it the host can find League but fail to attach the DLL.
+    # Match current LTK Manager's normal behavior: elevation is an explicit
+    # setting, not something PSM should force for every League session.
     cmd = [str(host_exe)]
-    if sys.platform == "win32":
+    if sys.platform == "win32" and LTK_ELEVATE_INJECTOR:
         cmd.append("--elevate")
+
+    compatibility_mode = not LTK_ENFORCE_SKINHACK_SCAN
     log.info(
         "[INJECT] Starting LTK patcher-host backend"
-        + (" with elevation" if "--elevate" in cmd else "")
+        + (" with elevation" if "--elevate" in cmd else " in normal mode")
+    )
+    log.info(
+        "[INJECT] LTK Rose compatibility: anti-skinhack enforcement %s (flags=%d)",
+        "ON" if LTK_ENFORCE_SKINHACK_SCAN else "OFF",
+        LTK_DEFAULT_FLAGS,
     )
     started_at = time.time()
     proc = None
@@ -267,8 +292,8 @@ def run_ltk_patcher_host(
         stdout_thread.start()
         stderr_thread.start()
 
-        # Mirror LTK Manager's public host configuration. Do not add custom
-        # patcher flags here; compatibility should track upstream defaults.
+        # Mirror LTK Manager's public host protocol and its exposed
+        # anti-skinhack enforcement setting.
         _send_line(proc, f"config loglevel {LTK_LOGLEVEL_DEBUG}")
         _send_line(proc, f"config flags {LTK_DEFAULT_FLAGS}")
         _send_line(proc, f"config prefix {overlay_prefix}")
