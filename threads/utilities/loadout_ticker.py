@@ -11,7 +11,8 @@ from state import SharedState
 from utils.core.logging import get_logger
 from config import (
     TIMER_HZ_MIN, TIMER_HZ_MAX, TIMER_POLL_PERIOD_S,
-    SKIN_THRESHOLD_MS_DEFAULT,
+    SKIN_THRESHOLD_MS_DEFAULT, COMPAT_RUNOVERLAY_LEAD_MS,
+    ENABLE_GAME_SUSPENSION,
 )
 
 from ..handlers.injection_trigger import InjectionTrigger
@@ -111,8 +112,18 @@ class LoadoutTicker(threading.Thread):
                     except Exception as e:
                         log.debug(f"[loadout] countdown notification failed: {e}")
             
-            # Write last hovered skin at T<=threshold
-            thresh = int(getattr(self.state, 'skin_write_ms', SKIN_THRESHOLD_MS_DEFAULT) or SKIN_THRESHOLD_MS_DEFAULT)
+            # Write the selected skin late enough to honor the user's final choice,
+            # but, in 26.19 compatibility mode, give legacy runoverlay enough
+            # lead time to build/arm before League begins loading game assets.
+            user_thresh = int(getattr(self.state, 'skin_write_ms', SKIN_THRESHOLD_MS_DEFAULT) or SKIN_THRESHOLD_MS_DEFAULT)
+            thresh = user_thresh
+            if not ENABLE_GAME_SUSPENSION:
+                thresh = max(user_thresh, COMPAT_RUNOVERLAY_LEAD_MS)
+                if last_bucket is not None and remain_ms <= thresh and not self.state.last_hover_written:
+                    log.info(
+                        f"[INJECT] Compatibility lead active: starting injection at T-{remain_ms}ms "
+                        f"(user threshold {user_thresh}ms, floor {COMPAT_RUNOVERLAY_LEAD_MS}ms)"
+                    )
             if remain_ms <= thresh and not self.state.last_hover_written:
                 # Build skin label
                 final_label = self.skin_name_resolver.build_skin_label()
