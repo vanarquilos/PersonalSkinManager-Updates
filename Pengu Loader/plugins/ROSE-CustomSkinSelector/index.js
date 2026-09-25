@@ -763,6 +763,11 @@
       selectedModSkinId = Number(detail.skinId || getCurrentSkinContext().skinId);
     }
 
+    if (detail.catalogInstalled) {
+      // Swap the one-click cloud entry for its verified local cached entry.
+      lastSkinModsRequestAt = 0;
+      requestModsForCurrentSkin();
+    }
     scanSkinSelection();
   }
 
