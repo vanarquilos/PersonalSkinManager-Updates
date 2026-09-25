@@ -28,6 +28,7 @@ _ALLOWED_CODES = {
     'BASE_SKIN_FORCE_SLOW',   # Suggest increasing Injection Threshold
     'BASE_SKIN_VERIFY_FAILED',  # Base skin verification mismatch (often causes skin not to show)
     'LOW_DISK_SPACE',         # Injection could not build an overlay with available disk space
+    'LTK_OVERLAY_REJECTED',   # Current LTK verification rejected the requested overlay
 }
 
 
