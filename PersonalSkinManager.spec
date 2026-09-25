@@ -26,6 +26,13 @@ if Path('assets').exists() and Path('assets').is_dir():
 else:
     print("[WARNING] Assets directory not found")
 
+# Bundled community catalog metadata. Packages are never bundled; only the
+# lightweight manifest is included so the UI has a safe offline fallback.
+if Path('catalog/community-mods.json').exists():
+    datas += [('catalog/community-mods.json', 'catalog')]
+else:
+    print("[WARNING] catalog/community-mods.json not found")
+
 # Icons have been moved to assets folder, no separate icons directory needed
 
 # Injection tools - separate binaries (.exe, .dll) from data files (.bat)
@@ -230,6 +237,7 @@ hiddenimports = [
     'utils.download',
     'utils.download.repo_downloader',
     'utils.download.skin_downloader',
+    'utils.download.community_catalog',
     'utils.download.smart_skin_downloader',
     'utils.download.hashes_downloader',
     'utils.download.hash_updater',
