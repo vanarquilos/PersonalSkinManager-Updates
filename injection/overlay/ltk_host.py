@@ -37,8 +37,13 @@ LTK_DLL_NAME = "ltk_patcher_dll.dll"
 # Upstream LTK Manager uses Info=0x10 and Debug=0x20.
 LTK_LOGLEVEL_DEBUG = 0x20
 
-# Keep the upstream default behavior. PSM does not expose patcher-control flags.
-LTK_DEFAULT_FLAGS = 0
+# LTK's anti-skinhack scan blocks the exact class of official-skin overlays PSM
+# intentionally manages. Upstream LTK exposes a supported opt-out setting
+# (CSLOL_HOOK_OPT_OUT_AH_V1 = 4) that downgrades this scan from blocking to
+# warning while keeping the filesystem overlay and normal hook path enabled.
+# This does not disable Vanguard or bypass Riot's process protection.
+LTK_OPT_OUT_AH_V1 = 4
+LTK_DEFAULT_FLAGS = LTK_OPT_OUT_AH_V1
 
 # The game should appear immediately after FINALIZATION, but keep this generous
 # enough for slow Riot/League startup without turning a wedged host into a hang.
@@ -95,8 +100,18 @@ def _parse_stdout(line: str, result: LtkHostResult) -> None:
 
     if keyword == "dll":
         result.dll_lines += 1
-        # DLL records can be very verbose; keep them at debug level.
-        log.debug(f"[INJECT][ltk-host] {line}")
+        # Surface overlay-disable verdicts at error level. The host can stay in
+        # "waiting" even after the DLL disables the overlay, so treating attach
+        # alone as success would produce a false-positive "INJECTION COMPLETED".
+        lower = line.lower()
+        if "overlay verification failed, disabling overlay" in lower:
+            result.failure = line
+            log.error(f"[INJECT][ltk-host] {line}")
+        elif "wad scan failed" in lower:
+            log.warning(f"[INJECT][ltk-host] {line}")
+        else:
+            # DLL records can be very verbose; keep normal records at debug.
+            log.debug(f"[INJECT][ltk-host] {line}")
         return
 
     if keyword == "error":
