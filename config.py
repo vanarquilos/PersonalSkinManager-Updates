@@ -180,6 +180,17 @@ ENABLE_MKOVERLAY_PRIORITY_BOOST = True   # Boost short-lived mkoverlay process p
 ENABLE_RUNOVERLAY_PRIORITY_BOOST = False  # Runoverlay runs for the entire game session; boosting its priority would compete with the game for CPU and cause perf decrease
 ENABLE_GAME_SUSPENSION = False           # Compatibility default: do not suspend League; legacy CSLOL works without PSM process suspension
 
+# Patch 26.19 / Rose v1.0.1 compatibility.
+# LTK Manager exposes "Enforce anti-skinhack scan" as a user setting. When that
+# setting is off, upstream sends CSLOL_HOOK_OPT_OUT_AH_V1 (flag 4) to its host.
+# PSM mirrors that public setting in this experimental branch so the original
+# Rose official-skin overlay flow can be live-QA'd against the current runtime.
+LTK_ENFORCE_SKINHACK_SCAN = False
+
+# Keep the host in normal integrity mode by default. Live QA already confirmed
+# that the current host attaches successfully without PSM forcing elevation.
+LTK_ELEVATE_INJECTOR = False
+
 
 # =============================================================================
 # RATE LIMITING CONSTANTS (GitHub API)
