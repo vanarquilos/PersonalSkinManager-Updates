@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import hashlib
 import ipaddress
 import json
+import re
 import threading
 import time
 from pathlib import Path
@@ -130,6 +131,11 @@ class CommunityCatalogService:
             champion_id = int(raw["championId"])
             name = str(raw["name"]).strip()
         except (KeyError, TypeError, ValueError):
+            return None
+
+        # IDs become cache filenames and protocol identifiers. Keep them
+        # deliberately boring so catalog metadata can never create paths.
+        if not re.fullmatch(r"[A-Za-z0-9._-]{1,128}", entry_id):
             return None
 
         package_url = cls._safe_https_url(raw.get("packageUrl"))
@@ -345,13 +351,9 @@ class CommunityCatalogService:
             ) as response:
                 response.raise_for_status()
                 content_length = response.headers.get("Content-Length")
-                if content_length:
-                    try:
-                        if int(content_length) > MAX_PACKAGE_BYTES:
-                            raise ValueError("catalog package is larger than the safety limit")
-                    except ValueError:
-                        if str(content_length).isdigit():
-                            raise
+                if content_length and str(content_length).isdigit():
+                    if int(content_length) > MAX_PACKAGE_BYTES:
+                        raise ValueError("catalog package is larger than the safety limit")
                 with part.open("wb") as handle:
                     for chunk in response.iter_content(chunk_size=1024 * 1024):
                         if not chunk:
@@ -435,10 +437,14 @@ class CommunityCatalogService:
             old_relative = str(previous.get("relativePath") or "").replace("\\", "/").strip("/")
             new_relative = installed.path.relative_to(self.mod_storage.mods_root).as_posix()
             if old_relative and old_relative.casefold() != new_relative.casefold():
-                old_path = self.mod_storage.mods_root / Path(old_relative)
                 try:
-                    if old_path.exists():
+                    old_path = (self.mod_storage.mods_root / Path(old_relative)).resolve()
+                    mods_root = self.mod_storage.mods_root.resolve()
+                    old_path.relative_to(mods_root)
+                    if old_path.exists() and old_path != mods_root:
                         safe_remove_entry(old_path)
+                except (OSError, ValueError) as exc:
+                    log.debug("[CATALOG] Ignored unsafe replaced-install path: %s", exc)
                 except Exception as exc:
                     log.debug("[CATALOG] Could not remove replaced catalog install: %s", exc)
 
