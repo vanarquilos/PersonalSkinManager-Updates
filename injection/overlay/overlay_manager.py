@@ -310,8 +310,61 @@ class OverlayManager:
             if sys.platform == "win32":
                 creationflags = subprocess.CREATE_NO_WINDOW
             
-            # Don't capture stdout to avoid pipe buffer deadlock - send to devnull instead
-            proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=creationflags)
+            # Keep the patcher's status/error stream. Older PSM builds sent both
+            # streams to DEVNULL, which hid the exact reason a post-patch game
+            # launch failed. Dedicated readers avoid pipe-buffer deadlocks while
+            # preserving the upstream CSLOL lifecycle in the normal log.
+            runoverlay_output = []
+            runoverlay_errors = []
+            runoverlay_started_at = time.time()
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                creationflags=creationflags,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
+            )
+
+            def read_runoverlay(pipe, lines_list, stream_name):
+                try:
+                    for raw_line in pipe:
+                        line = raw_line.strip()
+                        if not line:
+                            continue
+                        lines_list.append(line)
+                        if line.startswith("Status:"):
+                            status = line.partition(":")[2].strip()
+                            elapsed = time.time() - runoverlay_started_at
+                            log.info(f"[INJECT][runoverlay] {line} (+{elapsed:.2f}s)")
+                            if self.last_injection_timing is not None:
+                                self.last_injection_timing["runoverlay_status"] = status
+                                self.last_injection_timing["runoverlay_status_elapsed_s"] = round(elapsed, 3)
+                        elif line.startswith("[DLL]"):
+                            log.debug(f"[INJECT][runoverlay] {line}")
+                        elif stream_name == "stderr":
+                            log.warning(f"[INJECT][runoverlay][stderr] {line}")
+                        else:
+                            log.debug(f"[INJECT][runoverlay] {line}")
+                except Exception as stream_error:
+                    log.debug(f"[INJECT] Error reading runoverlay {stream_name}: {stream_error}")
+
+            stdout_thread = threading.Thread(
+                target=read_runoverlay,
+                args=(proc.stdout, runoverlay_output, "stdout"),
+                daemon=True,
+                name="RunOverlayStdout",
+            )
+            stderr_thread = threading.Thread(
+                target=read_runoverlay,
+                args=(proc.stderr, runoverlay_errors, "stderr"),
+                daemon=True,
+                name="RunOverlayStderr",
+            )
+            stdout_thread.start()
+            stderr_thread.start()
             
             # Boost process priority to maximize CPU contention if enabled
             if ENABLE_RUNOVERLAY_PRIORITY_BOOST and PSUTIL_AVAILABLE:
@@ -325,9 +378,11 @@ class OverlayManager:
             if self.process_manager:
                 self.process_manager.current_overlay_process = proc
             
-            # Resume game NOW - runoverlay started, game can load while runoverlay hooks in
+            # In compatibility mode the game is never suspended. If a developer
+            # explicitly re-enables the legacy suspension path, release it as soon
+            # as runoverlay is alive so the upstream hook can execute normally.
             if injection_manager:
-                log.info("[INJECT] runoverlay started - resuming game")
+                log.info("[INJECT] runoverlay process started; releasing game monitor if needed")
                 injection_manager.resume_game()
             
             # Monitor process with stop callback
@@ -342,6 +397,8 @@ class OverlayManager:
                     except subprocess.TimeoutExpired:
                         proc.kill()
                         proc.wait()
+                    stdout_thread.join(timeout=1.0)
+                    stderr_thread.join(timeout=1.0)
                     if self.process_manager:
                         self.process_manager.current_overlay_process = None
                     self._wipe_overlay_dir(overlay_dir)
@@ -349,20 +406,33 @@ class OverlayManager:
 
                 time.sleep(PROCESS_MONITOR_SLEEP_S)
 
-            # Process completed normally (no stdout captured)
+            stdout_thread.join(timeout=1.0)
+            stderr_thread.join(timeout=1.0)
             self.current_overlay_process = None
             self._wipe_overlay_dir(overlay_dir)
             if proc.returncode != 0:
+                # Never leave a game suspended after a patcher failure.
+                if injection_manager:
+                    injection_manager.resume_if_suspended()
                 self._report_low_disk_space_failure(
+                    runoverlay_output + runoverlay_errors,
                     mod_names=mod_names,
                     result_code=proc.returncode,
                 )
+                tail = (runoverlay_output + runoverlay_errors)[-12:]
+                if tail:
+                    log.error(f"[INJECT] runoverlay failure tail: {' | '.join(tail)}")
                 log.error(f"[INJECT] runoverlay failed with return code: {proc.returncode}")
                 return proc.returncode
             else:
                 log.debug(f"[INJECT] runoverlay completed successfully")
                 return 0
         except Exception as e:
+            if injection_manager:
+                try:
+                    injection_manager.resume_if_suspended()
+                except Exception as resume_error:
+                    log.debug(f"[INJECT] Could not release suspended game after runoverlay error: {resume_error}")
             log.error(f"[INJECT] runoverlay error: {e}")
             return 1
     
