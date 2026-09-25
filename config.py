@@ -164,8 +164,7 @@ TIMER_POLL_PERIOD_S = 0.2                   # Seconds between LCU resync checks
 FALLBACK_LOADOUT_MS_DEFAULT = 0             # Fallback countdown duration (ms)
 
 # Skin injection timing
-SKIN_THRESHOLD_MS_DEFAULT = 300             # User-facing skin write threshold (ms)
-COMPAT_RUNOVERLAY_LEAD_MS = 5000            # When game suspension is disabled, start injection early enough for runoverlay to arm before game load
+SKIN_THRESHOLD_MS_DEFAULT = 300             # Time before loadout ends to write skin (ms)
 BASE_SKIN_VERIFICATION_WAIT_S = 0.15        # Seconds to wait for LCU to process base skin change
 PERSISTENT_MONITOR_START_SECONDS = 1        # Seconds remaining when persistent game monitor starts
 PERSISTENT_MONITOR_CHECK_INTERVAL_S = 0.05  # Seconds between game process checks
