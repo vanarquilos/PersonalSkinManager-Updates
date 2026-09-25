@@ -30,6 +30,7 @@ from config import (
     PERSISTENT_MONITOR_IDLE_INTERVAL_S,
     GAME_RESUME_MAX_ATTEMPTS,
     GAME_RESUME_VERIFICATION_WAIT_S,
+    ENABLE_GAME_SUSPENSION,
     get_config_float
 )
 from utils.core.logging import get_logger, log_section, log_event, log_success
@@ -54,13 +55,22 @@ class GameMonitor:
         self._get_auto_resume_timeout = get_auto_resume_timeout_callback
     
     def start(self):
-        """Start game monitor - watches for game and suspends it"""
-        # Stop any existing monitor first
+        """Start the optional game-suspension monitor."""
+        # Stop any existing monitor first and always clear stale state.
         self.stop()
+        self._suspended_game_process = None
+        self._runoverlay_started = False
+
+        # Patch 26.19 compatibility: upstream CSLOL does not require PSM to suspend
+        # League of Legends.exe. Process suspension can interfere with newer game /
+        # Vanguard startup behavior, so the compatibility default leaves the game
+        # running and lets runoverlay perform its own normal scan/hook lifecycle.
+        if not ENABLE_GAME_SUSPENSION:
+            self._monitor_active = False
+            log.info("[monitor] Game suspension disabled - using compatibility-safe runoverlay flow")
+            return
         
         self._monitor_active = True
-        self._suspended_game_process = None
-        self._runoverlay_started = False  # Reset flag when starting new monitor
         
         def game_monitor():
             """Monitor for game process and suspend immediately when found"""
