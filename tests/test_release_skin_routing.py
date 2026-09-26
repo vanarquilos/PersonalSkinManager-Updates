@@ -14,13 +14,15 @@ class ReleaseSkinRoutingTests(unittest.TestCase):
     def setUpClass(cls):
         cls.source = TRIGGER.read_text(encoding="utf-8")
 
-    def test_owned_riot_skins_use_lcu_without_overlay(self):
-        self.assertIn("Owned Riot skin/chroma selected via LCU;", self.source)
-        self.assertIn("no overlay required", self.source)
+    def test_owned_riot_skins_follow_rose_lcu_and_injection_path(self):
+        self.assertIn("Force owned skins/chromas via LCU", self.source)
+        self.assertIn("self._force_owned_skin(effective_skin_id)", self.source)
+        self.assertIn("self.injection_manager.inject_skin_immediately(", self.source)
+        self.assertNotIn("no overlay required", self.source)
 
     def test_unowned_official_skin_routes_through_overlay_runtime(self):
         self.assertIn(
-            'Route an unowned official skin/chroma through the current Rose-style overlay flow.',
+            "Inject if user doesn't own the hovered skin",
             self.source,
         )
         self.assertIn("inject_skin_immediately(", self.source)
@@ -41,11 +43,12 @@ class ReleaseSkinRoutingTests(unittest.TestCase):
             self.source,
         )
 
-    def test_runtime_verification_stays_enabled(self):
+    def test_runtime_uses_rose_compatible_patcher_flags(self):
         ltk_source = (
             ROOT / "injection/overlay/ltk_host.py"
         ).read_text(encoding="utf-8")
-        self.assertIn("LTK_DEFAULT_FLAGS = 0", ltk_source)
+        self.assertIn("LTK_PATCHER_FLAGS = 4", ltk_source)
+        self.assertIn("LTK_PATCHER_LOG_LEVEL = 0x10", ltk_source)
 
 
 if __name__ == "__main__":
