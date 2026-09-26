@@ -25,6 +25,27 @@ if sys.version_info < MIN_PYTHON:
 
 
 
+REQUIRED_RUNTIME_FILES = (
+    ROOT / "injection/tools/mod-tools.exe",
+    ROOT / "injection/tools/ltk_patcher_host.exe",
+    ROOT / "injection/tools/ltk_patcher_dll.dll",
+)
+
+
+def verify_release_runtime_inputs():
+    """Fail closed unless the complete all-in-one v1.0.2 runtime is present."""
+    missing = [path for path in REQUIRED_RUNTIME_FILES if not path.is_file()]
+    if missing:
+        print("[ERROR] Required release runtime file(s) are missing:")
+        for path in missing:
+            print(f"  - {path.relative_to(ROOT)}")
+        print("[INFO] Restore the trusted local release binaries before building.")
+        return False
+
+    print("[OK] All-in-one v1.0.2 runtime inputs present")
+    return True
+
+
 def verify_sanitized_build_inputs():
     """Fail closed if retired Rose services/runtime surfaces can enter the build."""
     forbidden_paths = [
@@ -158,6 +179,9 @@ def main():
     if not verify_sanitized_build_inputs():
         sys.exit(1)
 
+    if not verify_release_runtime_inputs():
+        sys.exit(1)
+
     if not clean_previous_builds():
         sys.exit(1)
 
@@ -188,7 +212,8 @@ def main():
         print(f"\nYour application is ready!")
         print(f"\nMode: STANDALONE (folder with all dependencies)")
         print(f"  - Bundled application dependencies included")
-        print(f"  - mod-tools included; cslol-dll.dll supplied separately")
+        print(f"  - mod-tools + current LTK patcher runtime included")
+        print(f"  - no manual DLL setup required")
 
         print(f"\nProtection:")
         print(f"  - Python bytecode (not raw source)")
