@@ -44,6 +44,9 @@ jobs:
 
           blocked_exact = {
               "cslol-dll.dll",
+              "mod-tools.exe",
+              "ltk_patcher_host.exe",
+              "ltk_patcher_dll.dll",
               ".env",
               "license.dat",
               "config.ini",
