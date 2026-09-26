@@ -31,7 +31,7 @@ For code changes:
 
 Do not claim a check passed unless you actually ran it.
 
-Every pull request also runs lightweight public-source checks for Python compilation, tracked-secret/local-file hygiene, generated-output boundaries, and stable-manifest structure. These automated checks do not replace Windows/runtime QA when the behavior being changed requires it.
+Maintainers can run the manual `Public source checks` workflow for Python compilation, tracked-secret/local-file hygiene, generated-output boundaries, stable-manifest structure, and release-source tests. PSM remains local-first, so this workflow is not triggered automatically for every pull request. These checks do not replace Windows/runtime QA when the behavior being changed requires it.
 
 ## Project boundaries
 
