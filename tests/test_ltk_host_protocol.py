@@ -2,12 +2,14 @@
 import unittest
 from unittest.mock import patch
 
-from injection.overlay.ltk_host import LTK_DEFAULT_FLAGS, LtkHostResult, _parse_stdout
+from injection.overlay.ltk_host import (\n    LTK_DEFAULT_FLAGS,\n    LTK_PATCHER_FLAGS,\n    LTK_PATCHER_LOG_LEVEL,\n    LtkHostResult,\n    _parse_stdout,\n)
 
 
 class LtkHostProtocolTests(unittest.TestCase):
-    def test_release_runtime_keeps_verification_enabled(self):
-        self.assertEqual(LTK_DEFAULT_FLAGS, 0)
+    def test_runtime_matches_rose_patcher_configuration(self):
+        self.assertEqual(LTK_PATCHER_FLAGS, 4)
+        self.assertEqual(LTK_DEFAULT_FLAGS, 4)
+        self.assertEqual(LTK_PATCHER_LOG_LEVEL, 0x10)
 
     def test_late_join_is_a_hard_failure(self):
         result = LtkHostResult()
@@ -56,12 +58,15 @@ class LtkHostProtocolTests(unittest.TestCase):
             )
         self.assertIsNotNone(result.failure)
 
-    def test_injected_and_waiting_confirm_attach(self):
+    def test_waiting_is_not_a_false_attach_confirmation(self):
         result = LtkHostResult()
-        _parse_stdout("status 1.0 injected dll attached", result)
+        _parse_stdout("status 1.0 waiting scanning for game", result)
+        self.assertFalse(result.attached)
+        _parse_stdout("status 1.1 injected dll attached", result)
         self.assertTrue(result.attached)
-        _parse_stdout("status 1.1 waiting awaiting game exit", result)
+        _parse_stdout("status 1.2 waiting awaiting game exit", result)
         self.assertEqual(result.last_state, "waiting")
+        self.assertTrue(result.attached)
 
 
 if __name__ == "__main__":
