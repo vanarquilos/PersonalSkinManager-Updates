@@ -18,6 +18,25 @@ class LtkHostProtocolTests(unittest.TestCase):
         self.assertIsNotNone(result.failure)
         self.assertIn("started before", result.failure)
 
+    def test_end_of_life_is_a_hard_failure(self):
+        result = LtkHostResult()
+        _parse_stdout(
+            "dll 1.20 1234 5678 ERROR ltk_patcher_dll::entry: "
+            "end of life reached, please update: 2026-09-30",
+            result,
+        )
+        self.assertIsNotNone(result.failure)
+        self.assertIn("end-of-life", result.failure)
+
+    def test_exited_status_is_not_terminal_for_reconnects(self):
+        result = LtkHostResult()
+        _parse_stdout("status 1.0 injected dll attached", result)
+        self.assertTrue(result.attached)
+        _parse_stdout("status 2.0 exited game process closed", result)
+        self.assertEqual(result.last_state, "exited")
+        self.assertTrue(result.attached)
+        self.assertIsNone(result.failure)
+
     def test_wad_scan_warning_waits_for_final_verdict(self):
         result = LtkHostResult()
         _parse_stdout(
