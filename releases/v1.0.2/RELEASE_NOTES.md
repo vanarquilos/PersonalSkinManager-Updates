@@ -16,7 +16,7 @@ PSM v1.0.2 updates the runtime used by Personal Skin Manager for the current Lea
 - All required runtime components are included in the installer, so no manual DLL setup is needed.
 
 ### QA
-The compatibility work was tested across repeated game sessions, multiple champions, runtime restarts, and Practice Tool. The final packaged v1.0.2 installer still requires a clean-install verification before publication.
+Final live Practice Tool QA confirmed the Rose-compatible runtime path end to end: pre-launch scanning, game hold/resume, overlay build, current WAD-header rebase, LTK DLL attachment, overlay verification, WAD redirection, in-game skin application, and clean teardown. The final packaged v1.0.2 installer still requires a clean-install verification before publication.
 
 Existing PSM user data and downloaded content are preserved when updating from v1.0.1.
 
