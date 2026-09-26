@@ -34,7 +34,6 @@ from utils.core.issue_reporter import report_issue
 from config import (
     PROCESS_MONITOR_SLEEP_S,
     PROCESS_TERMINATE_TIMEOUT_S,
-    LTK_ENFORCE_SKINHACK_SCAN,
     LTK_ELEVATE_INJECTOR,
 )
 
@@ -46,10 +45,8 @@ LTK_DLL_NAME = "ltk_patcher_dll.dll"
 # Upstream LTK Manager uses Info=0x10 and Debug=0x20.
 LTK_LOGLEVEL_DEBUG = 0x20
 
-# Public upstream hook flag used when LTK Manager's anti-skinhack enforcement
-# setting is disabled.
-LTK_OPT_OUT_AH_V1 = 4
-LTK_DEFAULT_FLAGS = 0 if LTK_ENFORCE_SKINHACK_SCAN else LTK_OPT_OUT_AH_V1
+# Release builds keep the current runtime's verification path enabled.
+LTK_DEFAULT_FLAGS = 0
 
 LTK_ATTACH_TIMEOUT_S = 30.0
 LATE_JOIN_MESSAGE = "joined too late"
@@ -155,13 +152,7 @@ def _parse_stdout(line: str, result: LtkHostResult) -> None:
             return
 
         if "wad scan failed" in lower:
-            if not LTK_ENFORCE_SKINHACK_SCAN:
-                log.warning(
-                    "[INJECT][ltk-host] WAD scan warning under Rose compatibility mode: %s",
-                    line,
-                )
-            else:
-                log.warning(f"[INJECT][ltk-host] {line}")
+            log.warning(f"[INJECT][ltk-host] {line}")
             return
 
         log.debug(f"[INJECT][ltk-host] {line}")
@@ -264,8 +255,7 @@ def start_ltk_patcher_host(
         + (" with elevation" if "--elevate" in cmd else " in normal mode")
     )
     log.info(
-        "[INJECT] LTK Rose compatibility: anti-skinhack enforcement %s (flags=%d)",
-        "ON" if LTK_ENFORCE_SKINHACK_SCAN else "OFF",
+        "[INJECT] LTK runtime verification enabled (flags=%d)",
         LTK_DEFAULT_FLAGS,
     )
 
