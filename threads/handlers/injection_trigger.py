@@ -693,23 +693,38 @@ class InjectionTrigger:
                     selected_mod_types.append("Other")
                 mod_types_str = "/".join(selected_mod_types) if selected_mod_types else "Map/Font/Announcer/Other"
                 
-                # Check if skin needs to be injected (if unowned, inject base skin ZIP along with map/font/announcer/other mods)
+                # Map/font/announcer/other mods do not need an unowned
+                # official Riot-skin carrier. If the hovered Riot skin is not
+                # owned, keep the client on the champion base skin and inject
+                # only the compatible custom content.
                 is_skin_owned = (
                     ui_skin_id is not None and (
                         is_default_skin(ui_skin_id)
                         or ui_skin_id in (owned_skin_ids or set())
                     )
                 )
-                base_skin_name_for_injection = None
-                if not is_skin_owned and ui_skin_id != 0:
-                    # Skin is unowned, need to inject base skin ZIP along with map/font/announcer/other mods
-                    base_skin_name_for_injection = name
-                    log.info(f"[INJECT] {mod_types_str} mod(s) selected + unowned skin {ui_skin_id}, injecting base skin ZIP + {mod_types_str.lower()} mod(s)")
+
+                if is_skin_owned:
+                    if effective_skin_id in (owned_skin_ids or set()):
+                        self._force_owned_skin(effective_skin_id)
+                    log.info(
+                        f"[INJECT] {mod_types_str} mod(s) selected; "
+                        "keeping the owned/default Riot skin and injecting custom content only"
+                    )
                 else:
-                    # Skin is owned - user can select it normally, just inject the mods
-                    log.info(f"[INJECT] {mod_types_str} mod(s) selected, injecting them (skin: {name})")
-                
-                self._inject_custom_mod(dummy_custom_mod, base_skin_name=base_skin_name_for_injection, champion_name=cname)
+                    champ_id = self.state.locked_champ_id or self.state.hovered_champ_id
+                    if champ_id:
+                        self._force_base_skin(int(champ_id) * 1000)
+                    log.info(
+                        f"[INJECT] {mod_types_str} mod(s) selected while an unowned "
+                        "Riot skin is hovered; using base skin and injecting custom content only"
+                    )
+
+                self._inject_custom_mod(
+                    dummy_custom_mod,
+                    base_skin_name=None,
+                    champion_name=cname,
+                )
                 return
             
             # Skip injection for base/default skins (only if no mods are selected and
@@ -726,31 +741,28 @@ class InjectionTrigger:
                     clear_historic_entry(int(champ_id))
                     log.info(f"[HISTORIC] Cleared historic entry for champion {champ_id} (default skin played)")
 
-            # Force owned skins/chromas via LCU
-            # Use effective_skin_id which includes the selected chroma if applicable
+            # Owned Riot skins/chromas use the legitimate LCU selection path.
+            # No overlay is needed when there are no custom mods selected, and
+            # avoiding an unnecessary overlay keeps the supported path isolated
+            # from runtime verifier decisions.
             elif effective_skin_id in owned_skin_ids:
                 self._force_owned_skin(effective_skin_id)
-                # Still run injection so overlay is built with our skin + friends' party skins
-                if self.injection_manager:
-                    self.injection_manager.inject_skin_immediately(
-                        name,
-                        champion_name=cname,
-                        champion_id=self.state.locked_champ_id or self.state.hovered_champ_id,
-                    )
+                log.info(
+                    "[INJECT] Owned Riot skin/chroma selected via LCU; "
+                    "no overlay required"
+                )
 
-            # Also check if base skin is owned but chroma is selected (for owned chromas)
+            # Base skin owned + owned chroma selected.
             elif ui_skin_id in owned_skin_ids and effective_skin_id != ui_skin_id:
-                # Base skin owned, chroma selected - force the chroma
                 self._force_owned_skin(effective_skin_id)
-                # Still run injection so overlay is built with our skin + friends' party skins
-                if self.injection_manager:
-                    self.injection_manager.inject_skin_immediately(
-                        name,
-                        champion_name=cname,
-                        champion_id=self.state.locked_champ_id or self.state.hovered_champ_id,
-                    )
+                log.info(
+                    "[INJECT] Owned Riot chroma selected via LCU; "
+                    "no overlay required"
+                )
 
-            # Inject if user doesn't own the hovered skin
+            # Unowned official Riot skins are not routed through the overlay
+            # backend in release builds. Current runtime verification must stay
+            # enabled; compatible custom mods continue through their own path.
             elif self.injection_manager:
                 self._inject_unowned_skin(name, cname)
         
