@@ -103,6 +103,7 @@ license.dat
 config.ini
 injection/tools/hashes.game.txt
 Pengu Loader/datastore
+Pengu Loader/config
 injection/tools/.hashes_state.json
 
 chroma_issue.txt
