@@ -54,23 +54,6 @@ class ZipResolver:
         if cand.exists():
             return cand
 
-        # Form selectors store archive paths relative to the local skins root,
-        # e.g. "Kaisa/Forms/Uzi Kaisa Form 2.zip". Resolve those paths only
-        # inside zips_dir so a UI-provided relative path cannot escape it.
-        if not cand.is_absolute() and cand.suffix.lower() in SKIN_EXTENSIONS:
-            try:
-                root = self.zips_dir.resolve(strict=False)
-                local_candidate = (root / cand).resolve(strict=False)
-                local_candidate.relative_to(root)
-                if local_candidate.exists() and local_candidate.is_file():
-                    log.debug(
-                        "[INJECT] Resolved local form/mod archive: %s",
-                        local_candidate,
-                    )
-                    return local_candidate
-            except (OSError, ValueError):
-                pass
-
         # Handle ID-based naming convention from random selection
         if zip_arg.startswith('skin_'):
             # Format: skin_{skin_id} - check if this is actually a chroma
