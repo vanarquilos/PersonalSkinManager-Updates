@@ -31,6 +31,11 @@ from typing import Callable, Optional
 
 from utils.core.logging import get_logger
 from utils.core.issue_reporter import report_issue
+from ..tools.patcher import (
+    LTK_PATCHER_DLL,
+    LTK_PATCHER_HOST,
+    check_ltk_patcher,
+)
 from config import (
     PROCESS_MONITOR_SLEEP_S,
     PROCESS_TERMINATE_TIMEOUT_S,
@@ -39,8 +44,8 @@ from config import (
 
 log = get_logger()
 
-LTK_HOST_NAME = "ltk_patcher_host.exe"
-LTK_DLL_NAME = "ltk_patcher_dll.dll"
+LTK_HOST_NAME = LTK_PATCHER_HOST
+LTK_DLL_NAME = LTK_PATCHER_DLL
 
 # Upstream LTK Manager uses Info=0x10 and Debug=0x20.
 LTK_LOGLEVEL_DEBUG = 0x20
@@ -50,6 +55,7 @@ LTK_DEFAULT_FLAGS = 0
 
 LTK_ATTACH_TIMEOUT_S = 30.0
 LATE_JOIN_MESSAGE = "joined too late"
+END_OF_LIFE_MESSAGE = "end of life reached"
 
 _SUCCESS_STATES = {"injected", "waiting"}
 _FAILURE_STATES = {"failed"}
@@ -135,6 +141,16 @@ def _parse_stdout(line: str, result: LtkHostResult) -> None:
     if keyword == "dll":
         result.dll_lines += 1
         lower = line.lower()
+
+        if END_OF_LIFE_MESSAGE in lower:
+            result.failure = (
+                "the current LTK patcher DLL reached its built-in end-of-life date"
+            )
+            log.error(
+                "[INJECT][ltk-host] LTK patcher DLL reached end of life; "
+                "update the runtime before retrying"
+            )
+            return
 
         if LATE_JOIN_MESSAGE in lower:
             result.failure = (
@@ -230,13 +246,38 @@ def start_ltk_patcher_host(
 ) -> Optional[LtkHostSession]:
     """Start/configure LTK and begin scanning before League is resumed."""
 
-    host_exe = tools_dir / LTK_HOST_NAME
-    hook_dll = tools_dir / LTK_DLL_NAME
+    patcher = check_ltk_patcher(tools_dir)
+    host_exe = patcher.host
+    hook_dll = patcher.dll
 
-    if not host_exe.is_file() or not hook_dll.is_file():
+    if patcher.missing:
         log.error(
-            "[INJECT][ltk-host] Missing LTK runtime pair. Expected "
-            f"{host_exe} and {hook_dll}"
+            "[INJECT][ltk-host] Missing LTK runtime file(s): %s",
+            ", ".join(patcher.missing),
+        )
+        report_issue(
+            "LTK_PATCHER_MISSING",
+            "error",
+            "Injection failed: required LTK runtime files are missing.",
+            details={"missing": patcher.missing, "tools_dir": str(tools_dir)},
+            hint="Restore the current PSM runtime files, then retry.",
+            dedupe_window_s=30.0,
+        )
+        return None
+
+    if patcher.expired:
+        eol_text = time.strftime("%Y-%m-%d %H:%M", time.localtime(patcher.eol))
+        log.error(
+            "[INJECT][ltk-host] LTK patcher DLL expired on %s",
+            eol_text,
+        )
+        report_issue(
+            "LTK_PATCHER_EOL",
+            "error",
+            "Injection failed: the bundled/current LTK runtime is out of date.",
+            details={"eol": patcher.eol, "eol_local": eol_text},
+            hint="Update PSM's LTK runtime before starting another match.",
+            dedupe_window_s=30.0,
         )
         return None
 
