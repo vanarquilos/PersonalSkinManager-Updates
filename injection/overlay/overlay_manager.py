@@ -272,18 +272,24 @@ class OverlayManager:
         # appears successful in the logs.
         ltk_host = tools.get("ltk_host")
         ltk_dll = tools.get("ltk_dll")
-        ltk_session = None
-        if ltk_host and ltk_dll and ltk_host.is_file() and ltk_dll.is_file():
-            from .ltk_host import start_ltk_patcher_host
-            log.info("[INJECT] Arming current LTK scanner before mkoverlay/game launch")
-            ltk_session = start_ltk_patcher_host(
-                self.tools_dir,
-                overlay_dir,
-                process_manager=self.process_manager,
-            )
-            if ltk_session is None:
-                log.error("[INJECT] Could not arm LTK scanner before game launch")
-                return 1
+        if not ltk_host or not ltk_dll or not ltk_host.is_file() or not ltk_dll.is_file():
+            log.error("[INJECT] Required LTK runtime pair is missing")
+            if injection_manager:
+                injection_manager.resume_if_suspended()
+            return 127
+
+        from .ltk_host import start_ltk_patcher_host
+        log.info("[INJECT] Arming current LTK scanner before mkoverlay/game launch")
+        ltk_session = start_ltk_patcher_host(
+            self.tools_dir,
+            overlay_dir,
+            process_manager=self.process_manager,
+        )
+        if ltk_session is None:
+            log.error("[INJECT] Could not arm LTK scanner before game launch")
+            if injection_manager:
+                injection_manager.resume_if_suspended()
+            return 1
 
         names_str = "/".join(mod_names)
         gpath = str(self.game_dir)
@@ -447,17 +453,16 @@ class OverlayManager:
             self._wipe_overlay_dir(overlay_dir)
             return result
 
-        log.error(
-            "[INJECT] Required LTK patcher-host runtime is unavailable; "
-            "v1.0.2 does not fall back to the retired legacy runoverlay path"
-        )
+        # ltk_session is required before mkoverlay starts. Reaching this point
+        # without it indicates an internal lifecycle error rather than a fallback.
+        log.error("[INJECT] Internal runtime lifecycle error: LTK session was not available")
         if injection_manager:
             try:
                 injection_manager.resume_if_suspended()
             except Exception as resume_error:
                 log.debug(f"[INJECT] Could not release suspended game: {resume_error}")
         self._wipe_overlay_dir(overlay_dir)
-        return 127
+        return 1
 
     @staticmethod
     def _wipe_overlay_dir(overlay_dir: Path):
