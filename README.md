@@ -152,7 +152,7 @@ This project does not add or improve:
 - security-control disabling
 - tampering with third-party enforcement controls
 
-Release builds keep current runtime verification enabled.
+PSM does not patch or replace League Toolkit's verification code. v1.0.2 uses the upstream Rose-compatible patcher-host mode required for Rose-style carrier overlays, while PSM's signed update/package verification remains enforced.
 
 See [SECURITY.md](SECURITY.md).
 
@@ -170,7 +170,7 @@ See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the `licenses/` directo
 
 ## Public source checks
 
-Pull requests and pushes to `main` validate:
+The repository keeps a manual `Public source checks` GitHub Actions workflow for release sanity checks. It validates:
 
 - Python compilation
 - release-source tests
@@ -178,7 +178,7 @@ Pull requests and pushes to `main` validate:
 - generated-output boundaries
 - stable manifest structure
 
-Windows runtime and installer QA are still required before publication.
+PSM development remains local-first; the workflow does not run automatically on every push or pull request. Windows runtime and installer QA are still required before publication.
 
 ## Riot Games notice
 
