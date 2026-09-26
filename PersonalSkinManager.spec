@@ -28,13 +28,14 @@ else:
 
 # Icons have been moved to assets folder, no separate icons directory needed
 
-# Injection tools - separate binaries (.exe, .dll) from data files (.bat)
+# Injection/runtime tools - supplied locally to the release build and bundled
+# into the one-click installer. They are intentionally not tracked in source.
 import os
 
-# Binary files (executables and DLLs) - these go in binaries, not datas
-# NOTE: cslol-dll.dll is NOT included - users must provide their own due to DMCA
 injection_binaries = [
     'injection/tools/mod-tools.exe',
+    'injection/tools/ltk_patcher_host.exe',
+    'injection/tools/ltk_patcher_dll.dll',
 ]
 # Data files (text files, etc.)
 injection_data_files = [
@@ -159,6 +160,7 @@ hiddenimports = [
     'injection.mods.zip_resolver',
     'injection.overlay',
     'injection.overlay.overlay_manager',
+    'injection.overlay.ltk_host',
     'injection.overlay.process_manager',
     'injection.tools',
     'injection.tools.tools_manager',
@@ -370,11 +372,6 @@ excludes = [
     'relay_server',
 ]
 
-# Filter out cslol-dll.dll from binaries (users must provide their own due to DMCA)
-def filter_binaries(binaries_list):
-    return [(name, path, typ) for name, path, typ in binaries_list
-            if 'cslol-dll' not in name.lower()]
-
 a = Analysis(
     ['main.py'],
     pathex=[str(Path.cwd())],  # Add current directory to Python path
@@ -391,8 +388,6 @@ a = Analysis(
     noarchive=False,
 )
 
-# Remove cslol-dll.dll if PyInstaller auto-detected it
-a.binaries = filter_binaries(a.binaries)
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
