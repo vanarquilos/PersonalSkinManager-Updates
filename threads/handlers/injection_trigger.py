@@ -898,19 +898,8 @@ class InjectionTrigger:
                         log.warning(f"[INJECT] LCU not available, skipping injection")
                         return
                     
-                    selected_form_path = getattr(
-                        self.state, "selected_form_path", None
-                    )
-                    injection_source = selected_form_path or name
-                    if selected_form_path:
-                        log.info(
-                            "[INJECT] Using selected form archive instead of "
-                            "official skin package: %s",
-                            selected_form_path,
-                        )
-
                     success = self.injection_manager.inject_skin_immediately(
-                        injection_source,
+                        name,
                         stop_callback=game_ended_callback,
                         champion_name=cname,
                         champion_id=self.state.locked_champ_id
