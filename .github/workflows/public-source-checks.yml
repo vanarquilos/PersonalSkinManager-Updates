@@ -22,11 +22,19 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install test dependencies
+        run: python -m pip install -r requirements.txt
+
+
       - name: Compile Python source
         run: python -m compileall -q .
 
       - name: Run release source tests
         run: python -m unittest tests.test_release_packaging tests.test_psm_ui_polish_release tests.test_patch_2619_wad_headers tests.test_ltk_host_protocol
+
+      - name: Check PSM UI polish syntax
+        run: node --check "Pengu Loader/plugins/PSM-UI-Polish/index.js"
+
 
       - name: Validate public-source boundary
         shell: python
