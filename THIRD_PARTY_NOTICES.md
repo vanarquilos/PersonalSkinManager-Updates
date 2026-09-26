@@ -32,23 +32,16 @@ Prebuilt Pengu Loader runtime components present in the inherited project remain
 
 ## League Toolkit / CSLOL tooling
 
-Upstream:
+Upstream projects:
 
-`https://github.com/LeagueToolkit/cslol-manager`
+- `https://github.com/LeagueToolkit/cslol-manager`
+- `https://github.com/LeagueToolkit/ltk-manager`
 
-The broader `LeagueToolkit/cslol-manager` project is published under **GPL-3.0**. Its source refers to the CSLOL tooling executable `cslol-tools/mod-tools.exe`.
+PSM v1.0.2 uses third-party League Toolkit components for overlay creation and the current runtime patcher. Release installers may include the applicable `mod-tools.exe`, `ltk_patcher_host.exe`, and `ltk_patcher_dll.dll` binaries so users do not need to install them manually.
 
-PSM contains/uses inherited CSLOL/mod-tooling integration, including a prebuilt `injection/tools/mod-tools.exe`. Treat that binary and related upstream CSLOL components as third-party material governed by their applicable upstream terms; the PSM root MIT license does not relicense them.
+These components remain governed by their upstream license terms. The PSM root MIT license does not relicense them. Release engineering must preserve attribution and provide clear access to the corresponding upstream source/license information.
 
-### cslol-dll.dll
-
-`cslol-dll.dll` is **not committed to, bundled with, or distributed by PSM**.
-
-League Toolkit publishes a separate **CSLOL DLL License Addendum (Distribution & Use Policy)**. The addendum states that it solely governs `cslol-dll.dll` and derivative binaries and controls over a project-wide license when the two conflict.
-
-Among other conditions, the addendum imposes distribution, signing, enforcement, and anti-tampering requirements. Anyone considering distribution of that DLL must read and independently comply with the current upstream addendum.
-
-PSM's source references a local runtime path for the DLL because a separately supplied local dependency may be present. That reference is not a grant of redistribution rights.
+The retired `cslol-dll.dll` runtime is not required by PSM v1.0.2 and is not part of the v1.0.2 installer.
 
 ## Python dependencies
 
