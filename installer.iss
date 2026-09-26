@@ -2,8 +2,8 @@
 ; This creates a proper Windows installer that registers the app
 
 #define MyAppName "Personal Skin Manager"
-#define MyAppVersion "1.0.1"
-#define MyAppVersionInfo "1.0.1.0"
+#define MyAppVersion "1.0.2"
+#define MyAppVersionInfo "1.0.2.0"
 #define MyAppPublisher "Van Arquilos"
 #define MyAppExeName "PersonalSkinManager.exe"
 #define MyAppDescription "Personal skin manager for League of Legends"
@@ -52,7 +52,10 @@ Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescrip
 [Files]
 ; Main application files
 ; hashes.game.txt is user-managed and must be preserved across installations.
-Source: "dist\PersonalSkinManager\*"; DestDir: "{app}"; Excludes: "hashes.game.txt,cslol-dll.dll"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist\PersonalSkinManager\*"; DestDir: "{app}"; Excludes: "hashes.game.txt"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "licenses\LeagueToolkit-GPL-3.0.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]

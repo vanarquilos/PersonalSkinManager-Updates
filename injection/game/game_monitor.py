@@ -30,6 +30,7 @@ from config import (
     PERSISTENT_MONITOR_IDLE_INTERVAL_S,
     GAME_RESUME_MAX_ATTEMPTS,
     GAME_RESUME_VERIFICATION_WAIT_S,
+    ENABLE_GAME_SUSPENSION,
     get_config_float
 )
 from utils.core.logging import get_logger, log_section, log_event, log_success
@@ -54,13 +55,22 @@ class GameMonitor:
         self._get_auto_resume_timeout = get_auto_resume_timeout_callback
     
     def start(self):
-        """Start game monitor - watches for game and suspends it"""
-        # Stop any existing monitor first
+        """Start the optional game-suspension monitor."""
+        # Stop any existing monitor first and always clear stale state.
         self.stop()
+        self._suspended_game_process = None
+        self._runoverlay_started = False
+
+        # Rose 1.3.x parity: when suspension is enabled, hold the League game
+        # process while mkoverlay + WAD-header rebase finish. The current LTK host
+        # is already scanning before this point and PSM resumes League only when
+        # the rebased overlay is ready to be served.
+        if not ENABLE_GAME_SUSPENSION:
+            self._monitor_active = False
+            log.info("[monitor] Game suspension disabled by configuration")
+            return
         
         self._monitor_active = True
-        self._suspended_game_process = None
-        self._runoverlay_started = False  # Reset flag when starting new monitor
         
         def game_monitor():
             """Monitor for game process and suspend immediately when found"""

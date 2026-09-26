@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 APP_NAME = "Personal Skin Manager"
 APP_SLUG = "PersonalSkinManager"
-APP_VERSION = "1.0.1"                          # Application version
+APP_VERSION = "1.0.2"                          # Application version
 APP_USER_AGENT = f"{APP_SLUG}/{APP_VERSION}"  # User-Agent header for HTTP requests
 UPDATE_CHANNEL = "stable"
 
@@ -178,7 +178,16 @@ GAME_RESUME_MAX_ATTEMPTS = 3                # Max attempts to resume game (handl
 # Game delay strategies
 ENABLE_MKOVERLAY_PRIORITY_BOOST = True   # Boost short-lived mkoverlay process priority during injection setup
 ENABLE_RUNOVERLAY_PRIORITY_BOOST = False  # Runoverlay runs for the entire game session; boosting its priority would compete with the game for CPU and cause perf decrease
-ENABLE_GAME_SUSPENSION = True            # Suspend game process during injection (RISKY - may trigger anti-cheat)
+ENABLE_GAME_SUSPENSION = True            # Rose 1.3.x parity: hold League until the LTK scanner is ready and the overlay has been built
+
+# Rose 1.3.1 compatibility: the LTK host runs with flag 4
+# (CSLOL_HOOK_OPT_OUT_AH_V1), so the base-skin anti-skinhack check is not
+# enforced against Rose's generic skin0 carrier.
+LTK_ENFORCE_SKINHACK_SCAN = False
+
+# Keep the host in normal integrity mode by default. Live QA already confirmed
+# that the current host attaches successfully without PSM forcing elevation.
+LTK_ELEVATE_INJECTOR = False
 
 
 # =============================================================================

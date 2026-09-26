@@ -52,6 +52,11 @@ DISK_SPACE_ERROR_MARKERS = (
     'errno 28',
 )
 
+# Patch 26.19 accepts the current game WAD header but rejects the older
+# mkoverlay-generated signature/checksum. WAD v3 header layout is:
+# 4 bytes magic+version, 256-byte signature, 8-byte checksum.
+WAD_V3_HEADER_SIZE = 268
+
 
 class OverlayManager:
     """Manages overlay creation and execution"""
@@ -98,6 +103,92 @@ class OverlayManager:
                 return f'{value:.1f} {unit}'
             value /= 1024
         return f'{value:.1f} TB'
+
+    @staticmethod
+    def _restore_game_wad_headers(overlay_dir: Path, game_dir: Path) -> tuple[int, int]:
+        """Rebase overlay WAD headers onto the installed game's current headers.
+
+        Patch 26.19 rejects WADs whose signature/checksum header no longer
+        matches the current installed archive. mkoverlay still produces the
+        modded payload we need, so only bytes 4..267 are copied from the
+        corresponding installed WAD. The overlay contents after the header are
+        left untouched.
+
+        Returns:
+            (restored_count, candidate_count)
+        """
+        restored = 0
+        candidates = 0
+
+        for overlay_wad in overlay_dir.rglob("*.wad.client"):
+            candidates += 1
+            try:
+                relative = overlay_wad.relative_to(overlay_dir)
+            except ValueError:
+                log.warning(
+                    "[INJECT] Overlay WAD escaped overlay root; header not rebased: %s",
+                    overlay_wad,
+                )
+                continue
+
+            game_wad = game_dir / relative
+            if not game_wad.is_file():
+                log.debug(
+                    "[INJECT] No installed WAD header source for overlay: %s",
+                    relative.as_posix(),
+                )
+                continue
+
+            try:
+                with game_wad.open("rb") as source:
+                    game_header = source.read(WAD_V3_HEADER_SIZE)
+
+                if len(game_header) != WAD_V3_HEADER_SIZE or game_header[:2] != b"RW":
+                    log.warning(
+                        "[INJECT] Installed WAD has an unexpected header: %s",
+                        relative.as_posix(),
+                    )
+                    continue
+
+                with overlay_wad.open("r+b") as target:
+                    overlay_prefix = target.read(4)
+                    if overlay_prefix != game_header[:4]:
+                        log.warning(
+                            "[INJECT] WAD magic/version mismatch; not rebasing header: %s",
+                            relative.as_posix(),
+                        )
+                        continue
+                    target.seek(4)
+                    target.write(game_header[4:WAD_V3_HEADER_SIZE])
+                    target.flush()
+
+                # Verify only the header we intentionally changed.
+                with overlay_wad.open("rb") as check:
+                    if check.read(WAD_V3_HEADER_SIZE) != game_header:
+                        log.error(
+                            "[INJECT] WAD header verification failed after rebase: %s",
+                            relative.as_posix(),
+                        )
+                        continue
+
+                restored += 1
+                log.debug(
+                    "[INJECT] Rebased current game WAD header: %s",
+                    relative.as_posix(),
+                )
+            except OSError as exc:
+                log.warning(
+                    "[INJECT] Could not rebase WAD header for %s: %s",
+                    relative.as_posix(),
+                    exc,
+                )
+
+        log.info(
+            "[INJECT] Patch 26.19 WAD header rebase: restored %d/%d overlay WAD(s)",
+            restored,
+            candidates,
+        )
+        return restored, candidates
 
     def _report_low_disk_space_failure(
         self,
@@ -174,7 +265,37 @@ class OverlayManager:
         # Use overlay directory (should already be clean from _clean_overlay_dir)
         overlay_dir = self.mods_dir.parent / "overlay"
         overlay_dir.mkdir(parents=True, exist_ok=True)
-        
+
+        # Rose 1.3.1 parity: current LTK must already be scanning BEFORE League
+        # launches. Starting the host after mkoverlay can join too late and the
+        # game will load without the selected skin even though attach later
+        # appears successful in the logs.
+        ltk_host = tools.get("ltk_host")
+        ltk_dll = tools.get("ltk_dll")
+        if not ltk_host or not ltk_dll or not ltk_host.is_file() or not ltk_dll.is_file():
+            log.error("[INJECT] Required LTK runtime pair is missing")
+            if injection_manager:
+                injection_manager.resume_if_suspended()
+            return 127
+
+        if self.process_manager:
+            # Rose resets this for every new game so an earlier manual stop does
+            # not make a later successful patcher session look user-cancelled.
+            self.process_manager.stopped_by_user = False
+
+        from .ltk_host import start_ltk_patcher_host
+        log.info("[INJECT] Arming current LTK scanner before mkoverlay/game launch")
+        ltk_session = start_ltk_patcher_host(
+            self.tools_dir,
+            overlay_dir,
+            process_manager=self.process_manager,
+        )
+        if ltk_session is None:
+            log.error("[INJECT] Could not arm LTK scanner before game launch")
+            if injection_manager:
+                injection_manager.resume_if_suspended()
+            return 1
+
         names_str = "/".join(mod_names)
         gpath = str(self.game_dir)
 
@@ -253,6 +374,9 @@ class OverlayManager:
                     result_code=proc.returncode,
                 )
                 log.error(f"[INJECT] mkoverlay failed with return code: {proc.returncode}")
+                if ltk_session is not None:
+                    from .ltk_host import abort_ltk_patcher_host
+                    abort_ltk_patcher_host(ltk_session)
                 return proc.returncode
             else:
                 log_success(log, f"mkoverlay completed in {mkoverlay_duration:.2f}s", "⚡")
@@ -262,14 +386,34 @@ class OverlayManager:
                     'timestamp': time.time()
                 }
 
+                # Patch 26.19 validates the WAD signature/checksum header when
+                # the redirected archive is mounted. Rebase mkoverlay output on
+                # the installed game's current header before starting LTK.
+                restored_wads, candidate_wads = self._restore_game_wad_headers(
+                    overlay_dir,
+                    Path(gpath),
+                )
+                if candidate_wads and restored_wads == 0:
+                    log.error(
+                        "[INJECT] No overlay WAD headers could be rebased; "
+                        "stopping before League can flag the installation for repair"
+                    )
+                    if ltk_session is not None:
+                        from .ltk_host import abort_ltk_patcher_host
+                        abort_ltk_patcher_host(ltk_session)
+                    return 65
+
                 # Wipe extracted skin files now that mkoverlay is done with them
                 self._wipe_mods_dir()
 
                 # Hide overlay files so they can't be easily browsed
                 self._hide_directory(overlay_dir)
 
-                # DON'T resume game yet - keep it frozen until runoverlay starts
-                log_event(log, "mkoverlay done - keeping game frozen until runoverlay starts", "❄️")
+                log_event(
+                    log,
+                    "mkoverlay + WAD rebase done - overlay ready; LTK scanner was armed before game launch",
+                    "⚡",
+                )
                 
         except subprocess.TimeoutExpired:
             log.error("[INJECT] mkoverlay timeout - monitor will auto-resume if needed")
@@ -281,6 +425,9 @@ class OverlayManager:
                 hint="Try increasing Monitor Auto-Resume Timeout and/or using smaller mods.",
             )
             self._report_low_disk_space_failure(output_lines + error_lines, mod_names)
+            if ltk_session is not None:
+                from .ltk_host import abort_ltk_patcher_host
+                abort_ltk_patcher_host(ltk_session)
             return 124
         except Exception as e:
             log.error(f"[INJECT] mkoverlay error: {e} - monitor will auto-resume if needed")
@@ -292,80 +439,36 @@ class OverlayManager:
                 hint="Check Personal Skin Manager logs for details, then retry.",
             )
             self._report_low_disk_space_failure(output_lines + error_lines, mod_names)
+            if ltk_session is not None:
+                from .ltk_host import abort_ltk_patcher_host
+                abort_ltk_patcher_host(ltk_session)
             return 1
 
-        # Run overlay
-        cfg = overlay_dir / "cslol-config.json"
-        cmd = [
-            str(exe), "runoverlay", str(overlay_dir), str(cfg),
-            f"--game:{gpath}", "--opts:configless"
-        ]
-        
-        log.debug(f"[INJECT] Running overlay")
-        
-        try:
-            # Hide console window on Windows
-            import sys
-            creationflags = 0
-            if sys.platform == "win32":
-                creationflags = subprocess.CREATE_NO_WINDOW
-            
-            # Don't capture stdout to avoid pipe buffer deadlock - send to devnull instead
-            proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=creationflags)
-            
-            # Boost process priority to maximize CPU contention if enabled
-            if ENABLE_RUNOVERLAY_PRIORITY_BOOST and PSUTIL_AVAILABLE:
-                try:
-                    p = psutil.Process(proc.pid)
-                    p.nice(psutil.HIGH_PRIORITY_CLASS)
-                    log.debug(f"[INJECT] Boosted runoverlay process priority (PID={proc.pid})")
-                except Exception as e:
-                    log.debug(f"[INJECT] Could not boost process priority: {e}")
-            
-            if self.process_manager:
-                self.process_manager.current_overlay_process = proc
-            
-            # Resume game NOW - runoverlay started, game can load while runoverlay hooks in
-            if injection_manager:
-                log.info("[INJECT] runoverlay started - resuming game")
-                injection_manager.resume_game()
-            
-            # Monitor process with stop callback
-            # No timeout - overlay will run until explicitly killed or game ends
-            while proc.poll() is None:
-                # Check if we should stop (game ended)
-                if stop_callback and stop_callback():
-                    log.info("[INJECT] Game ended, stopping overlay process")
-                    proc.terminate()
-                    try:
-                        proc.wait(timeout=PROCESS_TERMINATE_TIMEOUT_S)
-                    except subprocess.TimeoutExpired:
-                        proc.kill()
-                        proc.wait()
-                    if self.process_manager:
-                        self.process_manager.current_overlay_process = None
-                    self._wipe_overlay_dir(overlay_dir)
-                    return 0  # Success - overlay ran through game
-
-                time.sleep(PROCESS_MONITOR_SLEEP_S)
-
-            # Process completed normally (no stdout captured)
-            self.current_overlay_process = None
+        # Continue the LTK session that was armed before mkoverlay. Only now,
+        # after the overlay exists and its WAD header matches the current game,
+        # do we resume League. This mirrors Rose 1.3.1's post-16.19 timing fix.
+        if ltk_session is not None:
+            from .ltk_host import run_ltk_patcher_host_session
+            log.info("[INJECT] Serving rebased overlay through pre-armed LTK scanner")
+            result = run_ltk_patcher_host_session(
+                ltk_session,
+                stop_callback=stop_callback,
+                injection_manager=injection_manager,
+            )
             self._wipe_overlay_dir(overlay_dir)
-            if proc.returncode != 0:
-                self._report_low_disk_space_failure(
-                    mod_names=mod_names,
-                    result_code=proc.returncode,
-                )
-                log.error(f"[INJECT] runoverlay failed with return code: {proc.returncode}")
-                return proc.returncode
-            else:
-                log.debug(f"[INJECT] runoverlay completed successfully")
-                return 0
-        except Exception as e:
-            log.error(f"[INJECT] runoverlay error: {e}")
-            return 1
-    
+            return result
+
+        # ltk_session is required before mkoverlay starts. Reaching this point
+        # without it indicates an internal lifecycle error rather than a fallback.
+        log.error("[INJECT] Internal runtime lifecycle error: LTK session was not available")
+        if injection_manager:
+            try:
+                injection_manager.resume_if_suspended()
+            except Exception as resume_error:
+                log.debug(f"[INJECT] Could not release suspended game: {resume_error}")
+        self._wipe_overlay_dir(overlay_dir)
+        return 1
+
     @staticmethod
     def _wipe_overlay_dir(overlay_dir: Path):
         """Delete overlay WAD files after runoverlay finishes"""

@@ -31,7 +31,7 @@ For code changes:
 
 Do not claim a check passed unless you actually ran it.
 
-Every pull request also runs lightweight public-source checks for Python compilation, tracked-secret/local-file hygiene, generated-output boundaries, and stable-manifest structure. These automated checks do not replace Windows/runtime QA when the behavior being changed requires it.
+Maintainers can run the manual `Public source checks` workflow for Python compilation, tracked-secret/local-file hygiene, generated-output boundaries, stable-manifest structure, and release-source tests. PSM remains local-first, so this workflow is not triggered automatically for every pull request. These checks do not replace Windows/runtime QA when the behavior being changed requires it.
 
 ## Project boundaries
 
@@ -42,7 +42,7 @@ Pull requests must not add or improve:
 - driver tricks or security-control disabling
 - tampering with third-party security/enforcement controls
 - distribution of private signing material
-- distribution of `cslol-dll.dll`
+- distribution of unreviewed or unverified third-party runtime binaries
 
 Do not add Riot Games assets, paid cosmetic content, credentials, tokens, private keys, personal logs, or user-specific cache data to the repository.
 
@@ -57,7 +57,7 @@ Any new third-party source or binary must have:
 
 The root PSM MIT license does not automatically relicense third-party components.
 
-In particular, `cslol-dll.dll` is governed by the League Toolkit CSLOL DLL License Addendum and is not distributed by PSM.
+Release runtime components must have a reviewed upstream origin, compatible redistribution basis, and matching notices/licenses.
 
 ## Compatibility-first rule
 
@@ -83,7 +83,7 @@ Documentation changes should reflect the actual code and release state. Do not d
 
 - [ ] change is narrowly scoped
 - [ ] no secrets or private signing material
-- [ ] no local-only `cslol-dll.dll`
+- [ ] no local-only runtime binaries committed to source history
 - [ ] no generated build/cache/log output
 - [ ] stable manifest unchanged unless intentionally part of reviewed release work
 - [ ] existing release/tag provenance preserved
