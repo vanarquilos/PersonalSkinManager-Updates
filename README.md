@@ -3,83 +3,53 @@
 Personal Skin Manager (PSM) is an open-source Windows skin-management application for League of Legends, derived from the open-source **Rose** project by Alban and Florent.
 
 **Current stable release:** `v1.0.1`  
+**Release candidate:** `v1.0.2`  
 **Platform:** Windows 10/11 x64  
-**Language:** Python  
-**License:** MIT for the PSM/Rose-derived source, with separate terms for third-party components  
 **Website:** https://psm.vanarquilos.dev
 
-[Website](https://psm.vanarquilos.dev) · [Download v1.0.1](https://github.com/vanarquilos/PersonalSkinManager-Updates/releases/tag/v1.0.1) · [Source](https://github.com/vanarquilos/PersonalSkinManager-Updates) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
+[Website](https://psm.vanarquilos.dev) · [Stable release](https://github.com/vanarquilos/PersonalSkinManager-Updates/releases/tag/v1.0.1) · [Source](https://github.com/vanarquilos/PersonalSkinManager-Updates) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
 
 > This repository is the canonical public source, release, update-channel, diagnostics, and documentation repository for Personal Skin Manager.
 
 ## What PSM does
 
-PSM preserves the working skin-management foundations inherited from Rose while removing services that are not part of the PSM maintenance model.
+PSM preserves the working skin-management foundations inherited from Rose while maintaining its own compatibility, UI, installer, updater, and diagnostics.
 
-Supported project areas include:
+Project areas include:
 
 - League/LCU integration
-- skins and chromas
+- owned League skin/chroma selection
 - compatible custom mods
 - supported forms and variants
 - Pengu Loader integration
-- CSLOL/mod tooling
+- overlay creation and runtime patching
 - game monitoring and process coordination
-- local bridge/content synchronization
-- game-hash/data checks
-- local settings and logs
-- the existing content-injection pipeline
+- local settings, cache, and logs
 
 ## Requirements
 
+For normal users:
+
 - Windows 10/11 x64
 - League of Legends installed
-- Administrator permission for the PSM installer
-- External runtime dependency: `cslol-dll.dll` is **required by the current PSM runtime but is not bundled, mirrored, or distributed by PSM**
+- Administrator permission for the installer
 
-Official League Toolkit DLL file page used by the PSM setup guide:
+PSM v1.0.2 is designed as an **all-in-one installer**. Users should not need to copy DLLs or manually configure runtime files after installation.
 
-[Get `cslol-dll.dll` from League Toolkit](https://github.com/LeagueToolkit/cslol-manager/blob/23f230858bc2359ce279e07ed129d482fe3b00bf/cslol-tools/vendor/cslol-patcher/cslol-dll.dll)
+## v1.0.2
 
-Upstream DLL policy for that pinned source state:
+v1.0.2 is a League compatibility release focused on restoring a stable supported runtime path after the September 2026 game update.
 
-[CSLOL DLL License Addendum (Distribution & Use Policy)](https://github.com/LeagueToolkit/cslol-manager/blob/23f230858bc2359ce279e07ed129d482fe3b00bf/LICENSE-CSLOL.md)
+Highlights:
 
-PSM does not provide redistribution rights for `cslol-dll.dll` and does not publish a download mirror for that component.
+- updated runtime compatibility
+- current WAD handling
+- improved startup/injection timing
+- improved cleanup and diagnostics
+- cleaner Settings UI with section icons and visual hierarchy
+- bundled runtime dependencies for a simpler installation
 
-### External DLL setup
-
-After installing PSM:
-
-1. Launch Personal Skin Manager.
-2. If the startup check reports that `cslol-dll.dll` is missing, choose **Open tools folder**.
-3. Open the official League Toolkit DLL file page above and use GitHub's download control to save `cslol-dll.dll`.
-4. Place the file in the exact tools folder PSM opened.
-5. Restart PSM.
-
-PSM validates the DLL before normal startup. If the file is reported as invalid or outdated, do **not** disable or bypass that integrity check; use a supported upstream DLL.
-
-## Current release
-
-### Personal Skin Manager v1.0.1
-
-Installer:
-
-```text
-PersonalSkinManager_Setup.exe
-```
-
-SHA-256:
-
-```text
-3CF2E47BAEAC15376F759C0F7CA0C21C0011B36577E004B582105AD1779641BB
-```
-
-The installer is published through the official GitHub Release:
-
-[Personal Skin Manager v1.0.1](https://github.com/vanarquilos/PersonalSkinManager-Updates/releases/tag/v1.0.1)
-
-PSM does not mirror or distribute `cslol-dll.dll`.
+See [CHANGELOG.md](CHANGELOG.md) and [releases/v1.0.2/RELEASE_NOTES.md](releases/v1.0.2/RELEASE_NOTES.md).
 
 ## Repository layout
 
@@ -101,58 +71,23 @@ threads/
 ui/
 utils/
 vendor/
+licenses/
 
 stable/
   manifest.json
-
-releases/
-  v1.0.0/
-  v1.0.1/
-
-tools/
-  diagnostics/
 ```
 
-`stable/manifest.json` is a compatibility-critical path used by supported installed PSM builds and should not be moved or renamed casually.
-
-## Project status
-
-The current stable application baseline is **v1.0.1**.
-
-Completed release work includes:
-
-- sanitization of inherited analytics/community/update plumbing that is not used by PSM
-- dependency and provenance review
-- V1 application identity and UI finalization
-- runtime and functional regression QA
-- build, installer, updater, and uninstall hardening
-- signed stable-channel updater bootstrap
-- SHA-256 installer verification
-- Ed25519 manifest verification
-- publication of the sanitized application source
-
-The historical `v1.0.1` release predates source integration into this repository. Its existing release/tag are intentionally retained for provenance and compatibility rather than rewritten.
-
-## Removed from the Rose baseline
-
-PSM removes services that are not required by the project:
-
-- Rose analytics and heartbeat reporting
-- the inherited Rose application self-updater
-- Party Mode and its relay/network service
-- Rose Discord/community callbacks
-- Rose Ko-fi/community UI in the locally built loader
-
-Compatibility-oriented internal identifiers are retained where changing them would create unnecessary regression risk.
+`stable/manifest.json` is compatibility-critical for installed PSM clients.
 
 ## Application identity
 
 - Product: **Personal Skin Manager**
-- Stable version: **1.0.1**
+- Release candidate: **1.0.2**
 - Executable: `PersonalSkinManager.exe`
-- PyInstaller spec: `PersonalSkinManager.spec`
 - Installer: `PersonalSkinManager_Setup.exe`
 - Update channel: `stable`
+
+The stable channel remains on v1.0.1 until the v1.0.2 installer is built, verified, published, and the signed manifest is updated.
 
 ## Compatibility data directory
 
@@ -162,7 +97,7 @@ PSM intentionally retains:
 %LOCALAPPDATA%\Rose
 ```
 
-Some inherited local components and compatibility paths depend on that location. The path is an implementation detail and does not represent the visible application identity.
+Some inherited local components and compatibility paths depend on that location. It is an implementation detail and does not represent the visible product identity.
 
 ## Building
 
@@ -171,22 +106,16 @@ Requirements:
 - Windows 10/11 x64
 - Python 3.11 or newer
 - packages from `requirements.txt`
-- Visual Studio Build Tools with the required .NET desktop build components
-- Inno Setup for installer creation
+- Visual Studio Build Tools with the required .NET desktop components
+- Inno Setup
+- trusted local copies of:
+  - `injection/tools/mod-tools.exe`
+  - `injection/tools/ltk_patcher_host.exe`
+  - `injection/tools/ltk_patcher_dll.dll`
 
-Build the application:
+Those runtime binaries are intentionally excluded from ordinary source history. The release build verifies that all three are present and bundles them into the installer.
 
-```powershell
-python .\scripts\build_pyinstaller.py
-```
-
-Expected output:
-
-```text
-dist\PersonalSkinManager\PersonalSkinManager.exe
-```
-
-Build the complete application/installer pipeline:
+Build the full application and installer:
 
 ```powershell
 python .\scripts\build_all.py
@@ -198,42 +127,20 @@ Expected installer:
 installer\PersonalSkinManager_Setup.exe
 ```
 
-Do not use the legacy `Rose.spec`; the maintained spec is `PersonalSkinManager.spec`.
-
 ## Stable update architecture
 
-Application updates and League game-data freshness are separate concerns.
-
-PSM's stable application updater:
+PSM's stable updater:
 
 1. fetches `stable/manifest.json` over HTTPS
-2. verifies the manifest's Ed25519 signature
-3. validates manifest schema/version information
+2. verifies the Ed25519 manifest signature
+3. validates version/package metadata
 4. verifies installer SHA-256 and exact size
 5. defers installation while League is running
-6. installs only a verified PSM release
+6. installs only a verified release
 
-The private Ed25519 signing key is maintained outside source control. Only the public verification key belongs in source.
+The private Ed25519 signing key remains outside source control. Only the public verification key belongs in the repository.
 
-Existing v1.0.1 clients use the stable manifest in this repository. Release engineering must preserve the manifest path and published release asset URLs when backward compatibility depends on them.
-
-Game hash synchronization is handled separately from application releases; ordinary League data changes do not automatically require a new PSM application version.
-
-## External CSLOL DLL
-
-`cslol-dll.dll` is **not part of this repository and is not distributed by PSM**.
-
-PSM v1.0.1 checks for the DLL before normal startup. If the file is missing, PSM's startup dialog can open the exact tools folder where the DLL belongs.
-
-Obtain the DLL directly from the official League Toolkit repository:
-
-[Official League Toolkit `cslol-dll.dll` file page](https://github.com/LeagueToolkit/cslol-manager/blob/23f230858bc2359ce279e07ed129d482fe3b00bf/cslol-tools/vendor/cslol-patcher/cslol-dll.dll)
-
-The component is governed by the League Toolkit [CSLOL DLL License Addendum (Distribution & Use Policy)](https://github.com/LeagueToolkit/cslol-manager/blob/23f230858bc2359ce279e07ed129d482fe3b00bf/LICENSE-CSLOL.md), independently of the broader CSLOL project's license. PSM does not grant redistribution rights for the component and does not provide a mirror or bundled copy.
-
-Do not commit, bundle, mirror, or attach `cslol-dll.dll` to PSM source or release artifacts unless the distributor independently satisfies the upstream license terms.
-
-Do not disable or bypass PSM's DLL integrity check.
+The signed stable manifest must not be changed until the final v1.0.2 installer exists and its hash/size are known.
 
 ## Security and compatibility boundary
 
@@ -243,63 +150,35 @@ This project does not add or improve:
 - stealth or process concealment
 - driver-based circumvention
 - security-control disabling
-- tampering with protections in third-party runtime components
+- tampering with third-party enforcement controls
 
-Compatibility work should remain focused on application correctness, content/data compatibility, provenance, verification, reproducible builds, and supported runtime behavior.
+Release builds keep current runtime verification enabled.
 
-See [`SECURITY.md`](SECURITY.md) for reporting guidance.
+See [SECURITY.md](SECURITY.md).
 
-## Public source checks
+## Third-party components
 
-Pull requests and pushes to `main` run lightweight public-source checks that:
-
-- compile Python source
-- reject tracked private/signing material
-- reject tracked local-only `cslol-dll.dll`
-- reject generated top-level build output
-- validate the stable manifest structure
-
-These checks are source-hygiene gates, not a substitute for Windows runtime or gameplay QA.
-
-## Diagnostics
-
-Read-only public diagnostics live under:
-
-```text
-tools/diagnostics/
-```
-
-Diagnostic reports can contain local filesystem paths and package hashes. Review generated reports before posting them publicly.
-
-## Licensing and attribution
-
-PSM is derived from:
+PSM is derived from or integrates with:
 
 - **Rose** by Alban and Florent
 - **Pengu Loader**
-- third-party CSLOL/mod tooling used by the inherited runtime
+- **League Toolkit / CSLOL tooling**
 
-The original Rose MIT `LICENSE` is retained. Third-party components keep their own licenses and are **not relicensed by the root PSM MIT license**.
+Third-party components retain their own licenses and are not relicensed by PSM's root MIT license.
 
-See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for component-level attribution and licensing notes.
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the `licenses/` directory.
 
-## Contributing
+## Public source checks
 
-Contributions are welcome when they stay within the project's compatibility, provenance, and security boundaries.
+Pull requests and pushes to `main` validate:
 
-Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request.
+- Python compilation
+- release-source tests
+- tracked-secret/local-file hygiene
+- generated-output boundaries
+- stable manifest structure
 
-## Development model
-
-The maintainer's historical/internal development repository remains private. Public development and contributions should use this repository as the maintained public source.
-
-Release engineering must preserve:
-
-- the `stable/manifest.json` compatibility path
-- existing published release/tag provenance
-- signing-key secrecy
-- third-party licensing boundaries
-- exclusion of local-only QA files and `cslol-dll.dll`
+Windows runtime and installer QA are still required before publication.
 
 ## Riot Games notice
 
