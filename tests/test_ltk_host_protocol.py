@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import unittest
+from unittest.mock import patch
 
 from injection.overlay.ltk_host import LTK_DEFAULT_FLAGS, LtkHostResult, _parse_stdout
 
@@ -28,11 +29,12 @@ class LtkHostProtocolTests(unittest.TestCase):
 
     def test_overlay_verification_rejection_is_a_hard_failure(self):
         result = LtkHostResult()
-        _parse_stdout(
-            "dll 5.57 1234 5678 ERROR ltk_patcher_dll::verify: "
-            "overlay verification failed, disabling overlay",
-            result,
-        )
+        with patch("injection.overlay.ltk_host.report_issue"):
+            _parse_stdout(
+                "dll 5.57 1234 5678 ERROR ltk_patcher_dll::verify: "
+                "overlay verification failed, disabling overlay",
+                result,
+            )
         self.assertIsNotNone(result.failure)
 
     def test_injected_and_waiting_confirm_attach(self):
