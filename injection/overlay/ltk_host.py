@@ -47,17 +47,18 @@ log = get_logger()
 LTK_HOST_NAME = LTK_PATCHER_HOST
 LTK_DLL_NAME = LTK_PATCHER_DLL
 
-# Upstream LTK Manager uses Info=0x10 and Debug=0x20.
-LTK_LOGLEVEL_DEBUG = 0x20
+# Match Rose 1.3.1 / latest main patcher-host configuration.
+# Info=0x10. Flag 4 = CSLOL_HOOK_OPT_OUT_AH_V1, which disables the
+# base-skin anti-skinhack enforcement that rejects Rose's generic skin0 carrier.
+LTK_PATCHER_LOG_LEVEL = 0x10
+LTK_PATCHER_FLAGS = 4
 
-# Release builds keep the current runtime's verification path enabled.
-LTK_DEFAULT_FLAGS = 0
-
-LTK_ATTACH_TIMEOUT_S = 30.0
+# Backward-compatible alias for older PSM tests/imports.
+LTK_DEFAULT_FLAGS = LTK_PATCHER_FLAGS
 LATE_JOIN_MESSAGE = "joined too late"
 END_OF_LIFE_MESSAGE = "end of life reached"
 
-_SUCCESS_STATES = {"injected", "waiting"}
+_SUCCESS_STATES = {"injected"}
 _FAILURE_STATES = {"failed"}
 
 
@@ -109,7 +110,7 @@ def _report_overlay_rejected(line: str) -> None:
         "Current LTK runtime still disabled the Rose overlay.",
         details={
             "backend": "ltk",
-            "flags": LTK_DEFAULT_FLAGS,
+            "flags": LTK_PATCHER_FLAGS,
             "verdict": line,
         },
         hint=(
@@ -296,8 +297,9 @@ def start_ltk_patcher_host(
         + (" with elevation" if "--elevate" in cmd else " in normal mode")
     )
     log.info(
-        "[INJECT] LTK runtime verification enabled (flags=%d)",
-        LTK_DEFAULT_FLAGS,
+        "[INJECT] Rose-compatible LTK patcher configuration active "
+        "(flags=%d, anti-skinhack base-skin enforcement disabled)",
+        LTK_PATCHER_FLAGS,
     )
 
     proc = None
@@ -334,8 +336,8 @@ def start_ltk_patcher_host(
             name="LtkHostStderr",
         ).start()
 
-        _send_line(proc, f"config loglevel {LTK_LOGLEVEL_DEBUG}")
-        _send_line(proc, f"config flags {LTK_DEFAULT_FLAGS}")
+        _send_line(proc, f"config loglevel {LTK_PATCHER_LOG_LEVEL}")
+        _send_line(proc, f"config flags {LTK_PATCHER_FLAGS}")
         _send_line(proc, f"config prefix {overlay_prefix}")
         _send_line(proc, "start scan")
 
@@ -395,11 +397,17 @@ def run_ltk_patcher_host_session(
     stop_callback: Optional[Callable[[], bool]] = None,
     injection_manager=None,
 ) -> int:
-    """Resume League only after the overlay is ready, then monitor LTK."""
+    """Resume League after the overlay is ready and mirror Rose's host lifecycle.
+
+    Rose keeps the patcher host scanning across game-process exits so reconnects
+    can be hooked again. Explicit DLL/host failures are terminal; a transient
+    "exited" state is not.
+    """
 
     proc = session.proc
     result = session.result
     events = session.events
+    game_ended = False
 
     try:
         _drain_events(events, result)
@@ -417,61 +425,43 @@ def run_ltk_patcher_host_session(
             )
             injection_manager.resume_game()
 
-        attach_deadline = time.time() + LTK_ATTACH_TIMEOUT_S
-
         while proc.poll() is None:
             _drain_events(events, result)
 
             if result.failure:
                 log.error(f"[INJECT][ltk-host] Injection failed: {result.failure}")
-                _shutdown_host(proc)
-                return 2
+                break
 
-            # Do not treat "exited" as terminal by itself. Current Rose keeps the
-            # host scanning so reconnects can be hooked again. The game-phase
-            # callback decides when the full session is over.
+            # Match Rose 1.3.1: "exited" only means the current game process
+            # closed. Keep the host alive so a reconnect can be scanned/hooked.
             if stop_callback and stop_callback():
                 log.info("[INJECT] Game session ended, stopping LTK patcher host")
-                _shutdown_host(proc)
-                _drain_events(events, result)
-                if result.attached:
-                    log.info(
-                        "[INJECT][ltk-host] Session completed after confirmed attach "
-                        f"(state={result.last_state}, dll_lines={result.dll_lines})"
-                    )
-                    return 0
-                log.error(
-                    "[INJECT][ltk-host] Session ended without a confirmed attach "
-                    f"(last_state={result.last_state})"
-                )
-                return 3
-
-            if not result.attached and time.time() >= attach_deadline:
-                log.error(
-                    "[INJECT][ltk-host] Timed out waiting for current LTK attach "
-                    f"after {LTK_ATTACH_TIMEOUT_S:.0f}s "
-                    f"(last_state={result.last_state})"
-                )
-                _shutdown_host(proc)
-                return 124
+                game_ended = True
+                break
 
             time.sleep(PROCESS_MONITOR_SLEEP_S)
 
+        _shutdown_host(proc)
         _drain_events(events, result)
-        if result.failure:
-            log.error(f"[INJECT][ltk-host] Host failure: {result.failure}")
-            return 2
-        if proc.returncode not in (0, None):
-            log.error(f"[INJECT][ltk-host] Host exited with code {proc.returncode}")
-            return proc.returncode
-        if result.attached:
+
+        if getattr(session.process_manager, "stopped_by_user", False):
+            log.info("[INJECT] LTK patcher stopped by the user")
             return 0
 
-        log.error(
-            "[INJECT][ltk-host] Host exited without confirming injection "
-            f"(last_state={result.last_state})"
+        if result.failure:
+            log.error(f"[INJECT][ltk-host] LTK patcher failed: {result.failure}")
+            return 2
+
+        if not game_ended and proc.returncode not in (0, None):
+            log.error(f"[INJECT][ltk-host] Host exited with code {proc.returncode}")
+            return proc.returncode
+
+        log.info(
+            "[INJECT][ltk-host] Rose-compatible session completed "
+            f"(last_state={result.last_state}, injected={result.attached}, "
+            f"dll_lines={result.dll_lines})"
         )
-        return 3
+        return 0
 
     except Exception as exc:
         log.error(f"[INJECT][ltk-host] Backend error: {exc}")
@@ -485,7 +475,6 @@ def run_ltk_patcher_host_session(
             _shutdown_host(proc)
         elapsed = time.time() - session.started_at
         log.debug(f"[INJECT][ltk-host] Backend finished after {elapsed:.2f}s")
-
 
 def run_ltk_patcher_host(
     tools_dir: Path,
