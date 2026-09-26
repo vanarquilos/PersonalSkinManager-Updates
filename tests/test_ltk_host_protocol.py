@@ -2,7 +2,13 @@
 import unittest
 from unittest.mock import patch
 
-from injection.overlay.ltk_host import (\n    LTK_DEFAULT_FLAGS,\n    LTK_PATCHER_FLAGS,\n    LTK_PATCHER_LOG_LEVEL,\n    LtkHostResult,\n    _parse_stdout,\n)
+from injection.overlay.ltk_host import (
+    LTK_DEFAULT_FLAGS,
+    LTK_PATCHER_FLAGS,
+    LTK_PATCHER_LOG_LEVEL,
+    LtkHostResult,
+    _parse_stdout,
+)
 
 
 class LtkHostProtocolTests(unittest.TestCase):
