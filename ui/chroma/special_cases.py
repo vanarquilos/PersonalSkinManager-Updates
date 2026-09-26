@@ -147,6 +147,33 @@ class ChromaSpecialCases:
         return forms
     
     @staticmethod
+    def get_kaisa_forms() -> List[Dict]:
+        """Get Risen Legend Kai'Sa starting-form archives."""
+        forms = [
+            {
+                'id': 145071,
+                'skinId': 145070,
+                'name': 'Form 1',
+                'colors': [],
+                'is_owned': False,
+                'form_path': 'Kaisa/Forms/Uzi Kaisa Form 1.zip',
+            },
+            {
+                'id': 145999,
+                'skinId': 145070,
+                'name': 'Form 2',
+                'colors': [],
+                'is_owned': False,
+                'form_path': 'Kaisa/Forms/Uzi Kaisa Form 2.zip',
+            },
+        ]
+        log.debug(
+            "[CHROMA] Created 2 Risen Legend Kai'Sa starting forms "
+            "with real IDs (145071, 145999)"
+        )
+        return forms
+
+    @staticmethod
     def get_hol_chromas() -> List[Dict]:
         """Get Risen Legend Kai'Sa HOL chroma data structure (equivalent to chromas)"""
         chromas = [
@@ -205,6 +232,11 @@ class ChromaSpecialCases:
         """Check if chroma_id is a Gun Goddess Miss Fortune form"""
         return chroma_id in (21997, 21998, 21999)
     
+    @staticmethod
+    def is_kaisa_form(chroma_id: int) -> bool:
+        """Check if chroma_id is a Risen Legend Kai'Sa starting form."""
+        return chroma_id in (145071, 145999)
+
     @staticmethod
     def is_hol_chroma(chroma_id: int) -> bool:
         """Check if chroma_id is a HOL chroma"""
@@ -276,13 +308,9 @@ class ChromaSpecialCases:
         elif skin_id in (21997, 21998, 21999):
             return ChromaSpecialCases.get_missfortune_forms()
         
-        # Special case: Risen Legend Kai'Sa (skin ID 145070) has HOL chroma instead of regular chromas
-        elif skin_id == 145070:
-            return ChromaSpecialCases.get_hol_chromas()
-        
-        # Special case: Immortalized Legend Kai'Sa (skin ID 145071) is treated as a chroma of Risen Legend
-        elif skin_id == 145071:
-            return ChromaSpecialCases.get_hol_chromas()
+        # Risen Legend Kai'Sa uses explicit starting-form archives.
+        elif skin_id in (145070, 145071, 145999):
+            return ChromaSpecialCases.get_kaisa_forms()
         
         # Special case: Risen Legend Ahri (skin ID 103085) has HOL chroma instead of regular chromas
         elif skin_id == 103085:
@@ -337,7 +365,7 @@ class ChromaSpecialCases:
         if chroma_id == 21016:
             return 21016  # Gun Goddess Miss Fortune base skin ID
         
-        if chroma_id == 145071:
+        if ChromaSpecialCases.is_kaisa_form(chroma_id):
             return 145070  # Risen Legend Kai'Sa base skin ID
         
         if chroma_id == 103086:
