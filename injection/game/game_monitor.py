@@ -61,13 +61,13 @@ class GameMonitor:
         self._suspended_game_process = None
         self._runoverlay_started = False
 
-        # Patch 26.19 compatibility: upstream CSLOL does not require PSM to suspend
-        # League of Legends.exe. Process suspension can interfere with newer game /
-        # Vanguard startup behavior, so the compatibility default leaves the game
-        # running and lets runoverlay perform its own normal scan/hook lifecycle.
+        # Rose 1.3.x parity: when suspension is enabled, hold the League game
+        # process while mkoverlay + WAD-header rebase finish. The current LTK host
+        # is already scanning before this point and PSM resumes League only when
+        # the rebased overlay is ready to be served.
         if not ENABLE_GAME_SUSPENSION:
             self._monitor_active = False
-            log.info("[monitor] Game suspension disabled - using compatibility-safe runoverlay flow")
+            log.info("[monitor] Game suspension disabled by configuration")
             return
         
         self._monitor_active = True
