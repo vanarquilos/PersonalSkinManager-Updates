@@ -1,10 +1,9 @@
 name: Public source checks
 
+# PSM is local-first. Keep GitHub Actions available as an explicit release
+# sanity check without running CI on every push or pull request.
 on:
-  pull_request:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
