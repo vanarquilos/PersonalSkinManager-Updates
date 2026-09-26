@@ -278,6 +278,11 @@ class OverlayManager:
                 injection_manager.resume_if_suspended()
             return 127
 
+        if self.process_manager:
+            # Rose resets this for every new game so an earlier manual stop does
+            # not make a later successful patcher session look user-cancelled.
+            self.process_manager.stopped_by_user = False
+
         from .ltk_host import start_ltk_patcher_host
         log.info("[INJECT] Arming current LTK scanner before mkoverlay/game launch")
         ltk_session = start_ltk_patcher_host(
