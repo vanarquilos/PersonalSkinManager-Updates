@@ -2,12 +2,12 @@
 
 ## League Compatibility Update
 
-PSM v1.0.2 restores compatibility after the recent League of Legends update.
+PSM v1.0.2 updates the runtime used by Personal Skin Manager for the current League version.
 
 ### Fixed
-- Restored reliable skin and chroma handling.
+- Improved supported skin/mod runtime compatibility.
 - Fixed injection timing issues.
-- Fixed Reconnect and game-repair problems seen with the previous runtime.
+- Fixed Reconnect and game-repair problems tied to the previous runtime.
 - Improved overlay handling and cleanup.
 
 ### Improved
@@ -15,9 +15,9 @@ PSM v1.0.2 restores compatibility after the recent League of Legends update.
 - Refreshed the Settings UI with cleaner icons and layout.
 - All required runtime components are included in the installer, so no manual DLL setup is needed.
 
-### Tested
-Tested across multiple champions, skins/chromas, repeated matches, app restarts, and Practice Tool.
+### QA
+The compatibility work was tested across repeated game sessions, multiple champions, runtime restarts, and Practice Tool. The final packaged v1.0.2 installer still requires a clean-install verification before publication.
 
 Existing PSM user data and downloaded content are preserved when updating from v1.0.1.
 
-Thanks to everyone who reported the issue and waited while the compatibility update was tested.
+Thanks to everyone who reported the issue and waited while the compatibility update was investigated and tested.
