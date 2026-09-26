@@ -162,3 +162,7 @@ PSM_Revenant_*_Audit.txt
 PSM_Revenant_*_Compare.txt
 PSM_*_Audit.txt
 PSM_*_Compare.txt
+
+injection/tools/mod-tools.exe
+injection/tools/ltk_patcher_host.exe
+injection/tools/ltk_patcher_dll.dll
