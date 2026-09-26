@@ -861,51 +861,177 @@ class InjectionTrigger:
                     log.warning(f"[INJECT] Failed to resume game after forcing owned skin: {e}")
     
     def _inject_unowned_skin(self, name: str, cname: str):
-        """Handle an unowned official skin/chroma selection safely.
-
-        The current supported LTK verification path rejects official-skin
-        substitution overlays. Do not launch a patcher session for this case.
-        """
+        """Route an unowned official skin/chroma through the current Rose-style overlay flow.\n\n        LTK runtime verification remains enabled and authoritative. If the\n        runtime rejects the overlay, ltk_host reports the failure normally.\n        """
         try:
-            from utils.core.issue_reporter import report_issue
-            selected_id = getattr(self.state, "last_hovered_skin_id", None)
-            selected_chroma_id = getattr(self.state, "selected_chroma_id", None)
-            effective_id = selected_chroma_id or selected_id
+            # A previous failed QA run may have left the old blocker in the
+            # troubleshooting file. Clear that stale result before this attempt.
+            try:
+                from utils.core.issue_reporter import clear_issue
+                clear_issue("LTK_OVERLAY_REJECTED")
+            except Exception as exc:
+                log.debug(f"[INJECT] Could not clear stale LTK diagnostic: {exc}")
 
-            log.warning(
-                "[INJECT] Unowned official skin/chroma %s was not injected: "
-                "current runtime verification rejected the substitution overlay",
-                effective_id or name,
-            )
-            report_issue(
-                "LTK_OVERLAY_REJECTED",
-                "error",
-                "Selected unowned League skin cannot be applied with the current supported runtime.",
-                details={
-                    "skin": name,
-                    "skin_id": effective_id,
-                    "champion": cname,
-                },
-                hint=(
-                    "Choose an owned League skin or a compatible custom mod. "
-                    "PSM keeps current runtime verification enabled."
-                ),
-                dedupe_window_s=30.0,
-            )
-
-            if self.injection_manager:
+            # Force base skin selection via LCU before injecting
+            champ_id = self.state.locked_champ_id or self.state.hovered_champ_id
+            if champ_id:
+                base_skin_id = champ_id * 1000
+                
+                # Read actual current selection from LCU session
+                actual_lcu_skin_id = None
                 try:
-                    self.injection_manager.resume_if_suspended()
-                except Exception as exc:
-                    log.debug(f"[INJECT] Safe resume after blocked overlay failed: {exc}")
+                    sess = self.lcu.session or {}
+                    my_team = sess.get("myTeam") or []
+                    my_cell = self.state.local_cell_id
+                    for player in my_team:
+                        if player.get("cellId") == my_cell:
+                            actual_lcu_skin_id = player.get("selectedSkinId")
+                            if actual_lcu_skin_id is not None:
+                                actual_lcu_skin_id = int(actual_lcu_skin_id)
+                            break
+                except Exception as e:
+                    log.debug(f"[INJECT] Failed to read actual LCU skin ID: {e}")
+                
+                # Only force base skin if current selection is not already base skin
+                if actual_lcu_skin_id is None or actual_lcu_skin_id != base_skin_id:
+                    self._force_base_skin(base_skin_id)
+            
+            # Create callback to check if game ended
+            has_been_in_progress = False
 
-            log.error("=" * LOG_SEPARATOR_WIDTH)
-            log.error(f"INJECTION BLOCKED >>> {name.upper()} <<<")
-            log.error("[INJECT] Current runtime verification does not permit this official-skin substitution")
-            log.error("=" * LOG_SEPARATOR_WIDTH)
-        except Exception as exc:
-            log.error(f"[INJECT] Failed to report blocked official-skin overlay: {exc}")
+            def game_ended_callback():
+                nonlocal has_been_in_progress
+                phase = self.state.phase
+                if phase == "InProgress":
+                    has_been_in_progress = True
+                    return False
+                if phase in ("Reconnect", "GameStart"):
+                    return False
+                return has_been_in_progress and phase not in ("InProgress", "Reconnect", "GameStart")
+            
+            # Inject skin in a separate thread
+            log.info(f"[INJECT] Starting injection: {name}")
+            
+            champ_id_for_history = self.state.locked_champ_id
 
+            def run_injection():
+                try:
+                    if not self.lcu.ok:
+                        log.warning(f"[INJECT] LCU not available, skipping injection")
+                        return
+                    
+                    success = self.injection_manager.inject_skin_immediately(
+                        name,
+                        stop_callback=game_ended_callback,
+                        champion_name=cname,
+                        champion_id=self.state.locked_champ_id
+                    )
+                    
+                    # Clear random state after injection
+                    if getattr(self.state, 'random_mode_active', False):
+                        self.state.random_skin_name = None
+                        self.state.random_skin_id = None
+                        self.state.random_mode_active = False
+                        log.info("[RANDOM] Random mode cleared after injection")
+                    
+                    if success:
+                        # Persist historic entry
+                        try:
+                            injected_id = None
+                            if isinstance(name, str) and '_' in name:
+                                parts = name.split('_', 1)
+                                if len(parts) == 2 and parts[1].isdigit():
+                                    injected_id = int(parts[1])
+                            champ_id = champ_id_for_history
+                            if champ_id is not None and injected_id is not None:
+                                from utils.core.historic import write_historic_entry
+                                write_historic_entry(int(champ_id), int(injected_id))
+                                log.info(f"[HISTORIC] Stored last injected ID {injected_id} for champion {champ_id}")
+                        except Exception as e:
+                            log.debug(f"[HISTORIC] Failed to store historic entry: {e}")
+                        
+                        # Clean up missing mods from historic after injection completes
+                        try:
+                            from utils.core.mod_historic import get_historic_mod, clear_historic_mod
+                            from injection.mods.storage import ModStorageService
+                            
+                            mod_storage = ModStorageService()
+                            mods_root = mod_storage.mods_root
+                            
+                            # Helper to check if a mod file exists
+                            def mod_file_exists(relative_path: str) -> bool:
+                                try:
+                                    full_path = mods_root / relative_path.replace("/", "\\")
+                                    return full_path.exists()
+                                except Exception:
+                                    return False
+                            
+                            # Check and clean map mod
+                            historic_map_path = get_historic_mod("map")
+                            if historic_map_path and not mod_file_exists(historic_map_path):
+                                clear_historic_mod("map")
+                                log.info(f"[MOD_HISTORIC] Cleaned missing map mod from historic: {historic_map_path}")
+                            
+                            # Check and clean font mod
+                            historic_font_path = get_historic_mod("font")
+                            if historic_font_path and not mod_file_exists(historic_font_path):
+                                clear_historic_mod("font")
+                                log.info(f"[MOD_HISTORIC] Cleaned missing font mod from historic: {historic_font_path}")
+                            
+                            # Check and clean announcer mod
+                            historic_announcer_path = get_historic_mod("announcer")
+                            if historic_announcer_path and not mod_file_exists(historic_announcer_path):
+                                clear_historic_mod("announcer")
+                                log.info(f"[MOD_HISTORIC] Cleaned missing announcer mod from historic: {historic_announcer_path}")
+                            
+                            # Check and clean other mods
+                            historic_other_paths = get_historic_mod("other")
+                            if historic_other_paths:
+                                if isinstance(historic_other_paths, str):
+                                    historic_other_paths = [historic_other_paths]
+                                elif not isinstance(historic_other_paths, list):
+                                    historic_other_paths = []
+                                
+                                cleaned_paths = [path for path in historic_other_paths if mod_file_exists(path)]
+                                
+                                if len(cleaned_paths) != len(historic_other_paths):
+                                    from utils.core.mod_historic import write_historic_mod
+                                    if cleaned_paths:
+                                        write_historic_mod("other", cleaned_paths)
+                                        removed_count = len(historic_other_paths) - len(cleaned_paths)
+                                        log.info(f"[MOD_HISTORIC] Cleaned {removed_count} missing other mod(s) from historic")
+                                    else:
+                                        clear_historic_mod("other")
+                                        log.info(f"[MOD_HISTORIC] Cleared historic other mods (all were missing)")
+                        except Exception as e:
+                            log.debug(f"[MOD_HISTORIC] Failed to clean up missing mods from historic: {e}")
+                        
+                        log.info("=" * LOG_SEPARATOR_WIDTH)
+                        log.info(f"INJECTION COMPLETED >>> {name.upper()} <<<")
+                        log.info(f"   Verify in-game - timing determines if skin appears")
+                        log.info("=" * LOG_SEPARATOR_WIDTH)
+                    else:
+                        log.error("=" * LOG_SEPARATOR_WIDTH)
+                        log.error(f"INJECTION FAILED >>> {name.upper()} <<<")
+                        log.error("=" * LOG_SEPARATOR_WIDTH)
+                        log.error(f"[INJECT] Skin will likely NOT appear in-game")
+                    
+                    # Request UI destruction after injection
+                    try:
+                        from ui.core.user_interface import get_user_interface
+                        user_interface = get_user_interface(self.state, self.skin_scraper)
+                        user_interface.request_ui_destruction()
+                        log_action(log, "UI destruction requested after injection completion", "")
+                    except Exception as e:
+                        log.warning(f"[INJECT] Failed to request UI destruction after injection: {e}")
+                except Exception as e:
+                    log.error(f"[INJECT] injection thread error: {e}")
+            
+            injection_thread = threading.Thread(target=run_injection, daemon=True, name="InjectionThread")
+            injection_thread.start()
+        
+        except Exception as e:
+            log.error(f"[INJECT] injection error: {e}")
+    
     def _force_base_skin(self, base_skin_id: int):
         """Force base skin selection via LCU"""
         log.info(f"[INJECT] Forcing base skin (skinId={base_skin_id})")
