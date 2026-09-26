@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 APP_NAME = "Personal Skin Manager"
 APP_SLUG = "PersonalSkinManager"
-APP_VERSION = "1.0.1"                          # Application version
+APP_VERSION = "1.0.2"                          # Application version
 APP_USER_AGENT = f"{APP_SLUG}/{APP_VERSION}"  # User-Agent header for HTTP requests
 UPDATE_CHANNEL = "stable"
 
@@ -180,12 +180,9 @@ ENABLE_MKOVERLAY_PRIORITY_BOOST = True   # Boost short-lived mkoverlay process p
 ENABLE_RUNOVERLAY_PRIORITY_BOOST = False  # Runoverlay runs for the entire game session; boosting its priority would compete with the game for CPU and cause perf decrease
 ENABLE_GAME_SUSPENSION = True            # Rose 1.3.x parity: hold League until the LTK scanner is ready and the overlay has been built
 
-# Patch 26.19 / Rose v1.0.1 compatibility.
-# LTK Manager exposes "Enforce anti-skinhack scan" as a user setting. When that
-# setting is off, upstream sends CSLOL_HOOK_OPT_OUT_AH_V1 (flag 4) to its host.
-# PSM mirrors that public setting in this experimental branch so the original
-# Rose official-skin overlay flow can be live-QA'd against the current runtime.
-LTK_ENFORCE_SKINHACK_SCAN = False
+# Current League Toolkit runtime verification stays enabled in release builds.
+# Compatibility work must not disable or bypass third-party integrity checks.
+LTK_ENFORCE_SKINHACK_SCAN = True
 
 # Keep the host in normal integrity mode by default. Live QA already confirmed
 # that the current host attaches successfully without PSM forcing elevation.
