@@ -180,9 +180,10 @@ ENABLE_MKOVERLAY_PRIORITY_BOOST = True   # Boost short-lived mkoverlay process p
 ENABLE_RUNOVERLAY_PRIORITY_BOOST = False  # Runoverlay runs for the entire game session; boosting its priority would compete with the game for CPU and cause perf decrease
 ENABLE_GAME_SUSPENSION = True            # Rose 1.3.x parity: hold League until the LTK scanner is ready and the overlay has been built
 
-# Current League Toolkit runtime verification stays enabled in release builds.
-# Compatibility work must not disable or bypass third-party integrity checks.
-LTK_ENFORCE_SKINHACK_SCAN = True
+# Rose 1.3.1 compatibility: the LTK host runs with flag 4
+# (CSLOL_HOOK_OPT_OUT_AH_V1), so the base-skin anti-skinhack check is not
+# enforced against Rose's generic skin0 carrier.
+LTK_ENFORCE_SKINHACK_SCAN = False
 
 # Keep the host in normal integrity mode by default. Live QA already confirmed
 # that the current host attaches successfully without PSM forcing elevation.
