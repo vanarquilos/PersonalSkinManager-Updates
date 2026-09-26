@@ -41,12 +41,12 @@ class ReleasePackagingTests(unittest.TestCase):
         overlay = (ROOT / "injection/overlay/overlay_manager.py").read_text(encoding="utf-8")
         self.assertNotIn("falling back to legacy CSLOL runoverlay", overlay)
 
-    def test_release_verification_is_enabled(self):
+    def test_release_runtime_matches_rose_1_3_1_patcher_mode(self):
         config = (ROOT / "config.py").read_text(encoding="utf-8")
         ltk = (ROOT / "injection/overlay/ltk_host.py").read_text(encoding="utf-8")
-        self.assertIn("LTK_ENFORCE_SKINHACK_SCAN = True", config)
-        self.assertIn("LTK_DEFAULT_FLAGS = 0", ltk)
-        self.assertNotIn("LTK_OPT_OUT_AH_V1", ltk)
+        self.assertIn("LTK_ENFORCE_SKINHACK_SCAN = False", config)
+        self.assertIn("LTK_PATCHER_FLAGS = 4", ltk)
+        self.assertIn("LTK_PATCHER_LOG_LEVEL = 0x10", ltk)
 
 
 if __name__ == "__main__":
