@@ -646,17 +646,35 @@ class InjectionTrigger:
                     )
 
                     if carrier_name:
-                        log.info(
-                            "[INJECT] Custom mod targets unowned skin %s; "
-                            "injecting carrier %s + custom mod",
+                        # Do not turn an unowned official Riot skin into a carrier
+                        # for a custom mod. The release runtime keeps verification
+                        # enabled, so this combination is unsupported.
+                        log.warning(
+                            "[INJECT] Custom mod targets unowned official skin %s; "
+                            "carrier overlay was not started",
                             target_skin_id,
-                            carrier_name,
                         )
-                        self._inject_custom_mod(
-                            selected_custom_mod,
-                            base_skin_name=carrier_name,
-                            champion_name=cname,
-                        )
+                        try:
+                            from utils.core.issue_reporter import report_issue
+                            report_issue(
+                                "LTK_OVERLAY_REJECTED",
+                                "error",
+                                "This custom mod targets an unowned League skin and cannot be applied with the current supported runtime.",
+                                details={
+                                    "skin_id": target_skin_id,
+                                    "champion": cname,
+                                    "mod": selected_custom_mod.get("mod_name"),
+                                },
+                                hint=(
+                                    "Use the champion base skin, an owned target skin, "
+                                    "or a compatible custom mod that does not require an unowned Riot-skin carrier."
+                                ),
+                                dedupe_window_s=30.0,
+                            )
+                        except Exception as exc:
+                            log.debug(f"[INJECT] Could not report unsupported custom-mod carrier: {exc}")
+                        if self.injection_manager:
+                            self.injection_manager.resume_if_suspended()
                     else:
                         log.info(
                             "[INJECT] Custom mod targets the champion base skin %s; "
