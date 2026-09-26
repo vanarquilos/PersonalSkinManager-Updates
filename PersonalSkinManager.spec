@@ -51,9 +51,10 @@ for tool in injection_binaries:
         missing_binaries.append(tool)
 
 if missing_binaries:
-    print(f"[WARNING] Missing injection binaries:")
-    for tool in missing_binaries:
-        print(f"  - {tool}")
+    missing_text = ", ".join(missing_binaries)
+    raise RuntimeError(
+        "Missing required v1.0.2 runtime binaries: " + missing_text
+    )
 else:
     print(f"[OK] All {len(injection_binaries)} injection binaries found")
 
