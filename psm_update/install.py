@@ -34,11 +34,6 @@ def install_root() -> Path:
     return Path.cwd().resolve()
 
 
-def runtime_cslol_path(app_dir: Path | None = None) -> Path:
-    root = app_dir or install_root()
-    return root / "_internal" / "injection" / "tools" / "cslol-dll.dll"
-
-
 def update_root() -> Path:
     root = get_user_data_dir() / "updates"
     root.mkdir(parents=True, exist_ok=True)
@@ -53,10 +48,6 @@ def create_apply_script(
     app_dir = install_root()
     updates = update_root()
     backup = updates / "backup" / current_version
-    preserved = updates / "preserved"
-    preserved.mkdir(parents=True, exist_ok=True)
-    preserved_cslol = preserved / "cslol-dll.dll"
-    cslol = runtime_cslol_path(app_dir)
     helper = updates / "apply_update.cmd"
     app_exe = app_dir / "PersonalSkinManager.exe"
 
@@ -66,8 +57,6 @@ set "PSM_PID={os.getpid()}"
 set "APP_DIR={app_dir}"
 set "INSTALLER={installer_path}"
 set "BACKUP={backup}"
-set "CSLOL={cslol}"
-set "PRESERVED_CSLOL={preserved_cslol}"
 set "APP_EXE={app_exe}"
 
 :wait_for_exit
@@ -81,16 +70,9 @@ if exist "%BACKUP%" rmdir /S /Q "%BACKUP%"
 mkdir "%BACKUP%" >NUL 2>&1
 robocopy "%APP_DIR%" "%BACKUP%" /MIR /NFL /NDL /NJH /NJS /NP >NUL
 
-if exist "%CSLOL%" copy /Y "%CSLOL%" "%PRESERVED_CSLOL%" >NUL
-
 start /wait "" "%INSTALLER%" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
 set "INSTALL_RC=%ERRORLEVEL%"
 if not "%INSTALL_RC%"=="0" goto rollback
-
-if exist "%PRESERVED_CSLOL%" (
-  if not exist "%APP_DIR%\_internal\injection\tools" mkdir "%APP_DIR%\_internal\injection\tools" >NUL 2>&1
-  copy /Y "%PRESERVED_CSLOL%" "%APP_DIR%\_internal\injection\tools\cslol-dll.dll" >NUL
-)
 
 start "" "%APP_EXE%"
 timeout /t 20 /nobreak >NUL
@@ -104,10 +86,6 @@ taskkill /IM PersonalSkinManager.exe /F >NUL 2>&1
 
 :rollback
 if exist "%BACKUP%" robocopy "%BACKUP%" "%APP_DIR%" /MIR /NFL /NDL /NJH /NJS /NP >NUL
-if exist "%PRESERVED_CSLOL%" (
-  if not exist "%APP_DIR%\_internal\injection\tools" mkdir "%APP_DIR%\_internal\injection\tools" >NUL 2>&1
-  copy /Y "%PRESERVED_CSLOL%" "%APP_DIR%\_internal\injection\tools\cslol-dll.dll" >NUL
-)
 if exist "%APP_EXE%" start "" "%APP_EXE%"
 exit /b %INSTALL_RC%
 """
