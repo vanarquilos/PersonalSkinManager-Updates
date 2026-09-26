@@ -20,9 +20,14 @@ class ReleaseSkinRoutingTests(unittest.TestCase):
             self.source,
         )
 
-    def test_unowned_official_skin_path_fails_closed(self):
+    def test_unowned_official_skin_routes_through_overlay_runtime(self):
         self.assertIn(
-            "Current runtime verification does not permit this official-skin substitution",
+            'Route an unowned official skin/chroma through the current Rose-style overlay flow.',
+            self.source,
+        )
+        self.assertIn("inject_skin_immediately(", self.source)
+        self.assertNotIn(
+            "Selected unowned League skin cannot be applied with the current supported runtime.",
             self.source,
         )
 
