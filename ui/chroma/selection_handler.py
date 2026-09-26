@@ -69,6 +69,9 @@ class ChromaSelectionHandler:
             # Check if this is a Gun Goddess Miss Fortune Form
             elif ChromaSpecialCases.is_missfortune_form(chroma_id):
                 self._handle_missfortune_form_selection(chroma_id, chroma_name)
+            # Check if this is a Risen Legend Kai'Sa starting form
+            elif ChromaSpecialCases.is_kaisa_form(chroma_id):
+                self._handle_kaisa_form_selection(chroma_id, chroma_name)
             # Check if this is a HOL chroma
             elif ChromaSpecialCases.is_hol_chroma(chroma_id):
                 self._handle_hol_chroma_selection(chroma_id, chroma_name)
@@ -441,6 +444,56 @@ class ChromaSelectionHandler:
                 log.debug(f"[CHROMA] Form path: {form_data['form_path']}")
                 log.debug(f"[CHROMA] Using real ID {chroma_id} for injection (not owned)")
     
+    def _handle_kaisa_form_selection(self, chroma_id: int, chroma_name: str):
+        """Handle Risen Legend Kai'Sa starting-form selection."""
+        current_base = ChromaSpecialCases.get_base_skin_id_for_special(
+            self.current_skin_id
+        )
+        if self.current_skin_id != 145070 and current_base != 145070:
+            log.warning(
+                "[CHROMA] Ignoring Kai'Sa form %s outside Risen Legend family",
+                chroma_id,
+            )
+            return
+
+        form_data = next(
+            (
+                form
+                for form in ChromaSpecialCases.get_kaisa_forms()
+                if form["id"] == chroma_id
+            ),
+            None,
+        )
+        if not form_data:
+            log.warning(f"[CHROMA] Unknown Risen Legend Kai'Sa form ID: {chroma_id}")
+            return
+
+        self.state.selected_form_path = form_data["form_path"]
+        self.state.selected_chroma_id = chroma_id
+        self.state.last_hovered_skin_id = chroma_id
+
+        if self.state.is_swiftplay_mode:
+            self.state.swiftplay_skin_tracking[145] = chroma_id
+            log.info(
+                f"[CHROMA] Updated Swiftplay tracking: champion 145 -> "
+                f"Kai'Sa form {chroma_id}"
+            )
+
+        self._disable_historic_mode(
+            f"Risen Legend Kai'Sa form selection (formId={chroma_id})"
+        )
+
+        if hasattr(self.panel, "current_skin_name") and self.panel.current_skin_name:
+            base_skin_name = self.panel.current_skin_name
+            self.state.last_hovered_skin_key = f"{base_skin_name} {chroma_name}"
+
+        log.info(
+            "[CHROMA] Kai'Sa starting form selected: %s (ID: %s, archive: %s)",
+            chroma_name,
+            chroma_id,
+            self.state.selected_form_path,
+        )
+
     def _handle_hol_chroma_selection(self, chroma_id: int, chroma_name: str):
         """Handle HOL chroma selection (Kai'Sa or Ahri)"""
         if chroma_id == 145071:
@@ -482,6 +535,7 @@ class ChromaSelectionHandler:
         """Handle base skin selection"""
         log.info(f"[CHROMA] Base skin selected")
         self.state.selected_chroma_id = None
+        self.state.selected_form_path = None
         
         # Reset skin key to just the skin name (no chroma ID)
         if hasattr(self.panel, 'current_skin_name') and self.panel.current_skin_name:
@@ -509,6 +563,7 @@ class ChromaSelectionHandler:
         """Handle regular chroma selection"""
         log.info(f"[CHROMA] Chroma selected: {chroma_name} (ID: {chroma_id})")
         self.state.selected_chroma_id = chroma_id
+        self.state.selected_form_path = None
         
         # Update the hovered skin ID to the chroma ID
         self.state.last_hovered_skin_id = chroma_id
