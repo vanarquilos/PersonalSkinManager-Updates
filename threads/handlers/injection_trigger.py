@@ -646,35 +646,17 @@ class InjectionTrigger:
                     )
 
                     if carrier_name:
-                        # Do not turn an unowned official Riot skin into a carrier
-                        # for a custom mod. The release runtime keeps verification
-                        # enabled, so this combination is unsupported.
-                        log.warning(
-                            "[INJECT] Custom mod targets unowned official skin %s; "
-                            "carrier overlay was not started",
+                        log.info(
+                            "[INJECT] Custom mod targets unowned skin %s; "
+                            "injecting carrier %s + custom mod",
                             target_skin_id,
+                            carrier_name,
                         )
-                        try:
-                            from utils.core.issue_reporter import report_issue
-                            report_issue(
-                                "LTK_OVERLAY_REJECTED",
-                                "error",
-                                "This custom mod targets an unowned League skin and cannot be applied with the current supported runtime.",
-                                details={
-                                    "skin_id": target_skin_id,
-                                    "champion": cname,
-                                    "mod": selected_custom_mod.get("mod_name"),
-                                },
-                                hint=(
-                                    "Use the champion base skin, an owned target skin, "
-                                    "or a compatible custom mod that does not require an unowned Riot-skin carrier."
-                                ),
-                                dedupe_window_s=30.0,
-                            )
-                        except Exception as exc:
-                            log.debug(f"[INJECT] Could not report unsupported custom-mod carrier: {exc}")
-                        if self.injection_manager:
-                            self.injection_manager.resume_if_suspended()
+                        self._inject_custom_mod(
+                            selected_custom_mod,
+                            base_skin_name=carrier_name,
+                            champion_name=cname,
+                        )
                     else:
                         log.info(
                             "[INJECT] Custom mod targets the champion base skin %s; "
@@ -711,36 +693,34 @@ class InjectionTrigger:
                     selected_mod_types.append("Other")
                 mod_types_str = "/".join(selected_mod_types) if selected_mod_types else "Map/Font/Announcer/Other"
                 
-                # Map/font/announcer/other mods do not need an unowned
-                # official Riot-skin carrier. If the hovered Riot skin is not
-                # owned, keep the client on the champion base skin and inject
-                # only the compatible custom content.
+                # Keep the same skin routing when category mods are active.
+                # Owned/default skins stay on the client selection; an unowned
+                # selected skin is added as the Rose-style carrier beside the
+                # selected map/font/announcer/other content.
                 is_skin_owned = (
                     ui_skin_id is not None and (
                         is_default_skin(ui_skin_id)
                         or ui_skin_id in (owned_skin_ids or set())
                     )
                 )
-
-                if is_skin_owned:
+                base_skin_name_for_injection = None
+                if not is_skin_owned and ui_skin_id != 0:
+                    base_skin_name_for_injection = name
+                    log.info(
+                        f"[INJECT] {mod_types_str} mod(s) selected + unowned skin "
+                        f"{ui_skin_id}; injecting skin carrier + {mod_types_str.lower()} mod(s)"
+                    )
+                else:
                     if effective_skin_id in (owned_skin_ids or set()):
                         self._force_owned_skin(effective_skin_id)
                     log.info(
                         f"[INJECT] {mod_types_str} mod(s) selected; "
-                        "keeping the owned/default Riot skin and injecting custom content only"
-                    )
-                else:
-                    champ_id = self.state.locked_champ_id or self.state.hovered_champ_id
-                    if champ_id:
-                        self._force_base_skin(int(champ_id) * 1000)
-                    log.info(
-                        f"[INJECT] {mod_types_str} mod(s) selected while an unowned "
-                        "Riot skin is hovered; using base skin and injecting custom content only"
+                        "injecting custom content with the owned/default skin"
                     )
 
                 self._inject_custom_mod(
                     dummy_custom_mod,
-                    base_skin_name=None,
+                    base_skin_name=base_skin_name_for_injection,
                     champion_name=cname,
                 )
                 return
@@ -778,9 +758,8 @@ class InjectionTrigger:
                     "no overlay required"
                 )
 
-            # Unowned official Riot skins are not routed through the overlay
-            # backend in release builds. Current runtime verification must stay
-            # enabled; compatible custom mods continue through their own path.
+            # Route an unowned official skin/chroma through the same Rose-style
+            # overlay lifecycle used by the current runtime integration.
             elif self.injection_manager:
                 self._inject_unowned_skin(name, cname)
         
