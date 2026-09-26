@@ -265,7 +265,26 @@ class OverlayManager:
         # Use overlay directory (should already be clean from _clean_overlay_dir)
         overlay_dir = self.mods_dir.parent / "overlay"
         overlay_dir.mkdir(parents=True, exist_ok=True)
-        
+
+        # Rose 1.3.1 parity: current LTK must already be scanning BEFORE League
+        # launches. Starting the host after mkoverlay can join too late and the
+        # game will load without the selected skin even though attach later
+        # appears successful in the logs.
+        ltk_host = tools.get("ltk_host")
+        ltk_dll = tools.get("ltk_dll")
+        ltk_session = None
+        if ltk_host and ltk_dll and ltk_host.is_file() and ltk_dll.is_file():
+            from .ltk_host import start_ltk_patcher_host
+            log.info("[INJECT] Arming current LTK scanner before mkoverlay/game launch")
+            ltk_session = start_ltk_patcher_host(
+                self.tools_dir,
+                overlay_dir,
+                process_manager=self.process_manager,
+            )
+            if ltk_session is None:
+                log.error("[INJECT] Could not arm LTK scanner before game launch")
+                return 1
+
         names_str = "/".join(mod_names)
         gpath = str(self.game_dir)
 
@@ -344,6 +363,9 @@ class OverlayManager:
                     result_code=proc.returncode,
                 )
                 log.error(f"[INJECT] mkoverlay failed with return code: {proc.returncode}")
+                if ltk_session is not None:
+                    from .ltk_host import abort_ltk_patcher_host
+                    abort_ltk_patcher_host(ltk_session)
                 return proc.returncode
             else:
                 log_success(log, f"mkoverlay completed in {mkoverlay_duration:.2f}s", "⚡")
@@ -365,6 +387,9 @@ class OverlayManager:
                         "[INJECT] No overlay WAD headers could be rebased; "
                         "stopping before League can flag the installation for repair"
                     )
+                    if ltk_session is not None:
+                        from .ltk_host import abort_ltk_patcher_host
+                        abort_ltk_patcher_host(ltk_session)
                     return 65
 
                 # Wipe extracted skin files now that mkoverlay is done with them
@@ -373,7 +398,11 @@ class OverlayManager:
                 # Hide overlay files so they can't be easily browsed
                 self._hide_directory(overlay_dir)
 
-                log_event(log, "mkoverlay done - overlay ready for patcher backend", "⚡")
+                log_event(
+                    log,
+                    "mkoverlay + WAD rebase done - overlay ready; LTK scanner was armed before game launch",
+                    "⚡",
+                )
                 
         except subprocess.TimeoutExpired:
             log.error("[INJECT] mkoverlay timeout - monitor will auto-resume if needed")
@@ -385,6 +414,9 @@ class OverlayManager:
                 hint="Try increasing Monitor Auto-Resume Timeout and/or using smaller mods.",
             )
             self._report_low_disk_space_failure(output_lines + error_lines, mod_names)
+            if ltk_session is not None:
+                from .ltk_host import abort_ltk_patcher_host
+                abort_ltk_patcher_host(ltk_session)
             return 124
         except Exception as e:
             log.error(f"[INJECT] mkoverlay error: {e} - monitor will auto-resume if needed")
@@ -396,22 +428,20 @@ class OverlayManager:
                 hint="Check Personal Skin Manager logs for details, then retry.",
             )
             self._report_low_disk_space_failure(output_lines + error_lines, mod_names)
+            if ltk_session is not None:
+                from .ltk_host import abort_ltk_patcher_host
+                abort_ltk_patcher_host(ltk_session)
             return 1
 
-        # Run overlay. Patch 26.19 live QA showed that the legacy CSLOL
-        # runoverlay path can stop at "Found League" without ever reaching its
-        # patch/wait-exit states. Prefer League Toolkit's current patcher-host
-        # runtime when the user has supplied the official host+DLL pair.
-        ltk_host = tools.get("ltk_host")
-        ltk_dll = tools.get("ltk_dll")
-        if ltk_host and ltk_dll and ltk_host.is_file() and ltk_dll.is_file():
-            from .ltk_host import run_ltk_patcher_host
-            log.info("[INJECT] Using LTK patcher-host compatibility backend")
-            result = run_ltk_patcher_host(
-                self.tools_dir,
-                overlay_dir,
+        # Continue the LTK session that was armed before mkoverlay. Only now,
+        # after the overlay exists and its WAD header matches the current game,
+        # do we resume League. This mirrors Rose 1.3.1's post-16.19 timing fix.
+        if ltk_session is not None:
+            from .ltk_host import run_ltk_patcher_host_session
+            log.info("[INJECT] Serving rebased overlay through pre-armed LTK scanner")
+            result = run_ltk_patcher_host_session(
+                ltk_session,
                 stop_callback=stop_callback,
-                process_manager=self.process_manager,
                 injection_manager=injection_manager,
             )
             self._wipe_overlay_dir(overlay_dir)
