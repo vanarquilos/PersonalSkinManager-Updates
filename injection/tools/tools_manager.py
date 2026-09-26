@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Tools Manager
-Handles CSLOL tools detection and validation
+Validates the v1.0.2 overlay builder and current LTK runtime.
 """
 
 from pathlib import Path
@@ -14,60 +14,40 @@ log = get_logger()
 
 
 class ToolsManager:
-    """Manages CSLOL tools detection and validation"""
+    """Manages required overlay-builder and runtime files."""
 
     def __init__(self, tools_dir: Path):
         self.tools_dir = tools_dir
 
     def check_tools_available(self) -> bool:
-        """Check whether overlay-builder and at least one patcher backend exist."""
+        """Require the complete v1.0.2 runtime set."""
         modtools = self.tools_dir / "mod-tools.exe"
-        legacy_dll = self.tools_dir / "cslol-dll.dll"
         ltk_host = self.tools_dir / "ltk_patcher_host.exe"
         ltk_dll = self.tools_dir / "ltk_patcher_dll.dll"
 
-        missing = []
-        if not modtools.is_file():
-            missing.append("mod-tools.exe")
-
-        has_ltk_pair = ltk_host.is_file() and ltk_dll.is_file()
-        has_legacy = legacy_dll.is_file()
-        if not has_ltk_pair and not has_legacy:
-            missing.append("LTK patcher pair or cslol-dll.dll")
+        required = {
+            "mod-tools.exe": modtools,
+            "ltk_patcher_host.exe": ltk_host,
+            "ltk_patcher_dll.dll": ltk_dll,
+        }
+        missing = [name for name, path in required.items() if not path.is_file()]
 
         if missing:
-            log.warning(f"Missing runtime injection dependencies: {missing}")
-            log.warning(f"Expected runtime tools directory: {self.tools_dir}")
-            if not modtools.is_file():
-                log.warning(
-                    "Development source checkout does not contain mod-tools.exe; "
-                    "copy the trusted runtime binary from your installed PSM build "
-                    "into injection/tools/ before live injection QA."
-                )
-            if not has_ltk_pair:
-                log.warning(
-                    "Patch 26.19 compatibility backend is unavailable: "
-                    "ltk_patcher_host.exe + ltk_patcher_dll.dll were not found."
-                )
+            log.error(f"[INJECT] Missing required v1.0.2 runtime files: {missing}")
+            log.error(f"[INJECT] Expected runtime tools directory: {self.tools_dir}")
             return False
 
-        if has_ltk_pair:
-            log.info("[INJECT] LTK patcher-host backend available")
-        else:
-            log.warning(
-                "[INJECT] Only the legacy CSLOL runtime is available; "
-                "current League compatibility may be limited."
-            )
+        log.info("[INJECT] Current LTK patcher-host backend available")
         return True
 
     def detect_tools(self) -> Dict[str, Path]:
-        """Detect overlay builder and patcher runtime files."""
+        """Return the v1.0.2 overlay builder and current LTK runtime paths."""
         tools = {
             "modtools": self.tools_dir / "mod-tools.exe",
             "ltk_host": self.tools_dir / "ltk_patcher_host.exe",
             "ltk_dll": self.tools_dir / "ltk_patcher_dll.dll",
-            "legacy_dll": self.tools_dir / "cslol-dll.dll",
         }
-        if not tools["modtools"].exists():
-            log.error(f"[INJECTOR] Missing tool: {tools['modtools']}")
+        for name, path in tools.items():
+            if not path.exists():
+                log.error(f"[INJECTOR] Missing tool {name}: {path}")
         return tools
