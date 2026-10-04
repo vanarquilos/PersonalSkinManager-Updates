@@ -675,16 +675,21 @@ class SwiftplayHandler:
                 )
                 return True
 
+            # Check the worker before attempting preparation. run_swiftplay_overlay()
+            # snapshots and clears swiftplay_extracted_mods while it is running;
+            # treating that temporary empty list as "not prepared" would let a
+            # second phase fallback clean/re-extract the workspace underneath an
+            # active overlay build.
+            if self._overlay_thread is not None and self._overlay_thread.is_alive():
+                log.debug(f"[phase] Swiftplay overlay worker already active ({reason})")
+                return True
+
             if not self.state.swiftplay_extracted_mods:
                 if not self.trigger_swiftplay_injection():
                     log.warning(
                         f"[phase] Swiftplay {reason} fallback has no prepared skin yet"
                     )
                     return False
-
-            if self._overlay_thread is not None and self._overlay_thread.is_alive():
-                log.debug(f"[phase] Swiftplay overlay worker already active ({reason})")
-                return True
 
             self._overlay_thread = threading.Thread(
                 target=self.run_swiftplay_overlay,
