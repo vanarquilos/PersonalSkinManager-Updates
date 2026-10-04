@@ -2,12 +2,13 @@
 
 Personal Skin Manager (PSM) is an open-source Windows skin-management application for League of Legends, derived from the open-source **Rose** project by Alban and Florent.
 
-**Current stable release:** `v1.0.1`  
-**Release candidate:** `v1.0.2`  
+**Current public release:** `v1.0.2`  
+**Hotfix candidate:** `v1.0.3`  
+**Signed in-app update channel:** `v1.0.1` (manifest update deferred)  
 **Platform:** Windows 10/11 x64  
 **Website:** https://psm.vanarquilos.dev
 
-[Website](https://psm.vanarquilos.dev) · [Stable release](https://github.com/vanarquilos/PersonalSkinManager-Updates/releases/tag/v1.0.1) · [Source](https://github.com/vanarquilos/PersonalSkinManager-Updates) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
+[Website](https://psm.vanarquilos.dev) · [Current release](https://github.com/vanarquilos/PersonalSkinManager-Updates/releases/tag/v1.0.2) · [Source](https://github.com/vanarquilos/PersonalSkinManager-Updates) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
 
 > This repository is the canonical public source, release, update-channel, diagnostics, and documentation repository for Personal Skin Manager.
 
@@ -34,22 +35,26 @@ For normal users:
 - League of Legends installed
 - Administrator permission for the installer
 
-PSM v1.0.2 is designed as an **all-in-one installer**. Users should not need to copy DLLs or manually configure runtime files after installation.
+PSM v1.0.2 and later are designed as **all-in-one installers**. Users should not need to copy DLLs or manually configure runtime files after installation.
 
-## v1.0.2
+## v1.0.3
 
-v1.0.2 is a League compatibility release focused on restoring a stable supported runtime path after the September 2026 game update.
+v1.0.3 is a focused compatibility hotfix for the October 4 runtime cutoff regression.
 
 Highlights:
 
-- updated runtime compatibility
-- current WAD handling
-- improved startup/injection timing
-- improved cleanup and diagnostics
-- cleaner Settings UI with section icons and visual hierarchy
-- bundled runtime dependencies for a simpler installation
+- validates LTK compatibility against the installed League build instead of the current calendar date
+- restores injection when the bundled runtime still supports the installed League build
+- prevents false "injection system ready" reporting when runtime validation fails
+- adds regression coverage for LTK build-cutoff behavior
 
-See [CHANGELOG.md](CHANGELOG.md) and [releases/v1.0.2/RELEASE_NOTES.md](releases/v1.0.2/RELEASE_NOTES.md).
+See [CHANGELOG.md](CHANGELOG.md) and [releases/v1.0.3/RELEASE_NOTES.md](releases/v1.0.3/RELEASE_NOTES.md).
+
+## v1.0.2
+
+v1.0.2 is the current public League compatibility release that introduced the all-in-one runtime path, current WAD handling, improved injection timing, cleanup, diagnostics, and Settings UI updates.
+
+See [releases/v1.0.2/RELEASE_NOTES.md](releases/v1.0.2/RELEASE_NOTES.md).
 
 ## Repository layout
 
@@ -82,12 +87,12 @@ stable/
 ## Application identity
 
 - Product: **Personal Skin Manager**
-- Release candidate: **1.0.2**
+- Hotfix candidate: **1.0.3**
 - Executable: `PersonalSkinManager.exe`
 - Installer: `PersonalSkinManager_Setup.exe`
 - Update channel: `stable`
 
-The stable channel remains on v1.0.1 until the v1.0.2 installer is built, verified, published, and the signed manifest is updated.
+The signed in-app update channel remains on v1.0.1 because the existing signing-key password is unavailable. Public GitHub releases are handled separately; do not replace the embedded signing key casually because older installed clients trust the existing public key.
 
 ## Compatibility data directory
 
@@ -140,7 +145,7 @@ PSM's stable updater:
 
 The private Ed25519 signing key remains outside source control. Only the public verification key belongs in the repository.
 
-The signed stable manifest must not be changed until the final v1.0.2 installer exists and its hash/size are known.
+The signed stable manifest remains intentionally deferred until the existing signing key can be used again or a deliberate key-rotation/bootstrap plan is implemented.
 
 ## Security and compatibility boundary
 
@@ -152,7 +157,7 @@ This project does not add or improve:
 - security-control disabling
 - tampering with third-party enforcement controls
 
-PSM does not patch or replace League Toolkit's verification code. v1.0.2 uses the upstream Rose-compatible patcher-host mode required for Rose-style carrier overlays, while PSM's signed update/package verification remains enforced.
+PSM does not patch or replace League Toolkit's verification code. v1.0.2+ uses the upstream Rose-compatible patcher-host mode required for Rose-style carrier overlays, while PSM's signed update/package verification remains enforced.
 
 See [SECURITY.md](SECURITY.md).
 
