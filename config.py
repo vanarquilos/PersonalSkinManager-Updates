@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 APP_NAME = "Personal Skin Manager"
 APP_SLUG = "PersonalSkinManager"
-APP_VERSION = "1.0.2"                          # Application version
+APP_VERSION = "1.0.3"                          # Application version
 APP_USER_AGENT = f"{APP_SLUG}/{APP_VERSION}"  # User-Agent header for HTTP requests
 UPDATE_CHANNEL = "stable"
 
