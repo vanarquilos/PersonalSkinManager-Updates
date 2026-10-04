@@ -46,7 +46,10 @@ Highlights:
 - validates LTK compatibility against the installed League build instead of the current calendar date
 - restores injection when the bundled runtime still supports the installed League build
 - prevents false "injection system ready" reporting when runtime validation fails
-- adds regression coverage for LTK build-cutoff behavior
+- hardens Swiftplay queue 480 against late skin-tracking and phase timing races
+- adds retryable ChampSelect, GameStart, and InProgress Swiftplay fallbacks
+- keeps Swiftplay injection alive through reconnects using the regular per-game runtime lifecycle
+- adds regression coverage for LTK build-cutoff and Swiftplay timing behavior
 
 See [CHANGELOG.md](CHANGELOG.md) and [releases/v1.0.3/RELEASE_NOTES.md](releases/v1.0.3/RELEASE_NOTES.md).
 
