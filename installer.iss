@@ -2,8 +2,8 @@
 ; This creates a proper Windows installer that registers the app
 
 #define MyAppName "Personal Skin Manager"
-#define MyAppVersion "1.0.2"
-#define MyAppVersionInfo "1.0.2.0"
+#define MyAppVersion "1.0.3"
+#define MyAppVersionInfo "1.0.3.0"
 #define MyAppPublisher "Van Arquilos"
 #define MyAppExeName "PersonalSkinManager.exe"
 #define MyAppDescription "Personal skin manager for League of Legends"
