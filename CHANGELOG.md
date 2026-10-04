@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.3] - 2026-10-05
+
+### Fixed
+- Fixed the October 4 runtime cutoff regression that caused selected skins to fall back to the default skin.
+- Changed LTK compatibility validation to compare the installed League executable build timestamp against the DLL build cutoff instead of comparing the cutoff against the current wall clock.
+- Fixed injection readiness reporting so PSM no longer reports the injection system as ready when runtime validation fails.
+
+### QA
+- Live Practice Tool QA confirmed the hotfix restores in-game skin injection on the current League build.
+- Added regression coverage for League-build-aware LTK cutoff handling.
+
 ## [1.0.2] - 2026-09-26
 
 ### Fixed
