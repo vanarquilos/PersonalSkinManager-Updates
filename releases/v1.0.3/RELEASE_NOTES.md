@@ -11,6 +11,7 @@ PSM v1.0.3 fixes the October 4, 2026 runtime cutoff regression that could make a
 - Fixed a Swiftplay timing race where Matchmaking could arrive before skin tracking and block the later valid selection.
 - Swiftplay now retries preparation while searching, re-arms on re-queue, and falls back independently at ChampSelect, GameStart, and InProgress.
 - Swiftplay now uses the same reconnect-aware game-lifetime stop semantics as regular skin injection.
+- Fixed the Swiftplay selected-slot banner so choosing an unowned/custom skin visually follows the active carousel pick instead of keeping the account-owned/default splash.
 
 ### What did not change
 - Skin/chroma selection behavior is unchanged.
@@ -28,7 +29,7 @@ Regression tests cover:
 - Swiftplay preparation remains retryable when skin tracking arrives after Matchmaking.
 - Swiftplay overlay state is re-armed for subsequent games and kept alive across reconnects.
 
-An earlier packaged v1.0.3 runtime-fix build passed live Practice Tool QA. The current Swiftplay-hardened v1.0.3 rebuild still needs packaging QA; a live Swiftplay match remains the final runtime proof before public release.
+Swiftplay live QA now confirms the queue-480 modskin injection path works. During that QA, a lobby-only visual mismatch was found: Riot's slot banner could keep the owned/default splash even while PSM tracked and injected another skin. That visual issue is now fixed. The installer must be rebuilt after this final UI change.
 
 ### Updating
 v1.0.3 is intended to replace v1.0.2 as the public compatibility build after installer QA is complete.
