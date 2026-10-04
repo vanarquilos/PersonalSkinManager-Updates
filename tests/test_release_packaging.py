@@ -62,5 +62,21 @@ class ReleasePackagingTests(unittest.TestCase):
         self.assertNotIn("return self.eol is not None and time.time() > self.eol", patcher)
 
 
+    def test_swiftplay_uses_retryable_regular_runtime_lifecycle(self):
+        swift = (ROOT / "threads/handlers/swiftplay_handler.py").read_text(encoding="utf-8")
+        phase = (ROOT / "threads/handlers/phase_handler.py").read_text(encoding="utf-8")
+        ws = (ROOT / "threads/websocket/websocket_event_handler.py").read_text(encoding="utf-8")
+
+        self.assertIn("make_game_ended_callback(self.state)", swift)
+        self.assertIn("will retry while Searching", swift)
+        self.assertIn("self._overlay_done = False", swift)
+        self.assertIn("def start_swiftplay_overlay_async", swift)
+        self.assertIn('start_swiftplay_overlay_async("ChampSelect")', phase)
+        self.assertIn('start_swiftplay_overlay_async("GameStart")', phase)
+        self.assertIn('start_swiftplay_overlay_async("InProgress")', phase)
+        self.assertIn('"WS-ChampSelect"', ws)
+        self.assertNotIn("self.swiftplay_handler._injection_triggered = True", phase)
+
+
 if __name__ == "__main__":
     unittest.main()
