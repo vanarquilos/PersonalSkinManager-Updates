@@ -244,6 +244,7 @@ def start_ltk_patcher_host(
     tools_dir: Path,
     overlay_dir: Path,
     process_manager=None,
+    game_dir: Optional[Path] = None,
 ) -> Optional[LtkHostSession]:
     """Start/configure LTK and begin scanning before League is resumed."""
 
@@ -266,17 +267,22 @@ def start_ltk_patcher_host(
         )
         return None
 
-    if patcher.expired:
+    if patcher.expired_for(game_dir):
         eol_text = time.strftime("%Y-%m-%d %H:%M", time.localtime(patcher.eol))
         log.error(
-            "[INJECT][ltk-host] LTK patcher DLL expired on %s",
+            "[INJECT][ltk-host] LTK patcher DLL does not support this League build "
+            "(build cutoff %s)",
             eol_text,
         )
         report_issue(
             "LTK_PATCHER_EOL",
             "error",
-            "Injection failed: the bundled/current LTK runtime is out of date.",
-            details={"eol": patcher.eol, "eol_local": eol_text},
+            "Injection failed: the current LTK runtime does not support this League build.",
+            details={
+                "eol": patcher.eol,
+                "eol_local": eol_text,
+                "game_dir": str(game_dir) if game_dir is not None else None,
+            },
             hint="Update PSM's LTK runtime before starting another match.",
             dedupe_window_s=30.0,
         )
@@ -482,12 +488,14 @@ def run_ltk_patcher_host(
     stop_callback: Optional[Callable[[], bool]] = None,
     process_manager=None,
     injection_manager=None,
+    game_dir: Optional[Path] = None,
 ) -> int:
     """Compatibility wrapper for callers that do not pre-start the scanner."""
     session = start_ltk_patcher_host(
         tools_dir,
         overlay_dir,
         process_manager=process_manager,
+        game_dir=game_dir,
     )
     if session is None:
         return 1
