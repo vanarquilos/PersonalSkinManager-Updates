@@ -53,7 +53,7 @@ for tool in injection_binaries:
 if missing_binaries:
     missing_text = ", ".join(missing_binaries)
     raise RuntimeError(
-        "Missing required v1.0.2 runtime binaries: " + missing_text
+        "Missing required runtime binaries: " + missing_text
     )
 else:
     print(f"[OK] All {len(injection_binaries)} injection binaries found")
