@@ -7,7 +7,7 @@ Handles game process monitoring, suspension, and resumption
 
 import threading
 import time
-from typing import Optional
+from typing import Callable, Optional
 
 # Import psutil with fallback for development environments
 try:
@@ -37,6 +37,23 @@ from utils.core.logging import get_logger, log_section, log_event, log_success
 from utils.core.issue_reporter import report_issue
 
 log = get_logger()
+
+
+def make_game_ended_callback(state) -> Callable[[], bool]:
+    """Return a stop callback that survives reconnects and ends after the game."""
+    has_been_in_progress = False
+
+    def game_ended_callback() -> bool:
+        nonlocal has_been_in_progress
+        phase = state.phase
+        if phase == "InProgress":
+            has_been_in_progress = True
+            return False
+        if phase in ("Reconnect", "GameStart"):
+            return False
+        return has_been_in_progress
+
+    return game_ended_callback
 
 
 class GameMonitor:
