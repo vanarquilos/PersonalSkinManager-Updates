@@ -3,22 +3,23 @@
 """
 LTK patcher runtime inspection.
 
-Generic runtime compatibility helper aligned with Rose 1.3.x:
-- validates the host/DLL pair;
-- reads the LTK DLL's built-in end-of-life timestamp when available;
-- lets PSM fail early when the bundled/current runtime is stale.
-
-No champion, skin, chroma, or mod IDs are handled here.
+The LTK DLL's embedded end-of-life value is compared against the League
+game executable's PE build timestamp, not the current wall clock. A DLL can
+therefore remain valid after its calendar EOL until League itself updates.
 """
 
 import struct
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 LTK_PATCHER_HOST = "ltk_patcher_host.exe"
 LTK_PATCHER_DLL = "ltk_patcher_dll.dll"
+
+GAME_EXECUTABLE_NAMES = (
+    "League of Legends.exe",
+    "League of Legends (TM) Client.exe",
+)
 
 _EOL_MESSAGE = b"end of life reached, please update: "
 _EOL_SEARCH_WINDOW = 0x100
@@ -31,12 +32,21 @@ class LtkPatcherStatus:
     missing: list
     eol: Optional[int]
 
-    @property
-    def expired(self) -> bool:
-        return self.eol is not None and time.time() > self.eol
+    def expired_for(self, game_dir: Optional[Path]) -> bool:
+        """Return True only when the installed League build is newer than the DLL cutoff.
+
+        If the game build cannot be read, do not reject the DLL pre-emptively.
+        The patcher itself will still report an unsupported build when it runs.
+        """
+        if self.eol is None or game_dir is None:
+            return False
+
+        build = read_game_build(game_dir)
+        return build is not None and build > self.eol
 
 
 def check_ltk_patcher(tools_dir: Path) -> LtkPatcherStatus:
+    """Report required LTK files and the DLL's embedded build cutoff."""
     host = tools_dir / LTK_PATCHER_HOST
     dll = tools_dir / LTK_PATCHER_DLL
     missing = [p.name for p in (host, dll) if not p.is_file()]
@@ -45,7 +55,7 @@ def check_ltk_patcher(tools_dir: Path) -> LtkPatcherStatus:
 
 
 def read_dll_eol(dll_path: Path) -> Optional[int]:
-    """Return the LTK DLL EOL timestamp when its current binary layout is recognized."""
+    """Return the LTK DLL's embedded game-build cutoff timestamp."""
     try:
         data = dll_path.read_bytes()
         sections = _parse_sections(data)
@@ -65,7 +75,6 @@ def read_dll_eol(dll_path: Path) -> Optional[int]:
     code = data[text_raw:text_raw + text_size]
 
     for i in range(len(code) - 7):
-        # lea r64, [rip + disp32]
         if (
             code[i] not in (0x48, 0x4C)
             or code[i + 1] != 0x8D
@@ -80,6 +89,25 @@ def read_dll_eol(dll_path: Path) -> Optional[int]:
         eol = _find_eol_compare(code, i)
         if eol is not None:
             return eol
+
+    return None
+
+
+def read_game_build(game_dir: Path) -> Optional[int]:
+    """Read League's PE TimeDateStamp, which is what the LTK DLL validates."""
+    for name in GAME_EXECUTABLE_NAMES:
+        try:
+            with open(Path(game_dir) / name, "rb") as f:
+                header = f.read(0x1000)
+        except OSError:
+            continue
+
+        try:
+            pe = struct.unpack_from("<I", header, 0x3C)[0]
+            if header[:2] == b"MZ" and header[pe:pe + 4] == b"PE\0\0":
+                return struct.unpack_from("<I", header, pe + 8)[0]
+        except struct.error:
+            pass
 
     return None
 
