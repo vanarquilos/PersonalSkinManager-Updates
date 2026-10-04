@@ -48,6 +48,19 @@ class ReleasePackagingTests(unittest.TestCase):
         self.assertIn("LTK_PATCHER_FLAGS = 4", ltk)
         self.assertIn("LTK_PATCHER_LOG_LEVEL = 0x10", ltk)
 
+    def test_ltk_eol_is_checked_against_the_installed_game_build(self):
+        patcher = (ROOT / "injection/tools/patcher.py").read_text(encoding="utf-8")
+        tools = (ROOT / "injection/tools/tools_manager.py").read_text(encoding="utf-8")
+        ltk = (ROOT / "injection/overlay/ltk_host.py").read_text(encoding="utf-8")
+        injector = (ROOT / "injection/core/injector.py").read_text(encoding="utf-8")
+
+        self.assertIn("def expired_for(self, game_dir", patcher)
+        self.assertIn("def read_game_build(game_dir", patcher)
+        self.assertIn("patcher.expired_for(game_dir)", tools)
+        self.assertIn("patcher.expired_for(game_dir)", ltk)
+        self.assertIn("check_tools_available(self.game_dir)", injector)
+        self.assertNotIn("return self.eol is not None and time.time() > self.eol", patcher)
+
 
 if __name__ == "__main__":
     unittest.main()
