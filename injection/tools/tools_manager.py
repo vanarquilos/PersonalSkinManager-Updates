@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 Tools Manager
-Validates the v1.0.2 overlay builder and current LTK runtime.
+Validates the overlay builder and current LTK runtime.
 """
 
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 import time
 
 from utils.core.logging import get_logger
@@ -25,8 +25,8 @@ class ToolsManager:
     def __init__(self, tools_dir: Path):
         self.tools_dir = tools_dir
 
-    def check_tools_available(self) -> bool:
-        """Require the complete v1.0.2 runtime set."""
+    def check_tools_available(self, game_dir: Optional[Path] = None) -> bool:
+        """Require the runtime set and reject only unsupported League builds."""
         modtools = self.tools_dir / "mod-tools.exe"
         patcher = check_ltk_patcher(self.tools_dir)
         ltk_host = patcher.host
@@ -40,23 +40,24 @@ class ToolsManager:
         missing = [name for name, path in required.items() if not path.is_file()]
 
         if missing:
-            log.error(f"[INJECT] Missing required v1.0.2 runtime files: {missing}")
+            log.error(f"[INJECT] Missing required runtime files: {missing}")
             log.error(f"[INJECT] Expected runtime tools directory: {self.tools_dir}")
             return False
 
-        if patcher.expired:
+        if patcher.expired_for(game_dir):
             eol_text = time.strftime("%Y-%m-%d %H:%M", time.localtime(patcher.eol))
             log.error(
-                "[INJECT] Current LTK runtime reached end of life on %s",
+                "[INJECT] Current LTK runtime does not support this League build "
+                "(build cutoff %s)",
                 eol_text,
             )
             return False
 
-        log.info("[INJECT] Current LTK patcher-host backend available")
+        log.info("[INJECT] Current LTK patcher-host backend available for installed League build")
         return True
 
     def detect_tools(self) -> Dict[str, Path]:
-        """Return the v1.0.2 overlay builder and current LTK runtime paths."""
+        """Return overlay builder and current LTK runtime paths."""
         tools = {
             "modtools": self.tools_dir / "mod-tools.exe",
             "ltk_host": self.tools_dir / LTK_PATCHER_HOST,
