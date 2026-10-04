@@ -742,6 +742,17 @@ class MessageHandler:
                         result["trackerSamples"] = tracker_samples
                     return result
 
+                # Category: Current LTK overlay verification rejection
+                if (
+                    "current league toolkit verification rejected the overlay" in ml
+                    or "current supported patcher" in ml
+                    or "ltk verification" in ml
+                ):
+                    return {
+                        "code": "LTK_OVERLAY_REJECTED",
+                        "text": "Skin/mod blocked by current patcher verification",
+                    }
+
                 # Category: Low disk space during overlay creation
                 if 'not enough disk space' in ml or ('disk space' in ml and 'injection failed' in ml):
                     return {

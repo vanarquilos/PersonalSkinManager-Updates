@@ -7,7 +7,7 @@ Handles game process monitoring, suspension, and resumption
 
 import threading
 import time
-from typing import Optional
+from typing import Callable, Optional
 
 # Import psutil with fallback for development environments
 try:
@@ -30,12 +30,30 @@ from config import (
     PERSISTENT_MONITOR_IDLE_INTERVAL_S,
     GAME_RESUME_MAX_ATTEMPTS,
     GAME_RESUME_VERIFICATION_WAIT_S,
+    ENABLE_GAME_SUSPENSION,
     get_config_float
 )
 from utils.core.logging import get_logger, log_section, log_event, log_success
 from utils.core.issue_reporter import report_issue
 
 log = get_logger()
+
+
+def make_game_ended_callback(state) -> Callable[[], bool]:
+    """Return a stop callback that survives reconnects and ends after the game."""
+    has_been_in_progress = False
+
+    def game_ended_callback() -> bool:
+        nonlocal has_been_in_progress
+        phase = state.phase
+        if phase == "InProgress":
+            has_been_in_progress = True
+            return False
+        if phase in ("Reconnect", "GameStart"):
+            return False
+        return has_been_in_progress
+
+    return game_ended_callback
 
 
 class GameMonitor:
@@ -54,13 +72,22 @@ class GameMonitor:
         self._get_auto_resume_timeout = get_auto_resume_timeout_callback
     
     def start(self):
-        """Start game monitor - watches for game and suspends it"""
-        # Stop any existing monitor first
+        """Start the optional game-suspension monitor."""
+        # Stop any existing monitor first and always clear stale state.
         self.stop()
+        self._suspended_game_process = None
+        self._runoverlay_started = False
+
+        # Rose 1.3.x parity: when suspension is enabled, hold the League game
+        # process while mkoverlay + WAD-header rebase finish. The current LTK host
+        # is already scanning before this point and PSM resumes League only when
+        # the rebased overlay is ready to be served.
+        if not ENABLE_GAME_SUSPENSION:
+            self._monitor_active = False
+            log.info("[monitor] Game suspension disabled by configuration")
+            return
         
         self._monitor_active = True
-        self._suspended_game_process = None
-        self._runoverlay_started = False  # Reset flag when starting new monitor
         
         def game_monitor():
             """Monitor for game process and suspend immediately when found"""

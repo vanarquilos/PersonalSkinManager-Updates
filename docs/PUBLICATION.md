@@ -31,7 +31,7 @@ The historical v1.0.1 GitHub Release and installer remain valid provenance. Futu
 Never publish:
 
 - private Ed25519 signing keys or signing passwords
-- `cslol-dll.dll`
+- untracked/local release runtime binaries
 - local user configuration/cache/log files
 - `%LOCALAPPDATA%\Rose` user data
 - generated `dist/`, `build/`, or installer working output
@@ -46,7 +46,7 @@ For future application versions:
 
 1. update and verify source in this repository
 2. run targeted tests and a clean application build
-3. create the installer without local-only QA DLLs
+3. create the installer from the reviewed local release runtime inputs
 4. verify installer SHA-256 and exact size
 5. publish the installer as a GitHub Release asset
 6. sign the stable manifest with the private Ed25519 key stored outside the repository

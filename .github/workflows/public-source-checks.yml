@@ -1,10 +1,9 @@
 name: Public source checks
 
+# PSM is local-first. Keep GitHub Actions available as an explicit release
+# sanity check without running CI on every push or pull request.
 on:
-  pull_request:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -22,8 +21,19 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install test dependencies
+        run: python -m pip install -r requirements.txt
+
+
       - name: Compile Python source
         run: python -m compileall -q .
+
+      - name: Run release source tests
+        run: python -m unittest tests.test_release_packaging tests.test_release_skin_routing tests.test_psm_ui_polish_release tests.test_patch_2619_wad_headers tests.test_ltk_host_protocol
+
+      - name: Check PSM UI polish syntax
+        run: node --check "Pengu Loader/plugins/PSM-UI-Polish/index.js"
+
 
       - name: Validate public-source boundary
         shell: python
@@ -44,6 +54,9 @@ jobs:
 
           blocked_exact = {
               "cslol-dll.dll",
+              "mod-tools.exe",
+              "ltk_patcher_host.exe",
+              "ltk_patcher_dll.dll",
               ".env",
               "license.dat",
               "config.ini",

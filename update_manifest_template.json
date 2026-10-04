@@ -1,10 +1,10 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "1.0.1",
-  "minimum_version": "1.0.0",
+  "version": "1.0.2",
+  "minimum_version": "1.0.1",
   "published_at": "YYYY-MM-DDTHH:MM:SSZ",
-  "release_notes": "Compatibility update",
+  "release_notes": "League compatibility update",
   "package": {
     "type": "inno",
     "url": "https://example.invalid/PersonalSkinManager_Setup.exe",

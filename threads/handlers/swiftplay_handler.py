@@ -10,6 +10,7 @@ import threading
 import time
 from typing import Optional
 
+from injection.game.game_monitor import make_game_ended_callback
 from lcu import LCU
 from lcu.core.lockfile import SWIFTPLAY_MODES, SWIFTPLAY_QUEUE_ID
 from state import SharedState
@@ -48,6 +49,8 @@ class SwiftplayHandler:
         self._swiftplay_champ_check_interval = 0.5
         self._last_swiftplay_champ_check = 0.0
         self._overlay_lock = threading.Lock()
+        self._prepare_lock = threading.Lock()
+        self._overlay_thread: Optional[threading.Thread] = None
         self._last_detect_result: tuple[Optional[str], Optional[int]] = (None, None)
         self._last_sync_active_ids: Optional[frozenset] = None
         self._last_injected_tracking: dict = {}  # snapshot of tracking at last successful extraction
@@ -237,34 +240,51 @@ class SwiftplayHandler:
             log.warning(f"[phase] Error starting Swiftplay matchmaking monitoring: {e}")
     
     def monitor_swiftplay_matchmaking(self):
-        """Monitor matchmaking state and trigger injection when matchmaking starts"""
+        """Monitor matchmaking and keep retrying preparation until it is real."""
         try:
             if not self.lcu.ok or not self.injection_manager:
                 return
-            
-            # Get current matchmaking state
+
             matchmaking_data = self.lcu.get("/lol-lobby/v2/lobby/matchmaking/search-state")
             if not matchmaking_data or not isinstance(matchmaking_data, dict):
                 return
-            
+
             current_state = matchmaking_data.get("searchState")
             if current_state != self._last_matchmaking_state:
-                log.debug(f"[phase] Swiftplay matchmaking state changed: {self._last_matchmaking_state} → {current_state}")
+                log.debug(
+                    f"[phase] Swiftplay matchmaking state changed: "
+                    f"{self._last_matchmaking_state} → {current_state}"
+                )
                 self._last_matchmaking_state = current_state
-                
-                # Check if matchmaking has started
-                if current_state == "Searching" and not self._injection_triggered:
-                    hover_at = getattr(self.state, "_find_match_hover_at", None)
-                    if hover_at:
-                        delta_ms = (time.perf_counter() - hover_at) * 1000
-                        log.info(f"[phase] Hover → Queue delay: {delta_ms:.0f}ms")
-                        self.state._find_match_hover_at = None
-                    log.info("[phase] Swiftplay matchmaking started - triggering injection system")
-                    self.trigger_swiftplay_injection()
-                    self._injection_triggered = True
-                elif current_state == "Invalid" and self._injection_triggered:
-                    log.debug("[phase] Swiftplay matchmaking stopped - resetting injection flag")
-                    self._injection_triggered = False
+
+            # v1.0.2 could receive Matchmaking before the skin monitor populated
+            # swiftplay_skin_tracking, then mark the failed attempt as triggered
+            # and never retry. Keep attempting while Searching until extraction
+            # actually succeeds.
+            if current_state == "Searching" and not self._injection_triggered:
+                hover_at = getattr(self.state, "_find_match_hover_at", None)
+                if hover_at:
+                    delta_ms = (time.perf_counter() - hover_at) * 1000
+                    log.info(f"[phase] Hover → Queue delay: {delta_ms:.0f}ms")
+                    self.state._find_match_hover_at = None
+
+                # Preferred path is still the Find-Match hover callback because
+                # it runs while the lobby is editable. This is a safety attempt
+                # for keyboard queueing or a missed Pengu hover event.
+                if self.state.swiftplay_skin_tracking:
+                    self.force_base_skins_if_needed()
+
+                if self.trigger_swiftplay_injection():
+                    log.info("[phase] Swiftplay matchmaking preparation complete")
+                else:
+                    log.debug(
+                        "[phase] Swiftplay preparation not ready yet - "
+                        "will retry while Searching"
+                    )
+
+            elif current_state == "Invalid" and self._injection_triggered:
+                log.debug("[phase] Swiftplay matchmaking stopped - resetting injection flag")
+                self._injection_triggered = False
         except Exception as e:
             log.debug(f"[phase] Error monitoring Swiftplay matchmaking: {e}")
     
@@ -435,82 +455,97 @@ class SwiftplayHandler:
             log.debug(f"[phase] Failed to get active lobby champion IDs: {e}")
             return None
 
-    def trigger_swiftplay_injection(self):
-        """Trigger injection system for Swiftplay mode with all tracked skins"""
+    def trigger_swiftplay_injection(self) -> bool:
+        """Prepare all tracked Swiftplay skins.
+
+        Returns True only when at least one mod was actually extracted. Failed
+        or early attempts remain retryable instead of poisoning the phase state.
+        """
         with self.state.swiftplay_lock:
             try:
-                log.info("[phase] Swiftplay matchmaking detected - triggering injection for all tracked skins")
+                log.info("[phase] Swiftplay matchmaking detected - preparing all tracked skins")
                 log.info(f"[phase] Skin tracking dictionary: {self.state.swiftplay_skin_tracking}")
 
-                # Restore previously injected skins for champions that still have
-                # a base skin in tracking (e.g. after force_base_skins reset the UI
-                # and the skin processor picked up the base skin).
-                # Skip champions the user explicitly browsed since last injection.
+                # Restore a previous non-base choice on requeue unless the user
+                # explicitly changed that champion in the current lobby.
                 if self._last_injected_tracking:
                     for cid, prev_skin in self._last_injected_tracking.items():
                         if cid in self._user_changed_since_inject:
                             continue
                         current = self.state.swiftplay_skin_tracking.get(cid)
                         if current is not None and current == int(cid) * 1000 and prev_skin != current:
-                            log.info(f"[phase] Restoring previous skin for champion {cid}: {current} → {prev_skin}")
+                            log.info(
+                                f"[phase] Restoring previous skin for champion {cid}: "
+                                f"{current} → {prev_skin}"
+                            )
                             self.state.swiftplay_skin_tracking[cid] = prev_skin
 
                 if not self.state.swiftplay_skin_tracking:
-                    log.warning("[phase] No tracked skins - cannot trigger injection")
-                    return
+                    log.warning("[phase] No tracked skins - preparation deferred")
+                    self._injection_triggered = False
+                    return False
 
-                # Filter tracking dict to only include champions currently in lobby slots
-                # Reuse cached IDs from _sync_tracking_with_lobby if available
                 active_champion_ids = (
-                    set(self._last_sync_active_ids) if self._last_sync_active_ids
+                    set(self._last_sync_active_ids)
+                    if self._last_sync_active_ids
                     else self._get_active_lobby_champion_ids()
                 )
                 if active_champion_ids:
                     stale = set(self.state.swiftplay_skin_tracking) - active_champion_ids
                     if stale:
-                        # Remove stale entries in-place to avoid replacing the dict reference
                         for stale_cid in stale:
                             self.state.swiftplay_skin_tracking.pop(stale_cid, None)
-                        log.info(f"[phase] Pruned {len(stale)} stale champion(s) from tracking: {stale}")
+                        log.info(
+                            f"[phase] Pruned {len(stale)} stale champion(s) "
+                            f"from tracking: {stale}"
+                        )
                     filtered_tracking = dict(self.state.swiftplay_skin_tracking)
                 else:
-                    log.debug("[phase] Could not determine active lobby champions - injecting all tracked skins")
+                    log.debug(
+                        "[phase] Could not determine active lobby champions - "
+                        "preparing all tracked skins"
+                    )
                     filtered_tracking = dict(self.state.swiftplay_skin_tracking)
 
                 if not filtered_tracking:
-                    log.warning("[phase] No tracked skins for active champions - cannot trigger injection")
-                    return
+                    log.warning("[phase] No tracked skins for active champions - preparation deferred")
+                    self._injection_triggered = False
+                    return False
 
-                total_skins = len(filtered_tracking)
-                log.info(f"[phase] Will inject {total_skins} skin(s) from tracking dictionary")
+                log.info(
+                    f"[phase] Will prepare {len(filtered_tracking)} skin(s) "
+                    "from tracking dictionary"
+                )
 
                 from utils.core.utilities import is_base_skin
-                from pathlib import Path
-                import zipfile
-                import shutil
 
-                chroma_id_map = self.skin_scraper.cache.chroma_id_map if self.skin_scraper and self.skin_scraper.cache else None
+                chroma_id_map = (
+                    self.skin_scraper.cache.chroma_id_map
+                    if self.skin_scraper and self.skin_scraper.cache
+                    else None
+                )
 
                 if not self.injection_manager:
                     log.error("[phase] Injection manager not available")
-                    return
+                    self._injection_triggered = False
+                    return False
 
                 self.injection_manager._ensure_initialized()
 
                 if not self.injection_manager.injector:
                     log.error("[phase] Injector not initialized")
-                    return
+                    self._injection_triggered = False
+                    return False
 
-                # Clean mods directory
+                # Preparation owns the mods/overlay workspace until it finishes.
                 self.injection_manager.injector._clean_mods_dir()
                 self.injection_manager.injector._clean_overlay_dir()
 
-                # Extract all skin ZIPs to mods directory
                 extracted_mods = []
                 for champion_id, skin_id in filtered_tracking.items():
                     try:
-                        is_base = is_base_skin(skin_id, chroma_id_map)
-                        if is_base:
+                        base = is_base_skin(skin_id, chroma_id_map)
+                        if base:
                             injection_name = f"skin_{skin_id}"
                             chroma_id_param = None
                         else:
@@ -522,7 +557,7 @@ class SwiftplayHandler:
                             chroma_id=chroma_id_param,
                             skin_name=injection_name,
                             champion_name=None,
-                            champion_id=champion_id
+                            champion_id=champion_id,
                         )
 
                         if not zip_path or not zip_path.exists():
@@ -539,73 +574,136 @@ class SwiftplayHandler:
                         log.debug(f"[phase] Traceback: {traceback.format_exc()}")
 
                 if not extracted_mods:
-                    log.warning("[phase] No mods extracted - cannot inject")
-                    return
+                    log.warning("[phase] No mods extracted - preparation remains retryable")
+                    self._injection_triggered = False
+                    return False
 
-                # Store extracted mods for later injection
                 self.state.swiftplay_extracted_mods = extracted_mods
+                # Critical for requeue: a successful new preparation belongs to
+                # a new game even if the previous game's flag is still True.
+                self._overlay_done = False
+                self._injection_triggered = True
                 self._last_injected_tracking = dict(filtered_tracking)
                 self._user_changed_since_inject.clear()
-                log.info(f"[phase] Extracted {len(extracted_mods)} skin(s) - will inject on GameStart: {', '.join(extracted_mods)}")
+                log.info(
+                    f"[phase] Prepared {len(extracted_mods)} Swiftplay skin(s): "
+                    f"{', '.join(extracted_mods)}"
+                )
+                return True
 
             except Exception as e:
-                log.warning(f"[phase] Error extracting Swiftplay skins: {e}")
+                self._injection_triggered = False
+                log.warning(f"[phase] Error preparing Swiftplay skins: {e}")
                 import traceback
                 log.debug(f"[phase] Traceback: {traceback.format_exc()}")
+                return False
     
     def run_swiftplay_overlay(self):
-        """Run overlay injection for Swiftplay mode with previously extracted mods"""
+        """Run the regular Rose-compatible overlay lifecycle for Swiftplay."""
         with self._overlay_lock:
+            extracted_mods = []
             try:
-                # Atomically snapshot and clear the mods list so no other thread
-                # can attempt injection with the same mods concurrently.
                 with self.state.swiftplay_lock:
                     if self._overlay_done:
-                        log.debug("[phase] Overlay already completed - skipping duplicate call")
+                        log.debug("[phase] Swiftplay overlay already completed - skipping duplicate call")
                         return
                     if not self.state.swiftplay_extracted_mods:
-                        log.debug("[phase] No extracted mods available for overlay injection")
+                        log.debug("[phase] No extracted Swiftplay mods available for overlay injection")
                         return
                     extracted_mods = list(self.state.swiftplay_extracted_mods)
                     self.state.swiftplay_extracted_mods.clear()
 
                 if not self.injection_manager:
                     log.error("[phase] Injection manager not available")
+                    with self.state.swiftplay_lock:
+                        self.state.swiftplay_extracted_mods.extend(extracted_mods)
                     return
 
                 self.injection_manager._ensure_initialized()
-
                 if not self.injection_manager.injector:
                     log.error("[phase] Injector not initialized")
+                    with self.state.swiftplay_lock:
+                        self.state.swiftplay_extracted_mods.extend(extracted_mods)
                     return
 
-                log.info(f"[phase] Running overlay injection for {len(extracted_mods)} mod(s): {', '.join(extracted_mods)}")
+                log.info(
+                    f"[phase] Running Swiftplay overlay for {len(extracted_mods)} mod(s): "
+                    f"{', '.join(extracted_mods)}"
+                )
 
-                # Start game monitor to prevent game from starting before overlay is ready
                 if not self.injection_manager._monitor_active:
                     log.info("[phase] Starting game monitor for Swiftplay overlay injection")
                     self.injection_manager._start_monitor()
 
-                try:
-                    result = self.injection_manager.injector._mk_run_overlay(
-                        extracted_mods,
-                        timeout=60,
-                        stop_callback=None,
-                        injection_manager=self.injection_manager
-                    )
+                result = self.injection_manager.injector._mk_run_overlay(
+                    extracted_mods,
+                    timeout=60,
+                    stop_callback=make_game_ended_callback(self.state),
+                    injection_manager=self.injection_manager,
+                )
 
-                    if result == 0:
-                        log.info(f"[phase] Successfully injected {len(extracted_mods)} skin(s) for Swiftplay")
-                        self._overlay_done = True
-                    else:
-                        log.warning(f"[phase] Injection completed with non-zero exit code: {result}")
-                except Exception as e:
-                    log.error(f"[phase] Error during overlay injection: {e}")
-                    import traceback
-                    log.debug(f"[phase] Traceback: {traceback.format_exc()}")
+                if result == 0:
+                    log.info(
+                        f"[phase] Successfully injected {len(extracted_mods)} "
+                        "skin(s) for Swiftplay"
+                    )
+                    self._overlay_done = True
+                else:
+                    log.warning(
+                        f"[phase] Swiftplay overlay completed with non-zero exit code: {result}"
+                    )
+                    with self.state.swiftplay_lock:
+                        if not self.state.swiftplay_extracted_mods:
+                            self.state.swiftplay_extracted_mods.extend(extracted_mods)
 
             except Exception as e:
-                log.warning(f"[phase] Error running Swiftplay overlay: {e}")
+                if extracted_mods:
+                    with self.state.swiftplay_lock:
+                        if not self.state.swiftplay_extracted_mods:
+                            self.state.swiftplay_extracted_mods.extend(extracted_mods)
+                log.error(f"[phase] Error during Swiftplay overlay injection: {e}")
                 import traceback
                 log.debug(f"[phase] Traceback: {traceback.format_exc()}")
+
+    def start_swiftplay_overlay_async(self, reason: str) -> bool:
+        """Prepare if necessary, then start exactly one Swiftplay overlay worker."""
+        with self._prepare_lock:
+            if self._overlay_done:
+                log.debug(
+                    f"[phase] Swiftplay overlay already complete - "
+                    f"{reason} fallback not needed"
+                )
+                return True
+
+            # Check the worker before attempting preparation. run_swiftplay_overlay()
+            # snapshots and clears swiftplay_extracted_mods while it is running;
+            # treating that temporary empty list as "not prepared" would let a
+            # second phase fallback clean/re-extract the workspace underneath an
+            # active overlay build.
+            if self._overlay_thread is not None and self._overlay_thread.is_alive():
+                log.debug(f"[phase] Swiftplay overlay worker already active ({reason})")
+                return True
+
+            if not self.state.swiftplay_extracted_mods:
+                if not self.trigger_swiftplay_injection():
+                    log.warning(
+                        f"[phase] Swiftplay {reason} fallback has no prepared skin yet"
+                    )
+                    return False
+
+            self._overlay_thread = threading.Thread(
+                target=self.run_swiftplay_overlay,
+                daemon=True,
+                name=f"SwiftplayOverlay-{reason.replace(' ', '-')}",
+            )
+            self._overlay_thread.start()
+            log.info(f"[phase] Swiftplay overlay worker started ({reason})")
+            return True
+
+    def overlay_work_active(self) -> bool:
+        """Return True while the Swiftplay overlay worker/session is alive."""
+        thread_active = (
+            self._overlay_thread is not None and self._overlay_thread.is_alive()
+        )
+        return self._overlay_lock.locked() or thread_active
 

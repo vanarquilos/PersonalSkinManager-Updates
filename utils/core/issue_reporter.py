@@ -28,6 +28,7 @@ _ALLOWED_CODES = {
     'BASE_SKIN_FORCE_SLOW',   # Suggest increasing Injection Threshold
     'BASE_SKIN_VERIFY_FAILED',  # Base skin verification mismatch (often causes skin not to show)
     'LOW_DISK_SPACE',         # Injection could not build an overlay with available disk space
+    'LTK_OVERLAY_REJECTED',   # Current LTK verification rejected the requested overlay
 }
 
 
@@ -126,11 +127,20 @@ def clear_issue(code: str) -> bool:
             keys_to_remove = [k for k in _LAST if k.startswith(f"{code}|")]
             for k in keys_to_remove:
                 _LAST.pop(k, None)
-            # Remove lines containing the code's known messages
-            _CODE_MARKERS = {}
-            marker = _CODE_MARKERS.get(code)
-            if not marker:
+            # Remove lines containing the code's known messages.
+            _CODE_MARKERS = {
+                "LTK_OVERLAY_REJECTED": (
+                    "Current LTK runtime still disabled the Rose overlay.",
+                    "Skin/mod was not applied because current League Toolkit verification rejected the overlay.",
+                    "Selected unowned League skin cannot be applied with the current supported patcher.",
+                ),
+            }
+            markers = _CODE_MARKERS.get(code)
+            if not markers:
                 return False
+            if isinstance(markers, str):
+                markers = (markers,)
+            markers_lower = tuple(str(marker).lower() for marker in markers)
             filtered = []
             skip_next = False
             for line in lines:
@@ -138,7 +148,8 @@ def clear_issue(code: str) -> bool:
                     skip_next = False
                     continue
                 skip_next = False
-                if marker.lower() in line.lower():
+                lower_line = line.lower()
+                if any(marker in lower_line for marker in markers_lower):
                     skip_next = True
                     continue
                 filtered.append(line)

@@ -77,11 +77,7 @@ class InjectionManager:
                 if not self._initialized:  # Double-check inside lock
                     log_action(log, "Initializing injection system...", "")
                     self.injector = SkinInjector(None, self.mods_dir, self.zips_dir, self.game_dir)
-                    # Only mark as initialized if we have a valid game directory
-                    if self.injector.game_dir is not None:
-                        self._initialized = True
-                        log_success(log, "Injection system initialized successfully", "")
-                    else:
+                    if self.injector.game_dir is None:
                         log.error("[INJECT] Cannot initialize injection system - League game directory not found")
                         log.error("[INJECT] Please ensure League Client is running or manually set the path in config.ini")
                         report_issue(
@@ -91,6 +87,21 @@ class InjectionManager:
                             hint="Start League Client, or set the game path in Settings.",
                         )
                         self._initialized = False
+                    elif not getattr(self.injector, "runtime_ready", False):
+                        log.error(
+                            "[INJECT] Cannot initialize injection system - "
+                            "runtime validation failed for the installed League build"
+                        )
+                        report_issue(
+                            "INJECTION_RUNTIME_UNAVAILABLE",
+                            "error",
+                            "Injection unavailable: the current runtime cannot be used with this League build.",
+                            hint="Update the PSM runtime, then restart Personal Skin Manager.",
+                        )
+                        self._initialized = False
+                    else:
+                        self._initialized = True
+                        log_success(log, "Injection system initialized successfully", "")
     
     def _start_monitor(self):
         """Start game monitor - watches for game and suspends it"""

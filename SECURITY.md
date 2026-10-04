@@ -2,7 +2,7 @@
 
 ## Supported release
 
-The current supported Personal Skin Manager release is **v1.0.1**.
+The current supported stable Personal Skin Manager release is **v1.0.1**. v1.0.2 remains a release candidate until its installer and signed stable manifest are published.
 
 Security fixes are evaluated against the latest maintained public source/release line. Older tagged releases may receive fixes only when a supported upgrade path requires them.
 
@@ -26,7 +26,7 @@ Do not use the security channel to request or submit:
 - security-control disabling
 - driver-based circumvention
 - tampering with third-party enforcement controls
-- private copies of `cslol-dll.dll`
+- private or unverified runtime binaries
 - Riot Games credentials/assets or other unlawfully obtained material
 
 ## Reporting

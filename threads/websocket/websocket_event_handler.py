@@ -117,21 +117,31 @@ class WebSocketEventHandler:
                 
                 if self.state.is_swiftplay_mode:
                     log.debug("[WS] ChampSelect in Swiftplay mode - skipping normal reset")
-                    if self.state.swiftplay_extracted_mods and self.swiftplay_handler:
-                        import threading
-                        log.info("[WS] Triggering Swiftplay overlay injection from WebSocket handler")
-                        threading.Thread(
-                            target=self.swiftplay_handler.run_swiftplay_overlay,
-                            daemon=True,
-                            name="SwiftplayOverlay-WS",
-                        ).start()
+                    if self.swiftplay_handler:
+                        self.swiftplay_handler.start_swiftplay_overlay_async(
+                            "WS-ChampSelect"
+                        )
                 else:
                     self._handle_champ_select_entry()
             
             elif ph == "FINALIZATION":
                 log_event(log, "Entering FINALIZATION phase", "")
+
+            elif ph == "GameStart":
+                if self.state.is_swiftplay_mode and self.swiftplay_handler:
+                    self.swiftplay_handler.start_swiftplay_overlay_async(
+                        "WS-GameStart"
+                    )
             
             elif ph == "InProgress":
+                if (
+                    self.state.is_swiftplay_mode
+                    and self.swiftplay_handler
+                    and not self.swiftplay_handler._overlay_done
+                ):
+                    self.swiftplay_handler.start_swiftplay_overlay_async(
+                        "WS-InProgress"
+                    )
                 self._handle_in_progress_entry()
             
             else:

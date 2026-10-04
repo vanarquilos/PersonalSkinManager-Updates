@@ -173,7 +173,7 @@ def build_all():
     
     print("\nNext Steps:")
     print("  • For development/testing:")
-    print("    Run: dist\\Rose\\PersonalSkinManager.exe")
+    print("    Run: dist\\PersonalSkinManager\\PersonalSkinManager.exe")
     print()
     print("  • For distribution:")
     print(f"    Share: {installer_path if installer_path else 'installer/PersonalSkinManager_Setup.exe'}")

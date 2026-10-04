@@ -417,6 +417,86 @@
     });
   }
 
+  // Swiftplay: the lobby only persists skins owned by the account. PSM can
+  // still inject the picked skin, but Riot's slot banner may keep showing the
+  // owned/default splash. Mirror the active carousel pick onto the selected
+  // slot banner so the lobby reflects what PSM will inject.
+  const swiftplayBanners = new Map();
+
+  function champFolder(src) {
+    const match = /\/Characters\/([^/]+)\//i.exec(src || "");
+    return match ? match[1].toLowerCase() : null;
+  }
+
+  function pickedSplash(wrapper) {
+    const thumb = wrapper.querySelector(".skin-thumbnail-img");
+    const match =
+      thumb &&
+      /url\(["']?([^"')]+)["']?\)/.exec(thumb.style.backgroundImage);
+    return match
+      ? match[1].replace("_splash_tile_", "_splash_centered_")
+      : null;
+  }
+
+  function clientSplash(img) {
+    const src = img.getAttribute("src");
+    return img.dataset.psmSwiftplayBanner &&
+      src === img.dataset.psmSwiftplayBanner
+      ? img.dataset.psmSwiftplayOriginal
+      : src;
+  }
+
+  function syncSwiftplayBanners() {
+    const active = document.querySelector(
+      ".quick-play-skin-select-component .thumbnail-wrapper.active-skin"
+    );
+    const tile = document.querySelector(
+      ".quick-play-loadout-selection-hitbox.selected .champion-slot-tile"
+    );
+
+    if (active && tile) {
+      const original = clientSplash(tile);
+      const picked = pickedSplash(active);
+
+      if (
+        original &&
+        picked &&
+        champFolder(original) === champFolder(picked)
+      ) {
+        if (picked === original) {
+          swiftplayBanners.delete(original);
+        } else {
+          swiftplayBanners.set(original, picked);
+        }
+      }
+    }
+
+    document
+      .querySelectorAll('img[src*="_splash_centered_"]')
+      .forEach((img) => {
+        const src = img.getAttribute("src");
+
+        if (src !== img.dataset.psmSwiftplayBanner) {
+          img.dataset.psmSwiftplayOriginal = src;
+        }
+
+        const picked = swiftplayBanners.get(
+          img.dataset.psmSwiftplayOriginal
+        );
+
+        if (picked && src !== picked) {
+          img.dataset.psmSwiftplayBanner = picked;
+          img.setAttribute("src", picked);
+        } else if (
+          !picked &&
+          img.dataset.psmSwiftplayBanner &&
+          src === img.dataset.psmSwiftplayBanner
+        ) {
+          img.setAttribute("src", img.dataset.psmSwiftplayOriginal);
+        }
+      });
+  }
+
   function removeAgeRatingInChampSelect() {
     if (!document.querySelector(".champion-select") && !document.querySelector(".skin-selection-carousel")) {
       return;
@@ -434,8 +514,10 @@
       applyOffsetVisibility(skinItem);
     });
 
-    // Mark skins as owned in Swiftplay
+    // Mark skins as owned in Swiftplay and keep the selected slot banner in
+    // sync with the skin PSM is actually tracking/injecting.
     markSkinsAsOwned();
+    syncSwiftplayBanners();
 
     // Remove age rating classes when in champ select
     removeAgeRatingInChampSelect();
