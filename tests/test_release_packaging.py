@@ -71,6 +71,11 @@ class ReleasePackagingTests(unittest.TestCase):
         self.assertIn("will retry while Searching", swift)
         self.assertIn("self._overlay_done = False", swift)
         self.assertIn("def start_swiftplay_overlay_async", swift)
+        self.assertIn("Swiftplay overlay worker already active", swift)
+        self.assertLess(
+            swift.index("Swiftplay overlay worker already active"),
+            swift.index("if not self.state.swiftplay_extracted_mods:", swift.index("def start_swiftplay_overlay_async")),
+        )
         self.assertIn('start_swiftplay_overlay_async("ChampSelect")', phase)
         self.assertIn('start_swiftplay_overlay_async("GameStart")', phase)
         self.assertIn('start_swiftplay_overlay_async("InProgress")', phase)
