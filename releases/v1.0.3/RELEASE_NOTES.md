@@ -5,7 +5,7 @@
 PSM v1.0.3 fixes the October 4, 2026 runtime cutoff regression that could make a correctly selected skin load as the default skin in-game.
 
 ### Fixed
-- Fixed LTK runtime compatibility validation using the current wall clock instead of the installed League build.
+- Fixed LTK runtime compatibility validation that incorrectly used the current wall clock instead of the installed League build.
 - PSM now compares the League executable's PE build timestamp against the LTK DLL's supported build cutoff.
 - Fixed the injection system reporting itself as ready after runtime validation had already failed.
 - Fixed a Swiftplay timing race where Matchmaking could arrive before skin tracking and block the later valid selection.
@@ -28,7 +28,7 @@ Regression tests cover:
 - Swiftplay preparation remains retryable when skin tracking arrives after Matchmaking.
 - Swiftplay overlay state is re-armed for subsequent games and kept alive across reconnects.
 
-The normal packaged v1.0.3 path has live Practice Tool confirmation. Swiftplay has been hardened against the known v1.0.2 timing/lifecycle failure modes and aligned with the current regular overlay lifecycle; a live Swiftplay match remains the final runtime proof before public release.
+An earlier packaged v1.0.3 runtime-fix build passed live Practice Tool QA. The current Swiftplay-hardened v1.0.3 rebuild still needs packaging QA; a live Swiftplay match remains the final runtime proof before public release.
 
 ### Updating
 v1.0.3 is intended to replace v1.0.2 as the public compatibility build after installer QA is complete.
