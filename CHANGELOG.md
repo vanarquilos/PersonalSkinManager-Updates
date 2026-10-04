@@ -9,11 +9,13 @@
 - Fixed a Swiftplay timing race where Matchmaking could fire before the selected skin reached PSM and permanently suppress the later valid selection.
 - Swiftplay now retries preparation while searching, re-arms on re-queue, and has ChampSelect, GameStart, and InProgress overlay fallbacks.
 - Swiftplay now uses the same reconnect-aware game-lifetime stop semantics as the regular injection path.
+- Fixed the Swiftplay selected-slot banner so changing to an unowned/custom skin visually follows the active carousel pick instead of keeping the owned/default splash.
 
 ### QA
 - Live Practice Tool QA confirmed the hotfix restores in-game skin injection on the current League build.
 - Added regression coverage for League-build-aware LTK cutoff handling.
-- Added code-level regression coverage for Swiftplay late-tracking retries and reconnect-aware lifecycle. Live Swiftplay QA is still recommended before public release.
+- Added code-level regression coverage for Swiftplay late-tracking retries, reconnect-aware lifecycle, and selected-banner synchronization.
+- Live Swiftplay QA confirmed queue-480 modskin injection works; the remaining banner mismatch found during that test was fixed afterward.
 
 ## [1.0.2] - 2026-09-26
 
