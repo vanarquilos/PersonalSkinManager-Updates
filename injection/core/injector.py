@@ -103,8 +103,9 @@ class SkinInjector:
         # Store last injection timing data
         self.last_injection_timing = None
         
-        # Check for CSLOL tools
-        self.tools_manager.check_tools_available()
+        # Validate the runtime against the installed League build.
+        # InjectionManager uses this result instead of reporting a false-ready state.
+        self.runtime_ready = self.tools_manager.check_tools_available(self.game_dir)
     
     def _resolve_zip(self, zip_arg: str, chroma_id: int = None, skin_name: str = None, champion_name: str = None, champion_id: int = None) -> Optional[Path]:
         """Resolve a ZIP by name or path with fuzzy matching"""
