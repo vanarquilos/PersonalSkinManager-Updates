@@ -82,6 +82,11 @@ class ReleasePackagingTests(unittest.TestCase):
         self.assertIn('"WS-ChampSelect"', ws)
         self.assertNotIn("self.swiftplay_handler._injection_triggered = True", phase)
 
+        rose_ui = (ROOT / "Pengu Loader/plugins/ROSE-UI/index.js").read_text(encoding="utf-8")
+        self.assertIn("function syncSwiftplayBanners()", rose_ui)
+        self.assertIn("syncSwiftplayBanners();", rose_ui)
+        self.assertIn(".quick-play-skin-select-component .thumbnail-wrapper.active-skin", rose_ui)
+
 
 if __name__ == "__main__":
     unittest.main()
