@@ -289,6 +289,7 @@ class OverlayManager:
             self.tools_dir,
             overlay_dir,
             process_manager=self.process_manager,
+            game_dir=self.game_dir,
         )
         if ltk_session is None:
             log.error("[INJECT] Could not arm LTK scanner before game launch")
