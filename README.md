@@ -2,13 +2,12 @@
 
 Personal Skin Manager (PSM) is an open-source Windows skin-management application for League of Legends, derived from the open-source **Rose** project by Alban and Florent.
 
-**Current public release:** `v1.0.2`  
-**Hotfix candidate:** `v1.0.3`  
+**Current public release:** `v1.0.3`  
 **Signed in-app update channel:** `v1.0.1` (manifest update deferred)  
 **Platform:** Windows 10/11 x64  
 **Website:** https://psm.vanarquilos.dev
 
-[Website](https://psm.vanarquilos.dev) · [Current release](https://github.com/vanarquilos/PersonalSkinManager-Updates/releases/tag/v1.0.2) · [Source](https://github.com/vanarquilos/PersonalSkinManager-Updates) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
+[Website](https://psm.vanarquilos.dev) · [Current release](https://github.com/vanarquilos/PersonalSkinManager-Updates/releases/tag/v1.0.3) · [Source](https://github.com/vanarquilos/PersonalSkinManager-Updates) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
 
 > This repository is the canonical public source, release, update-channel, diagnostics, and documentation repository for Personal Skin Manager.
 
@@ -55,7 +54,7 @@ See [CHANGELOG.md](CHANGELOG.md) and [releases/v1.0.3/RELEASE_NOTES.md](releases
 
 ## v1.0.2
 
-v1.0.2 is the current public League compatibility release that introduced the all-in-one runtime path, current WAD handling, improved injection timing, cleanup, diagnostics, and Settings UI updates.
+v1.0.2 introduced the all-in-one runtime path, current WAD handling, improved injection timing, cleanup, diagnostics, and Settings UI updates.
 
 See [releases/v1.0.2/RELEASE_NOTES.md](releases/v1.0.2/RELEASE_NOTES.md).
 
@@ -90,12 +89,28 @@ stable/
 ## Application identity
 
 - Product: **Personal Skin Manager**
-- Hotfix candidate: **1.0.3**
+- Current public release: **1.0.3**
 - Executable: `PersonalSkinManager.exe`
 - Installer: `PersonalSkinManager_Setup.exe`
 - Update channel: `stable`
 
 The signed in-app update channel remains on v1.0.1 because the existing signing-key password is unavailable. Public GitHub releases are handled separately; do not replace the embedded signing key casually because older installed clients trust the existing public key.
+
+## Antivirus detections and release verification
+
+Some antivirus products may flag packaged PSM builds heuristically. PSM is a self-contained Windows application that bundles runtime components and coordinates with League processes for its supported skin workflow, which can resemble behavior that generic heuristic scanners treat cautiously.
+
+A detection should be investigated rather than automatically dismissed or treated as proof of malware. Users should **not disable antivirus protection just to run PSM**.
+
+For the official v1.0.3 installer, verify all of the following before running it:
+
+- download only from the canonical GitHub Release linked by this repository or the official website;
+- installer filename: `PersonalSkinManager_Setup.exe`;
+- exact size: `28,162,646 bytes`;
+- SHA-256: `4E1FB68959577213D773C98A8803850122848A838E0983B1397B5B6A1208C7FB`;
+- review the public source and release notes when additional assurance is needed.
+
+If a scanner reports a suspected false positive, compare the scanner's file hash with the published release hash first. A different SHA-256 means it is not the exact published v1.0.3 installer. Confirmed false-positive detections should be submitted to the antivirus vendor for review rather than worked around by weakening endpoint security.
 
 ## Compatibility data directory
 
