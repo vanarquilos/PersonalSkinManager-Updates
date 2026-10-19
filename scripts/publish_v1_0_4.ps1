@@ -186,7 +186,7 @@ Assert-LastExit "GitHub release creation"
 
 $ReleaseJson = & gh api "repos/$Repo/releases/tags/$Tag"
 Assert-LastExit "Verify published release"
-$Release = ($ReleaseJson | ConvertFrom-Json)
+$Release = (($ReleaseJson -join [Environment]::NewLine) | ConvertFrom-Json)
 
 if (-not $Release.prerelease) {
     throw "Release exists, but GitHub did not mark it as a pre-release."
