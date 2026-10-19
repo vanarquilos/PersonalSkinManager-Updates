@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.0.4] - Unreleased
+
+### Fixed
+- Starts the LTK scanner at the beginning of the loadout countdown instead of waiting until the final skin-injection trigger.
+- Reuses the pre-armed scanner when the overlay is ready, reducing late-join/default-skin failures on slower or briefly stalled systems.
+- Replaces a dead pre-armed scanner before the next game instead of reusing a stopped session.
+- Stops unused pre-armed scanners when a countdown ends without an injection, when default skin is selected, or when injection setup fails.
+- Keeps the overlay directory itself in place while cleaning its contents so an already-configured LTK scanner does not lose its prefix path.
+
+### Changed
+- Ports the relevant current Rose injection-lifecycle fixes from upstream commits `0cf810e` and `5bf9169`.
+- Keeps the v1.0.3 League-build-aware LTK cutoff validation intact; this update does not bypass an unsupported runtime.
+
+### QA
+- Added regression coverage for loadout-countdown scanner pre-arming.
+- Added regression coverage for dead-session replacement and unused-session cleanup.
+- Added regression coverage proving overlay cleanup preserves the configured directory.
+- Added the new checks to the manual public-source workflow and Windows live-QA script.
+- Windows Practice Tool and Swiftplay live validation are required before publishing the v1.0.4 installer.
+
 ## [1.0.3] - 2026-10-05
 
 ### Fixed
