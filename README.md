@@ -2,13 +2,14 @@
 
 Personal Skin Manager (PSM) is an open-source Windows skin-management application for League of Legends, derived from the open-source **Rose** project by Alban and Florent.
 
-**Current public release:** `v1.0.3`  
+**Latest public pre-release:** `v1.0.4` (community testing)  
+**Previous stable release:** `v1.0.3`  
 **Next source version:** `v1.0.4` (release QA pending)  
 **Signed in-app update channel:** `v1.0.1` (manifest update deferred)  
 **Platform:** Windows 10/11 x64  
 **Website:** https://psm.vanarquilos.dev
 
-[Website](https://psm.vanarquilos.dev) · [Current release](https://github.com/vanarquilos/PersonalSkinManager-Updates/releases/tag/v1.0.3) · [Source](https://github.com/vanarquilos/PersonalSkinManager-Updates) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
+[Website](https://psm.vanarquilos.dev) · [v1.0.4 community-test release](https://github.com/vanarquilos/PersonalSkinManager-Updates/releases/tag/v1.0.4) · [Previous v1.0.3](https://github.com/vanarquilos/PersonalSkinManager-Updates/releases/tag/v1.0.3) · [Source](https://github.com/vanarquilos/PersonalSkinManager-Updates) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
 
 > This repository is the canonical public source, release, update-channel, diagnostics, and documentation repository for Personal Skin Manager.
 
@@ -37,7 +38,7 @@ For normal users:
 
 PSM v1.0.2 and later are designed as **all-in-one installers**. Users should not need to copy DLLs or manually configure runtime files after installation.
 
-## v1.0.4 source candidate
+## v1.0.4 (public community-test pre-release)
 
 v1.0.4 carries the current scanner-timing compatibility work needed after v1.0.3.
 
@@ -50,7 +51,7 @@ Highlights:
 - retains League-build-aware runtime cutoff validation rather than bypassing an unsupported LTK runtime
 - adds focused regression coverage for the timing and cleanup lifecycle
 
-The source is prepared for v1.0.4, but v1.0.3 remains the current public installer until Windows Practice Tool and Swiftplay QA pass and a new installer artifact is built.
+The v1.0.4 installer is published as a public GitHub pre-release. The maintainer verified normal skin injection and Swiftplay lobby skin selection. Swiftplay **in-game** injection has not yet been verified on v1.0.4; report problems through the official website feedback section. v1.0.3 remains available as the previous release.
 
 See [CHANGELOG.md](CHANGELOG.md) and [releases/v1.0.4/RELEASE_NOTES.md](releases/v1.0.4/RELEASE_NOTES.md).
 
@@ -107,7 +108,8 @@ stable/
 ## Application identity
 
 - Product: **Personal Skin Manager**
-- Current public release: **1.0.3**
+- Latest public pre-release: **1.0.4** (community testing)
+- Previous stable release: **1.0.3**
 - Executable: `PersonalSkinManager.exe`
 - Installer: `PersonalSkinManager_Setup.exe`
 - Update channel: `stable`
@@ -120,15 +122,15 @@ Some antivirus products may flag packaged PSM builds heuristically. PSM is a sel
 
 A detection should be investigated rather than automatically dismissed or treated as proof of malware. Users should **not disable antivirus protection just to run PSM**.
 
-For the official v1.0.3 installer, verify all of the following before running it:
+For the official v1.0.4 community-test installer, verify all of the following before running it:
 
 - download only from the canonical GitHub Release linked by this repository or the official website;
 - installer filename: `PersonalSkinManager_Setup.exe`;
-- exact size: `28,162,646 bytes`;
-- SHA-256: `4E1FB68959577213D773C98A8803850122848A838E0983B1397B5B6A1208C7FB`;
+- exact size: `28,165,060 bytes`;
+- SHA-256: `C31EAE458757C2EF9B3ADE8DDDCB6C791F785CBAEEA34C781622768AD407E7EA`;
 - review the public source and release notes when additional assurance is needed.
 
-If a scanner reports a suspected false positive, compare the scanner's file hash with the published release hash first. A different SHA-256 means it is not the exact published v1.0.3 installer. Confirmed false-positive detections should be submitted to the antivirus vendor for review rather than worked around by weakening endpoint security.
+If a scanner reports a suspected false positive, compare the scanner's file hash with the published release hash first. A different SHA-256 means it is not the exact published v1.0.4 installer. Confirmed false-positive detections should be submitted to the antivirus vendor for review rather than worked around by weakening endpoint security.
 
 ## Compatibility data directory
 
