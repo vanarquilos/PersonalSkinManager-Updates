@@ -67,6 +67,11 @@ class OverlayManager:
         self.game_dir = game_dir
         self.process_manager = process_manager
         self.last_injection_timing = None
+        # Scanner pre-armed at the beginning of the loadout countdown. The LTK
+        # DLL only overlays games launched after scanning has already started,
+        # so waiting until the final injection trigger can be too late.
+        self._early_patcher = None
+        self._early_patcher_lock = threading.Lock()
     
     @property
     def current_overlay_process(self):
@@ -240,6 +245,67 @@ class OverlayManager:
         )
         return True
     
+    def start_patcher_early(self) -> None:
+        """Start the LTK scanner before League can launch the game.
+
+        Current Rose starts the patcher when the loadout countdown begins.
+        Keeping that head start avoids a race where a slow extraction/build
+        lets League launch before the LTK host has begun scanning.
+        """
+        with self._early_patcher_lock:
+            if self.game_dir is None:
+                return
+
+            if self._early_patcher is not None:
+                if self._early_patcher.proc.poll() is None:
+                    return
+                from .ltk_host import abort_ltk_patcher_host
+                abort_ltk_patcher_host(self._early_patcher)
+                self._early_patcher = None
+
+            overlay_dir = self.mods_dir.parent / "overlay"
+            overlay_dir.mkdir(parents=True, exist_ok=True)
+
+            if self.process_manager:
+                self.process_manager.stopped_by_user = False
+
+            from .ltk_host import start_ltk_patcher_host
+            self._early_patcher = start_ltk_patcher_host(
+                self.tools_dir,
+                overlay_dir,
+                process_manager=self.process_manager,
+                game_dir=self.game_dir,
+            )
+
+            if self._early_patcher is not None:
+                log.info("[INJECT] LTK scanner pre-armed during loadout countdown")
+
+    def _take_early_patcher(self):
+        """Take the pre-armed scanner if it is still alive."""
+        with self._early_patcher_lock:
+            session, self._early_patcher = self._early_patcher, None
+
+        if session is not None and session.proc.poll() is None:
+            return session
+
+        if session is not None:
+            from .ltk_host import abort_ltk_patcher_host
+            abort_ltk_patcher_host(session)
+        return None
+
+    def discard_early_patcher(self) -> None:
+        """Stop a pre-armed scanner when no injection will use it."""
+        with self._early_patcher_lock:
+            session, self._early_patcher = self._early_patcher, None
+
+        if session is not None:
+            log.debug(
+                "[INJECT] Stopping LTK scanner pre-armed for a countdown "
+                "that ended without injection"
+            )
+            from .ltk_host import abort_ltk_patcher_host
+            abort_ltk_patcher_host(session)
+
     def mk_run_overlay(self, mod_names: List[str], timeout: int = 120, stop_callback: Optional[Callable] = None, injection_manager=None) -> int:
         """Create and run overlay
         
@@ -284,13 +350,18 @@ class OverlayManager:
             self.process_manager.stopped_by_user = False
 
         from .ltk_host import start_ltk_patcher_host
-        log.info("[INJECT] Arming current LTK scanner before mkoverlay/game launch")
-        ltk_session = start_ltk_patcher_host(
-            self.tools_dir,
-            overlay_dir,
-            process_manager=self.process_manager,
-            game_dir=self.game_dir,
-        )
+        ltk_session = self._take_early_patcher()
+        if ltk_session is None:
+            log.info("[INJECT] Arming current LTK scanner before mkoverlay/game launch")
+            ltk_session = start_ltk_patcher_host(
+                self.tools_dir,
+                overlay_dir,
+                process_manager=self.process_manager,
+                game_dir=self.game_dir,
+            )
+        else:
+            log.info("[INJECT] Reusing LTK scanner pre-armed during loadout countdown")
+
         if ltk_session is None:
             log.error("[INJECT] Could not arm LTK scanner before game launch")
             if injection_manager:
@@ -472,11 +543,10 @@ class OverlayManager:
 
     @staticmethod
     def _wipe_overlay_dir(overlay_dir: Path):
-        """Delete overlay WAD files after runoverlay finishes"""
+        """Empty the overlay after a game while keeping its directory."""
         try:
-            import shutil
-            shutil.rmtree(overlay_dir, ignore_errors=True)
-            overlay_dir.mkdir(parents=True, exist_ok=True)
+            from ..mods.mod_manager import empty_directory
+            empty_directory(overlay_dir)
             log.debug("[INJECT] Wiped overlay directory after game ended")
         except Exception as e:
             log.debug(f"[INJECT] Could not wipe overlay directory: {e}")

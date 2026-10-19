@@ -3,6 +3,7 @@
 Personal Skin Manager (PSM) is an open-source Windows skin-management application for League of Legends, derived from the open-source **Rose** project by Alban and Florent.
 
 **Current public release:** `v1.0.3`  
+**Next source version:** `v1.0.4` (release QA pending)  
 **Signed in-app update channel:** `v1.0.1` (manifest update deferred)  
 **Platform:** Windows 10/11 x64  
 **Website:** https://psm.vanarquilos.dev
@@ -35,6 +36,23 @@ For normal users:
 - Administrator permission for the installer
 
 PSM v1.0.2 and later are designed as **all-in-one installers**. Users should not need to copy DLLs or manually configure runtime files after installation.
+
+## v1.0.4 source candidate
+
+v1.0.4 carries the current scanner-timing compatibility work needed after v1.0.3.
+
+Highlights:
+
+- starts the LTK scanner when the loadout countdown begins instead of at the last injection moment
+- reuses the pre-armed scanner for the selected skin overlay
+- cleans up unused/dead scanner sessions safely between games
+- preserves the overlay directory while clearing its contents so the scanner keeps a valid configured path
+- retains League-build-aware runtime cutoff validation rather than bypassing an unsupported LTK runtime
+- adds focused regression coverage for the timing and cleanup lifecycle
+
+The source is prepared for v1.0.4, but v1.0.3 remains the current public installer until Windows Practice Tool and Swiftplay QA pass and a new installer artifact is built.
+
+See [CHANGELOG.md](CHANGELOG.md) and [releases/v1.0.4/RELEASE_NOTES.md](releases/v1.0.4/RELEASE_NOTES.md).
 
 ## v1.0.3
 
