@@ -33,9 +33,9 @@ Added tests for:
 
 The new checks are included in both the manual public-source workflow and the Windows live-QA script.
 
-## Community-testing status
+## Published pre-release / community-testing status
 
-v1.0.4 is intended for an openly labeled public community-test release. Maintainer-reported checks at the time of release preparation:
+v1.0.4 was published on October 19, 2026 as an openly labeled public GitHub pre-release for community testing. Maintainer-reported checks at the time of release preparation:
 
 - Normal skin injection: working in a live test.
 - Swiftplay lobby skin selection: working in a live test.
@@ -45,7 +45,17 @@ v1.0.4 is intended for an openly labeled public community-test release. Maintain
 
 Please report issues through https://psm.vanarquilos.dev (Feedback / Support) with the mode, selected skin, PSM version, and what happened. Do not share passwords or session tokens.
 
-The installer must be built from the exact v1.0.4 source with the trusted local runtime files. The actual byte size and SHA-256 must be captured during that build; never reuse an older release's installer/hash.
+The installer was built from v1.0.4 source and trusted local runtime files. The published GitHub Release asset was verified against the checksum and size below.
+
+## Verified installer artifact
+
+- Filename: `PersonalSkinManager_Setup.exe`
+- Size: **28,165,060 bytes**
+- SHA-256: `C31EAE458757C2EF9B3ADE8DDDCB6C791F785CBAEEA34C781622768AD407E7EA`
+- Source commit: `d9022c756348d5a649eb6a21d66798db65810688`
+- [Official v1.0.4 GitHub Release](https://github.com/vanarquilos/PersonalSkinManager-Updates/releases/tag/v1.0.4)
+
+This is a pre-release; Swiftplay in-game injection is unverified and compatibility is not guaranteed across configurations.
 
 ## Distribution
 
