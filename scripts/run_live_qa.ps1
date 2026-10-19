@@ -62,7 +62,7 @@ if ($running) {
 if (-not $SkipTests) {
     Write-Host ""
     Write-Host "Running focused source checks..." -ForegroundColor Cyan
-    & python -m unittest tests.test_release_skin_routing tests.test_ltk_host_protocol tests.test_ltk_countdown_prearm tests.test_patch_2619_wad_headers tests.test_psm_ui_polish_release tests.test_release_packaging
+    & python -m unittest tests.test_release_skin_routing tests.test_ltk_host_protocol tests.test_ltk_countdown_prearm tests.test_overlay_cleanup tests.test_patch_2619_wad_headers tests.test_psm_ui_polish_release tests.test_release_packaging
 
     if ($LASTEXITCODE -ne 0) {
         throw "Focused source checks failed. Fix them before live League QA."
