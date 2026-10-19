@@ -53,6 +53,12 @@ class LoadoutTicker(threading.Thread):
         # Exit immediately if another ticker has taken control
         if getattr(self.state, 'current_ticker', 0) != self.ticker_id:
             return
+
+        # The LTK DLL only overlays a game that launches after its scanner has
+        # started. Pre-arm it for the full countdown instead of waiting for the
+        # final skin-write trigger.
+        if self.injection_manager:
+            self.injection_manager.start_patcher_in_background()
         
         # Local variables to avoid cross-resets
         left0_ms = self.state.loadout_left0_ms
@@ -62,6 +68,7 @@ class LoadoutTicker(threading.Thread):
         poll_period_s = TIMER_POLL_PERIOD_S
         last_poll = 0.0
         last_bucket = None
+        injection_triggered = False
         
         # Continue loop only in ChampSelect/FINALIZATION
         while (not self.state.stop) and self.state.loadout_countdown_active and (self.state.current_ticker == self.ticker_id) and (self.state.phase in ["ChampSelect", "FINALIZATION"]):
@@ -134,11 +141,25 @@ class LoadoutTicker(threading.Thread):
                 if name:
                     # Trigger injection
                     self.injection_trigger.trigger_injection(name, self.ticker_id, cname)
+                    # InjectionTrigger sets this after validating the selected
+                    # champion/skin. It may then inject asynchronously.
+                    injection_triggered = (
+                        injection_triggered or self.state.last_hover_written
+                    )
 
             if remain_ms <= 0:
                 break
             time.sleep(1.0 / float(self.hz))
         
+        # If this countdown ended without a committed injection (no skin,
+        # refused selection, or dodge), stop the scanner we pre-armed for it.
+        if (
+            self.injection_manager
+            and not injection_triggered
+            and getattr(self.state, 'current_ticker', 0) == self.ticker_id
+        ):
+            self.injection_manager.discard_early_patcher()
+
         # End of ticker: only release if we're still the current ticker
         if getattr(self.state, 'current_ticker', 0) == self.ticker_id:
             self.state.loadout_countdown_active = False
