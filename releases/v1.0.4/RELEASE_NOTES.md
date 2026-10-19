@@ -1,6 +1,6 @@
 # Personal Skin Manager v1.0.4
 
-**Current League Injection Timing Compatibility Update**
+**League Compatibility Update — Community Testing**
 
 PSM v1.0.4 carries the current scanner-timing and overlay-cleanup fixes needed after v1.0.3.
 
@@ -33,17 +33,19 @@ Added tests for:
 
 The new checks are included in both the manual public-source workflow and the Windows live-QA script.
 
-## Release status
+## Community-testing status
 
-Source preparation is complete for v1.0.4.
+v1.0.4 is intended for an openly labeled public community-test release. Maintainer-reported checks at the time of release preparation:
 
-Before publishing the installer, run Windows live QA against the current League build:
+- Normal skin injection: working in a live test.
+- Swiftplay lobby skin selection: working in a live test.
+- Swiftplay in-game skin injection: **not verified** on v1.0.4.
+- Automated regression tests: included in source and must pass during the release build.
+- Compatibility with every League build, queue, and PC configuration is not guaranteed.
 
-- Practice Tool skin injection
-- Swiftplay skin selection and in-game injection
-- confirm the bundled LTK runtime still supports the installed League build
+Please report issues through https://psm.vanarquilos.dev (Feedback / Support) with the mode, selected skin, PSM version, and what happened. Do not share passwords or session tokens.
 
-Installer size and SHA-256 will be recorded here only after the final v1.0.4 artifact is built and verified.
+The installer must be built from the exact v1.0.4 source with the trusted local runtime files. The actual byte size and SHA-256 must be captured during that build; never reuse an older release's installer/hash.
 
 ## Distribution
 
