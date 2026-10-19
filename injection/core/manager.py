@@ -103,13 +103,41 @@ class InjectionManager:
                         self._initialized = True
                         log_success(log, "Injection system initialized successfully", "")
     
+    def start_patcher_in_background(self):
+        """Pre-arm the LTK scanner when the loadout countdown begins."""
+        if not self._initialized or self.injector is None:
+            return
+
+        def start():
+            try:
+                self.injector.overlay_manager.start_patcher_early()
+            except Exception as e:
+                log.warning(f"[INJECT] Could not pre-arm the LTK scanner: {e}")
+
+        threading.Thread(
+            target=start,
+            daemon=True,
+            name="LTKPatcherStart",
+        ).start()
+
+    def discard_early_patcher(self):
+        """Stop a scanner pre-armed for a countdown that will not inject."""
+        if self.injector:
+            self.injector.overlay_manager.discard_early_patcher()
+
     def _start_monitor(self):
         """Start game monitor - watches for game and suspends it"""
         self.game_monitor.start()
+        # Fallback for flows that did not pass through the normal loadout
+        # countdown (for example a direct/fallback injection).
+        if self.injector:
+            self.injector.overlay_manager.start_patcher_early()
     
     def _stop_monitor(self):
         """Stop the game monitor"""
         self.game_monitor.stop()
+        if self.injector:
+            self.injector.overlay_manager.discard_early_patcher()
     
     def _get_suspended_game_process(self):
         """Get the currently suspended game process (if any)"""
@@ -207,9 +235,11 @@ class InjectionManager:
         log.info("[INJECT] Mods-only injection skipped (installed mods folder removed)")
     
     def on_loadout_countdown(self, seconds_remaining: int):
-        """Called during loadout countdown - no longer used (monitor starts with injection)"""
-        # Monitor now starts when injection actually begins, not at T-1
-        # This prevents unnecessary suspension for base skins and owned skins
+        """Legacy countdown notification.
+
+        The scanner is pre-armed once by LoadoutTicker at countdown start; the
+        game monitor itself still starts only when an injection is committed.
+        """
         pass
     
     def inject_skin_immediately(self, skin_name: str, stop_callback=None, chroma_id: int = None, champion_name: str = None, champion_id: int = None) -> bool:
