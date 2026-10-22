@@ -11,6 +11,16 @@
 - PSM v1.0.4 includes the early scanner startup and overlay-directory preservation fixes, but its proprietary/third-party runtime trio is **untracked** and cannot be inspected from public GitHub.
 - New PSM source fixes under review: LCU PUT retry uses the refreshed client port; game monitor continues after a vanished process.
 
+## Failed local test — 2026-10-22
+
+The maintainer ran the v1.0.5 candidate and reported: **no skin appeared in-game**. The test log and exact LTK runtime hashes have not yet been supplied, so the root cause is unconfirmed.
+
+Top suspect: the locally bundled LTK patcher predates League 26.21's material-data format change. LTK Manager v1.29.1 corrected overlay verification failure (invalid property kind 178), followed by v1.30.1 mod repair fixes. These manager releases are **not** interchangeable with PSM's patcher host/DLL binaries.
+
+Before any more gameplay attempts, from the candidate branch run `powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\diagnose_no_skin_v105.ps1` and review the summarized failure markers and local runtime SHA-256 hashes. The script does not change League, PSM, or antivirus settings and does not copy raw logs.
+
+Do **not** merge, publish, or bypass security/overlay validation until the no-skin failure is understood and retested.
+
 ## P0: Block publishing until ALL are complete
 
 - [ ] Identify the exact locally bundled `mod-tools.exe`, `ltk_patcher_host.exe`, and `ltk_patcher_dll.dll`. Record each filename, byte size, and SHA-256 using `python scripts/audit_runtime_v105.py --game-dir "C:\\Riot Games\\League of Legends\\Game"`. Supply an explicit, correct League Game folder if installed elsewhere.
