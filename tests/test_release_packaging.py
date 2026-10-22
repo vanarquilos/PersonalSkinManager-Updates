@@ -21,6 +21,23 @@ class ReleasePackagingTests(unittest.TestCase):
         self.assertIsNotNone(setup)
         self.assertEqual(app.group(1), setup.group(1))
 
+    def test_v105_is_local_test_candidate_only(self):
+        config = (ROOT / "config.py").read_text(encoding="utf-8")
+        installer = (ROOT / "installer.iss").read_text(encoding="utf-8-sig")
+        script = (ROOT / "scripts/prepare_v1_0_5_test.ps1").read_text(encoding="utf-8")
+        audit = (ROOT / "scripts/audit_runtime_v105.py").read_text(encoding="utf-8")
+
+        self.assertIn('APP_VERSION = "1.0.5"', config)
+        self.assertIn('#define MyAppVersion "1.0.5"', installer)
+        self.assertIn('#define MyAppVersionInfo "1.0.5.0"', installer)
+        self.assertIn("PersonalSkinManager_Setup_v1.0.5-TEST.exe", script)
+        self.assertIn("candidate-manifest.json", script)
+        self.assertIn("scripts\\audit_runtime_v105.py", script.replace("/", "\\"))
+        self.assertNotIn("gh release create", script.lower())
+        self.assertNotIn("stable/manifest.json", script)
+        self.assertIn("sha256", audit)
+        self.assertIn("read_game_build", audit)
+
     def test_spec_bundles_current_runtime(self):
         spec = (ROOT / "PersonalSkinManager.spec").read_text(encoding="utf-8")
         for path in (
