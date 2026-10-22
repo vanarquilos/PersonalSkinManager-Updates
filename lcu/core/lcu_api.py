@@ -171,8 +171,11 @@ class LCUAPI:
                 return None
             try:
                 t0 = time.perf_counter()
+                # Refreshing the LCU connection may change its local port.
+                # Retrying the previous URL after refresh can send the skin
+                # selection to the dead client instead of the new endpoint.
                 resp = self.connection.session.put(
-                    url,
+                    (self.connection.base or "") + path,
                     json=json_data,
                     timeout=timeout,
                     headers=headers,
