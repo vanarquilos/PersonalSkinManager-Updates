@@ -44,6 +44,21 @@ League 26.21 introduces upstream LTK overlay/material-format changes. PSM v1.0.5
 
 The candidate branch fixes LCU reconnect PUT retries and a vanished-game-process race, with new regression tests. App and installer metadata are set to **v1.0.5**, but this does not mean an installer has been published. The bundled LTK patcher/host and mod tooling cannot be verified from this public repository because those binaries are not tracked.
 
+**New 26.21 runtime candidate (private local QA only):** The older bundled LTK DLL expired October 4, 2026, before the October 16 League PE build. The upstream LTK v1.30.1 tag includes a host/DLL pair whose DLL cutoff is October 28, 2026, newer than that game build. Its host/DLL identity is pinned in `scripts/stage_ltk_v105_test.ps1`. This clears the known cutoff, but **does not prove host-protocol or in-game overlay compatibility**.
+
+With PSM and League closed, stage the official pair for **your own Windows test only**:
+
+```powershell
+git fetch origin
+git switch fix/v1.0.5-pre-release-hardening
+git pull --ff-only origin fix/v1.0.5-pre-release-hardening
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\stage_ltk_v105_test.ps1
+```
+
+The staging script verifies exact upstream Git blob identities and file sizes, audits the game-build/DLL cutoff, backs up the old host/DLL, and stages the pair locally. If your game is installed elsewhere, pass `-LeagueGameDir "D:\Riot Games\League of Legends\Game"`.
+
+**Do not publish a PSM installer containing the official signed patcher binaries.** League Toolkit's [separate patcher license](licenses/LTK-PATCHER-LICENSE.md) requires removing its official signatures on copies distributed in other tools, unless explicit permission is granted. For a public release, review the license, remove the official signatures using a trusted release-signing workflow, and verify the final artifact again.
+
 To prepare a **local-only Windows test installer** from this branch:
 
 ```powershell
