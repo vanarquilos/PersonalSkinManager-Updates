@@ -38,6 +38,18 @@ class ReleasePackagingTests(unittest.TestCase):
         self.assertIn("sha256", audit)
         self.assertIn("read_game_build", audit)
 
+    def test_windows_powershell_51_candidate_scripts_are_ascii(self):
+        # Windows PowerShell 5.1 reads UTF-8 without a BOM using the local
+        # Windows ANSI codepage. Characters such as em dashes can corrupt
+        # quoted strings and make the entire script fail to parse.
+        for relative in (
+            "scripts/diagnose_no_skin_v105.ps1",
+            "scripts/prepare_v1_0_5_test.ps1",
+        ):
+            with self.subTest(script=relative):
+                raw = (ROOT / relative).read_bytes()
+                self.assertTrue(raw.isascii(), f"{relative} must be ASCII-only")
+
     def test_spec_bundles_current_runtime(self):
         spec = (ROOT / "PersonalSkinManager.spec").read_text(encoding="utf-8")
         for path in (
