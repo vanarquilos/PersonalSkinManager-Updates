@@ -21,6 +21,15 @@ Before any more gameplay attempts, from the candidate branch run `powershell.exe
 
 Do **not** merge, publish, or bypass security/overlay validation until the no-skin failure is understood and retested.
 
+## October 22 source hardening (after the diagnostic)
+
+- The locally audited LTK host/DLL pair from the failed v1.0.5 test is now rejected **by the v1.0.5 candidate build audit**. This is a test-proven compatibility block, not a malware verdict or claim that those files fail on every game build.
+- `ToolsManager` now records an actionable unsupported-runtime or missing-runtime issue instead of simply failing initialization silently.
+- Injection attempts no longer describe every runtime failure as a missing League installation.
+- Automated tests now cover diagnostic visibility and refusing the previously failed host/DLL pair.
+- **The actual no-skin compatibility problem is not yet repaired.** The vendor-controlled, signed LTK patcher distribution currently requires an eligible official manager and a matching host protocol. PSM cannot assume those DLLs are publicly redistributable or compatible with its older host.
+- Do not build or publish v1.0.5 until a legitimate, compatible runtime pair has been obtained, audited, and successfully tested. Do not bypass the build gate or patcher verification.
+
 ## P0: Block publishing until ALL are complete
 
 - [ ] Identify the exact locally bundled `mod-tools.exe`, `ltk_patcher_host.exe`, and `ltk_patcher_dll.dll`. Record each filename, byte size, and SHA-256 using `python scripts/audit_runtime_v105.py --game-dir "C:\\Riot Games\\League of Legends\\Game"`. Supply an explicit, correct League Game folder if installed elsewhere.
