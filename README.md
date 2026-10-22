@@ -42,7 +42,20 @@ PSM v1.0.2 and later are designed as **all-in-one installers**. Users should not
 
 League 26.21 introduces upstream LTK overlay/material-format changes. PSM v1.0.5 work is being reviewed separately from v1.0.4; no v1.0.5 installer is available yet.
 
-The candidate branch fixes LCU reconnect PUT retries and a vanished-game-process race, with new regression tests. The bundled LTK patcher/host and mod tooling cannot be verified from this public repository because those binaries are not tracked.
+The candidate branch fixes LCU reconnect PUT retries and a vanished-game-process race, with new regression tests. App and installer metadata are set to **v1.0.5**, but this does not mean an installer has been published. The bundled LTK patcher/host and mod tooling cannot be verified from this public repository because those binaries are not tracked.
+
+To prepare a **local-only Windows test installer** from this branch:
+
+```powershell
+git fetch origin
+git switch fix/v1.0.5-pre-release-hardening
+git pull --ff-only origin fix/v1.0.5-pre-release-hardening
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\prepare_v1_0_5_test.ps1
+```
+
+If League is installed elsewhere, pass `-LeagueGameDir "D:\Riot Games\League of Legends\Game"` with your actual League Game folder. After all preflight checks and the build pass, the candidate is created at `installer/candidates/v1.0.5/PersonalSkinManager_Setup_v1.0.5-TEST.exe` alongside its SHA-256 and runtime audit. No public release or signed update manifest is changed.
+
+**Before building:** ensure all three trusted local runtime files are present and have compatibility/provenance verified. The script refuses missing or detectably expired runtime files but cannot prove material-hash/host protocol compatibility.
 
 **Release gate:** verify licensed/trusted compatible runtime binaries, in-game Practice Tool and Swiftplay tests, installer integrity, and a working feedback channel. See [the v1.0.5 release checklist](releases/v1.0.5/PRE_RELEASE_CHECKLIST.md).
 
