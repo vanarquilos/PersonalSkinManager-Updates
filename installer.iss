@@ -56,6 +56,7 @@ Source: "dist\PersonalSkinManager\*"; DestDir: "{app}"; Excludes: "hashes.game.t
 Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "licenses\LeagueToolkit-GPL-3.0.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
+Source: "licenses\LTK-PATCHER-LICENSE.md"; DestDir: "{app}\licenses"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
