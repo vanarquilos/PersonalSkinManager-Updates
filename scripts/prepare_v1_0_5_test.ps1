@@ -61,7 +61,8 @@ $Tests = @(
     "tests.test_swiftplay_runtime",
     "tests.test_lcu_put_reconnect",
     "tests.test_game_monitor_vanishing_process",
-    "tests.test_runtime_failure_reporting"
+    "tests.test_runtime_failure_reporting",
+    "tests.test_runtime_audit_v105"
 )
 
 Write-Host "1/4: Source regression tests" -ForegroundColor Cyan
