@@ -286,8 +286,12 @@ class InjectionManager:
         
         # Don't attempt injection if system isn't properly initialized
         if not self._initialized or self.injector is None or self.injector.game_dir is None:
-            log.error("[INJECT] Cannot inject - League game directory not found")
-            log.error("[INJECT] Please ensure League Client is running or manually set the path in config.ini")
+            if self.injector and self.injector.game_dir is not None and not self.injector.runtime_ready:
+                log.error("[INJECT] Cannot apply skin - the bundled LTK runtime failed compatibility checks")
+            elif self.injector is None or self.injector.game_dir is None:
+                log.error("[INJECT] Cannot apply skin - League game directory not found")
+            else:
+                log.error("[INJECT] Cannot apply skin - injection system not initialized")
             return False
         
         # Check if injection already in progress
@@ -382,7 +386,12 @@ class InjectionManager:
         
         # Don't attempt injection if system isn't properly initialized
         if not self._initialized or self.injector is None or self.injector.game_dir is None:
-            log.error("[INJECT] Cannot inject - League game directory not found")
+            if self.injector and self.injector.game_dir is not None and not self.injector.runtime_ready:
+                log.error("[INJECT] Cannot apply skin - the bundled LTK runtime failed compatibility checks")
+            elif self.injector is None or self.injector.game_dir is None:
+                log.error("[INJECT] Cannot apply skin - League game directory not found")
+            else:
+                log.error("[INJECT] Cannot apply skin - injection system not initialized")
             return False
             
         with self.injection_lock:
