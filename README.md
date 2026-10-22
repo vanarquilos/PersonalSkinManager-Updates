@@ -4,7 +4,7 @@ Personal Skin Manager (PSM) is an open-source Windows skin-management applicatio
 
 **Latest public pre-release:** `v1.0.4` (community testing)  
 **Previous stable release:** `v1.0.3`  
-**Next source version:** `v1.0.4` (release QA pending)  
+**Next proposed version:** `v1.0.5` (League 26.21 compatibility audit; NOT release-ready)  
 **Signed in-app update channel:** `v1.0.1` (manifest update deferred)  
 **Platform:** Windows 10/11 x64  
 **Website:** https://psm.vanarquilos.dev
@@ -37,6 +37,14 @@ For normal users:
 - Administrator permission for the installer
 
 PSM v1.0.2 and later are designed as **all-in-one installers**. Users should not need to copy DLLs or manually configure runtime files after installation.
+
+## v1.0.5 preparation (unreleased)
+
+League 26.21 introduces upstream LTK overlay/material-format changes. PSM v1.0.5 work is being reviewed separately from v1.0.4; no v1.0.5 installer is available yet.
+
+The candidate branch fixes LCU reconnect PUT retries and a vanished-game-process race, with new regression tests. The bundled LTK patcher/host and mod tooling cannot be verified from this public repository because those binaries are not tracked.
+
+**Release gate:** verify licensed/trusted compatible runtime binaries, in-game Practice Tool and Swiftplay tests, installer integrity, and a working feedback channel. See [the v1.0.5 release checklist](releases/v1.0.5/PRE_RELEASE_CHECKLIST.md).
 
 ## v1.0.4 (public community-test pre-release)
 
