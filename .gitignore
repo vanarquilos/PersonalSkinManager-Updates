@@ -167,3 +167,5 @@ PSM_*_Compare.txt
 injection/tools/mod-tools.exe
 injection/tools/ltk_patcher_host.exe
 injection/tools/ltk_patcher_dll.dll
+injection/tools/_v105_*/
+injection/tools/_v105_runtime_origin.json

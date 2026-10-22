@@ -2,8 +2,8 @@
 ; This creates a proper Windows installer that registers the app
 
 #define MyAppName "Personal Skin Manager"
-#define MyAppVersion "1.0.4"
-#define MyAppVersionInfo "1.0.4.0"
+#define MyAppVersion "1.0.5"
+#define MyAppVersionInfo "1.0.5.0"
 #define MyAppPublisher "Van Arquilos"
 #define MyAppExeName "PersonalSkinManager.exe"
 #define MyAppDescription "Personal skin manager for League of Legends"
@@ -56,6 +56,7 @@ Source: "dist\PersonalSkinManager\*"; DestDir: "{app}"; Excludes: "hashes.game.t
 Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "licenses\LeagueToolkit-GPL-3.0.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
+Source: "licenses\LTK-PATCHER-LICENSE.md"; DestDir: "{app}\licenses"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]

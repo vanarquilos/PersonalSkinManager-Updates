@@ -4,7 +4,7 @@ Personal Skin Manager (PSM) is an open-source Windows skin-management applicatio
 
 **Latest public pre-release:** `v1.0.4` (community testing)  
 **Previous stable release:** `v1.0.3`  
-**Next source version:** `v1.0.4` (release QA pending)  
+**Next proposed version:** `v1.0.5` (League 26.21 compatibility audit; NOT release-ready)  
 **Signed in-app update channel:** `v1.0.1` (manifest update deferred)  
 **Platform:** Windows 10/11 x64  
 **Website:** https://psm.vanarquilos.dev
@@ -37,6 +37,42 @@ For normal users:
 - Administrator permission for the installer
 
 PSM v1.0.2 and later are designed as **all-in-one installers**. Users should not need to copy DLLs or manually configure runtime files after installation.
+
+## v1.0.5 preparation (unreleased)
+
+League 26.21 introduces upstream LTK overlay/material-format changes. PSM v1.0.5 work is being reviewed separately from v1.0.4; no v1.0.5 installer is available yet.
+
+The candidate branch fixes LCU reconnect PUT retries and a vanished-game-process race, with new regression tests. App and installer metadata are set to **v1.0.5**, but this does not mean an installer has been published. The bundled LTK patcher/host and mod tooling cannot be verified from this public repository because those binaries are not tracked.
+
+**New 26.21 runtime candidate (private local QA only):** The older bundled LTK DLL expired October 4, 2026, before the October 16 League PE build. The upstream LTK v1.30.1 tag includes a host/DLL pair whose DLL cutoff is October 28, 2026, newer than that game build. Its host/DLL identity is pinned in `scripts/stage_ltk_v105_test.ps1`. This clears the known cutoff, but **does not prove host-protocol or in-game overlay compatibility**.
+
+With PSM and League closed, stage the official pair for **your own Windows test only**:
+
+```powershell
+git fetch origin
+git switch fix/v1.0.5-pre-release-hardening
+git pull --ff-only origin fix/v1.0.5-pre-release-hardening
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\stage_ltk_v105_test.ps1
+```
+
+The staging script verifies exact upstream Git blob identities and file sizes, audits the game-build/DLL cutoff, backs up the old host/DLL, and stages the pair locally. If your game is installed elsewhere, pass `-LeagueGameDir "D:\Riot Games\League of Legends\Game"`.
+
+**Do not publish a PSM installer containing the official signed patcher binaries.** League Toolkit's [separate patcher license](licenses/LTK-PATCHER-LICENSE.md) requires removing its official signatures on copies distributed in other tools, unless explicit permission is granted. For a public release, review the license, remove the official signatures using a trusted release-signing workflow, and verify the final artifact again.
+
+To prepare a **local-only Windows test installer** from this branch:
+
+```powershell
+git fetch origin
+git switch fix/v1.0.5-pre-release-hardening
+git pull --ff-only origin fix/v1.0.5-pre-release-hardening
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\prepare_v1_0_5_test.ps1
+```
+
+If League is installed elsewhere, pass `-LeagueGameDir "D:\Riot Games\League of Legends\Game"` with your actual League Game folder. After all preflight checks and the build pass, the candidate is created at `installer/candidates/v1.0.5/PersonalSkinManager_Setup_v1.0.5-TEST.exe` alongside its SHA-256 and runtime audit. No public release or signed update manifest is changed.
+
+**Before building:** ensure all three trusted local runtime files are present and have compatibility/provenance verified. The script refuses missing or detectably expired runtime files but cannot prove material-hash/host protocol compatibility.
+
+**Release gate:** verify licensed/trusted compatible runtime binaries, in-game Practice Tool and Swiftplay tests, installer integrity, and a working feedback channel. See [the v1.0.5 release checklist](releases/v1.0.5/PRE_RELEASE_CHECKLIST.md).
 
 ## v1.0.4 (public community-test pre-release)
 

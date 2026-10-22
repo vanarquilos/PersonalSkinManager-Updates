@@ -33,7 +33,7 @@ REQUIRED_RUNTIME_FILES = (
 
 
 def verify_release_runtime_inputs():
-    """Fail closed unless the complete all-in-one v1.0.2 runtime is present."""
+    """Fail closed unless all required local runtime components are present."""
     missing = [path for path in REQUIRED_RUNTIME_FILES if not path.is_file()]
     if missing:
         print("[ERROR] Required release runtime file(s) are missing:")
@@ -42,7 +42,7 @@ def verify_release_runtime_inputs():
         print("[INFO] Restore the trusted local release binaries before building.")
         return False
 
-    print("[OK] All-in-one v1.0.2 runtime inputs present")
+    print("[OK] All required local runtime inputs present (version compatibility needs QA)")
     return True
 
 

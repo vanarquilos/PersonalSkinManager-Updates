@@ -140,6 +140,10 @@ class GameMonitor:
                                         log.error("[monitor] Try running Personal Skin Manager as Administrator")
                                         self._monitor_active = False
                                         break
+                                    except NoSuchProcess:
+                                        # Process exited while being suspended;
+                                        # keep monitoring instead of aborting.
+                                        continue
                                     except Exception as e:
                                         log.error(f"[monitor] Failed to suspend existing game: {e}")
                                 except (NoSuchProcess, AccessDenied):
@@ -241,6 +245,10 @@ class GameMonitor:
                                     # Clear reference if we couldn't suspend (game is running anyway)
                                     self._suspended_game_process = None
                                     break
+                                except NoSuchProcess:
+                                    # The candidate process exited before we
+                                    # could suspend it. Try the next one.
+                                    continue
                                 except Exception as e:
                                     log.error(f"[monitor] Failed to suspend: {e}")
                                     # Clear reference on error (game might not be suspended)

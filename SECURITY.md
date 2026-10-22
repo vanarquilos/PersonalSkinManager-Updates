@@ -2,7 +2,7 @@
 
 ## Supported release
 
-The current supported public Personal Skin Manager release is **v1.0.3**. GitHub Releases is the canonical public distribution source. The signed in-app update manifest is a separate channel and may remain on an earlier version until a new manifest is signed.
+The previous stable Personal Skin Manager release is **v1.0.3** and the latest public **community-test pre-release** is **v1.0.4**. The **v1.0.5 source is an unreleased Windows test candidate**. GitHub Releases is the canonical public distribution source; the signed in-app update manifest is a separate channel and may remain on an earlier version until a new manifest is signed.
 
 Security fixes are evaluated against the latest maintained public source/release line. Older tagged releases may receive fixes only when a supported upgrade path requires them.
 
@@ -53,6 +53,8 @@ For v1.0.3, the official installer is:
 - `PersonalSkinManager_Setup.exe`
 - `28,162,646 bytes`
 - SHA-256 `4E1FB68959577213D773C98A8803850122848A838E0983B1397B5B6A1208C7FB`
+
+The v1.0.4 community-test installer is `PersonalSkinManager_Setup.exe`, 28,165,060 bytes, SHA-256 `C31EAE458757C2EF9B3ADE8DDDCB6C791F785CBAEEA34C781622768AD407E7EA`. The v1.0.5 installer checksum cannot be published until the final binary is built and tested. A local v1.0.5 test build must not be represented as an official release.
 
 PSM packages runtime components and coordinates with League processes as part of its supported skin workflow. Those behaviors can trigger generic heuristic classifications in some security products. That possibility does not make every detection a false positive, so reports should be checked against the exact published artifact and, when appropriate, submitted to the detecting antivirus vendor for review.
 
