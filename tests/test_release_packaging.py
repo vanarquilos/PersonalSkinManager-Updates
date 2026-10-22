@@ -38,6 +38,19 @@ class ReleasePackagingTests(unittest.TestCase):
         self.assertIn("sha256", audit)
         self.assertIn("read_game_build", audit)
 
+    def test_v105_runtime_source_is_pinned_and_licensed(self):
+        staged = (ROOT / "scripts/stage_ltk_v105_test.ps1").read_text(encoding="utf-8")
+        license_file = ROOT / "licenses/LTK-PATCHER-LICENSE.md"
+        installer = (ROOT / "installer.iss").read_text(encoding="utf-8-sig")
+        self.assertIn("044e6b5fc2dfe78d92dc5a5ada3e0f57f32860f6", staged)
+        self.assertIn("1636152586db31d40f4331dba07e752c7a929b90", staged)
+        self.assertIn("ca984e99e5cfe1217cc706c1584b543ab7321d59", staged)
+        self.assertIn("git hash-object", staged)
+        self.assertIn("scripts\\audit_runtime_v105.py", staged.replace("/", "\\"))
+        self.assertIn("PRIVATE TEST", staged)
+        self.assertIn("official code signatures", license_file.read_text(encoding="utf-8"))
+        self.assertIn("licenses\\LTK-PATCHER-LICENSE.md", installer)
+
     def test_windows_powershell_51_candidate_scripts_are_ascii(self):
         # Windows PowerShell 5.1 reads UTF-8 without a BOM using the local
         # Windows ANSI codepage. Characters such as em dashes can corrupt
@@ -45,6 +58,7 @@ class ReleasePackagingTests(unittest.TestCase):
         for relative in (
             "scripts/diagnose_no_skin_v105.ps1",
             "scripts/prepare_v1_0_5_test.ps1",
+            "scripts/stage_ltk_v105_test.ps1",
         ):
             with self.subTest(script=relative):
                 raw = (ROOT / relative).read_bytes()
