@@ -13,11 +13,11 @@
 
 ## Failed local test — 2026-10-22
 
-The maintainer ran the v1.0.5 candidate and reported: **no skin appeared in-game**. The test log and exact LTK runtime hashes have not yet been supplied, so the root cause is unconfirmed.
+The maintainer ran the v1.0.5 candidate and reported: **no skin appeared in-game**. The 2026-10-22 diagnostic summary confirms **3 matches for unsupported/expired LTK runtime** and **0 recorded injection/attachment, overlay success, or material parsing errors**. The local mod-tools, host, and DLL hashes were collected. The exact installed League build and embedded DLL cutoff comparison is still needed; the root cause is strongly suspected but not conclusively established.
 
 Top suspect: the locally bundled LTK patcher predates League 26.21's material-data format change. LTK Manager v1.29.1 corrected overlay verification failure (invalid property kind 178), followed by v1.30.1 mod repair fixes. These manager releases are **not** interchangeable with PSM's patcher host/DLL binaries.
 
-Before any more gameplay attempts, from the candidate branch run `powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\diagnose_no_skin_v105.ps1` and review the summarized failure markers and local runtime SHA-256 hashes. The script does not change League, PSM, or antivirus settings and does not copy raw logs.
+Before any more gameplay attempts, from the candidate branch run `powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\diagnose_no_skin_v105.ps1` again. The updated script includes the League game-build timestamp and DLL cutoff timestamp **from the existing local runtime-audit.json**, while withholding local paths and raw logs. Compare the two timestamps before deciding whether the runtime is genuinely expired. The script does not change League, PSM, or antivirus settings.
 
 Do **not** merge, publish, or bypass security/overlay validation until the no-skin failure is understood and retested.
 
