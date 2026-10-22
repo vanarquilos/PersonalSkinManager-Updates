@@ -1,4 +1,4 @@
-# PSM v1.0.5 — read-only no-skin diagnostics; does not modify game/PSM/runtime.
+# PSM v1.0.5 - read-only no-skin diagnostics; does not modify game/PSM/runtime.
 # Run after a failed test: powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\diagnose_no_skin_v105.ps1
 param([int]$LogLines = 6000)
 
@@ -34,7 +34,7 @@ foreach ($Item in $Logs) {
 }
 
 $summary = [System.Collections.Generic.List[string]]::new()
-$summary.Add("PSM v1.0.5 — no-skin diagnosis")
+$summary.Add("PSM v1.0.5 - no-skin diagnosis")
 $summary.Add("Generated: " + (Get-Date -Format "yyyy-MM-dd HH:mm:ss zzz"))
 $summary.Add("This report contains only known failure markers and hashes, not raw logs.")
 $summary.Add("")
