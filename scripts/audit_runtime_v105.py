@@ -23,6 +23,23 @@ from injection.tools.patcher import check_ltk_patcher, read_game_build  # noqa: 
 
 RUNTIME_FILES = ("mod-tools.exe", "ltk_patcher_host.exe", "ltk_patcher_dll.dll")
 
+# A known failing pair observed in the 2026-10-22 v1.0.5 maintainer test
+# against League patch 26.21. This is a QA denylist, NOT a malware verdict.
+# A new compatible runtime should have independently verified provenance,
+# supported host protocol, and a fresh runtime audit before packaging.
+FAILED_V105_RUNTIME_PAIRS = {
+    (
+        "A7C4047CE7548C7AE820BC440735F15B9D1A495ACF061DBB5A5A2893A0ED8D7C",
+        "07A43BF36A389EB00F6276E333BD7F2B95218F25A58E1E128FF4D2E4AB2DC99B",
+    ),
+}
+
+
+def was_in_failed_v105_test(files: dict[str, dict]) -> bool:
+    host = files.get("ltk_patcher_host.exe", {}).get("sha256", "")
+    dll = files.get("ltk_patcher_dll.dll", {}).get("sha256", "")
+    return (host.upper(), dll.upper()) in FAILED_V105_RUNTIME_PAIRS
+
 
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -61,6 +78,11 @@ def main() -> int:
 
     if missing:
         errors.append("Required runtime binaries missing: " + ", ".join(missing))
+    if was_in_failed_v105_test(files):
+        errors.append(
+            "This host/DLL pair was used in the v1.0.5 no-skin test on League 26.21. "
+            "A new reviewed runtime is required before another candidate build."
+        )
     if game_build is None:
         errors.append("Could not establish League build from the selected Game directory")
     if game_build is not None and status.eol is not None and status.expired_for(args.game_dir):
