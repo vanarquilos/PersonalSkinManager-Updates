@@ -41,6 +41,10 @@ PSM v1.0.2 uses third-party League Toolkit components for overlay creation and t
 
 These components remain governed by their upstream license terms. The PSM root MIT license does not relicense them. Release engineering must preserve attribution and provide clear access to the corresponding upstream source/license information.
 
+For v1.0.5 compatibility testing, the LTK host/DLL source is pinned to `LeagueToolkit/ltk-manager` tag `v1.30.1`, commit `044e6b5fc2dfe78d92dc5a5ada3e0f57f32860f6`. The official patcher binaries have a separate [LTK Patcher License](licenses/LTK-PATCHER-LICENSE.md). Under that license, any PSM-distributed copies must have League Toolkit's official code signatures removed (unless expressly authorized), and PSM may sign with its own certificate. Private local QA staging is not a public redistribution license exception; **do not distribute the signed upstream binaries in a PSM release**. Check the host protocol and verify game behavior before sharing.
+
+The local v1.0.5 staging script checks file size and pinned Git blob identity, then audits the embedded DLL cutoff before swapping the original host/DLL as a pair. It preserves backup copies but does not establish in-game compatibility or automatically authorize redistribution.
+
 The retired `cslol-dll.dll` runtime is not required by PSM v1.0.2 and is not part of the v1.0.2 installer.
 
 ## Python dependencies
