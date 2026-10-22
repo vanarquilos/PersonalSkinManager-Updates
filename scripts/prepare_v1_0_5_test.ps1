@@ -71,9 +71,27 @@ Check-Exit "Source regression tests"
 
 Write-Host "2/4: Audit trusted local runtime" -ForegroundColor Cyan
 $Audit = Join-Path $ReportDir "runtime-audit.json"
-& python (Join-Path $Root "scripts\audit_runtime_v105.py") --game-dir $LeagueGameDir |
-    Out-File -LiteralPath $Audit -Encoding utf8
-Check-Exit "Runtime inspection"
+$AuditLines = @(& python (Join-Path $Root "scripts\audit_runtime_v105.py") --game-dir $LeagueGameDir)
+$AuditExit = $LASTEXITCODE
+$AuditLines | Out-File -LiteralPath $Audit -Encoding utf8
+if ($AuditExit -ne 0) {
+    Write-Host "Runtime audit rejected this candidate:" -ForegroundColor Red
+    try {
+        $AuditData = ($AuditLines -join "`n") | ConvertFrom-Json
+        foreach ($Problem in @($AuditData.errors)) {
+            Write-Host ("  - " + [string]$Problem) -ForegroundColor Yellow
+        }
+        if ($null -ne $AuditData.game_build_utc -and $null -ne $AuditData.dll_cutoff_utc) {
+            Write-Host ("  - League build UTC: " + $AuditData.game_build_utc)
+            Write-Host ("  - LTK DLL cutoff UTC: " + $AuditData.dll_cutoff_utc)
+        }
+    }
+    catch {
+        Write-Warning "Read the locally saved runtime-audit.json for detailed errors."
+    }
+    throw "Runtime inspection failed (exit code $AuditExit). No installer was built."
+}
+Write-Host "Runtime audit accepted this candidate for packaging checks (gameplay compatibility NOT verified)." -ForegroundColor Green
 
 # Archive previous local installer and remove its former output path so
 # a failed build cannot mistake v1.0.4 for the new installer.
