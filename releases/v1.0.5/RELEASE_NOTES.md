@@ -10,6 +10,15 @@
 - Added a read-only audit of the trusted local runtime files (file size, SHA-256), installed League build timestamp, and detectable LTK DLL cutoff.
 - Added a local-only Windows installer build workflow that names the candidate `PersonalSkinManager_Setup_v1.0.5-TEST.exe`, preserves the previous local installer in a backup folder, and records the new build's exact SHA-256, size and source commit.
 
+## Source hardening after failed Windows test
+
+- Fixed PSM diagnostics dropping the `LTK_PATCHER_EOL`, `LTK_PATCHER_MISSING`, and `INJECTION_RUNTIME_UNAVAILABLE` error codes.
+- Injection failures now identify an unsupported LTK runtime without misleadingly reporting a missing League game directory.
+- The local test build audit now rejects the exact LTK host/DLL pair previously observed in the failed v1.0.5 League 26.21 test, preventing accidental repackaging of that failing combination.
+- Added runtime failure-reporting and build-audit regression tests.
+
+**Not yet fixed:** Applying skins on League 26.21 still requires legitimate, protocol-compatible LTK runtime binaries that have not been supplied or verified. No security or overlay compatibility checks were bypassed.
+
 ## Compatibility with patch 26.21
 
 League 26.21 changed skin/material data formats. LTK upstream published fixes in v1.29.1 and v1.30.1 and evolved host protocol support. **Those LTK Manager releases are not drop-in PSM runtime binaries.** The PSM source repository does not include the local third-party runtime trio, and we have not established that the files on the Windows build machine support these changes.
