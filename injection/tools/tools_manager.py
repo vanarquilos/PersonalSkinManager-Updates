@@ -10,6 +10,7 @@ from typing import Dict, Optional
 import time
 
 from utils.core.logging import get_logger
+from utils.core.issue_reporter import report_issue
 from .patcher import (
     LTK_PATCHER_DLL,
     LTK_PATCHER_HOST,
@@ -42,6 +43,13 @@ class ToolsManager:
         if missing:
             log.error(f"[INJECT] Missing required runtime files: {missing}")
             log.error(f"[INJECT] Expected runtime tools directory: {self.tools_dir}")
+            report_issue(
+                "LTK_PATCHER_MISSING",
+                "error",
+                "PSM cannot apply skins: its required runtime files are missing.",
+                hint="Use a complete, trusted PSM installer; do not download random DLLs.",
+                dedupe_window_s=120.0,
+            )
             return False
 
         if patcher.expired_for(game_dir):
@@ -51,9 +59,21 @@ class ToolsManager:
                 "(build cutoff %s)",
                 eol_text,
             )
+            report_issue(
+                "LTK_PATCHER_EOL",
+                "error",
+                "PSM cannot apply skins: the bundled LTK runtime does not support this League build.",
+                hint=(
+                    "A compatible and trusted LTK runtime is required. "
+                    "Do not bypass the cutoff or disable game security checks."
+                ),
+                dedupe_window_s=120.0,
+            )
             return False
 
-        log.info("[INJECT] Current LTK patcher-host backend available for installed League build")
+        # This check establishes file presence and that no known cutoff was
+        # exceeded. It CANNOT prove overlay/material compatibility.
+        log.info("[INJECT] Runtime files present; no known League-build cutoff exceeded")
         return True
 
     def detect_tools(self) -> Dict[str, Path]:
