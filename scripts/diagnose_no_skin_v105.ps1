@@ -100,7 +100,65 @@ foreach ($Name in @("mod-tools.exe", "ltk_patcher_host.exe", "ltk_patcher_dll.dl
 }
 $candidateAudit = Join-Path $Root "installer\candidates\v1.0.5\reports\runtime-audit.json"
 if (Test-Path -LiteralPath $candidateAudit -PathType Leaf) {
-    $summary.Add("Build-time runtime audit: present (not copied because it contains local paths).")
+    # The audit is a local JSON file that may contain user paths. Include
+    # only build/cutoff UTC timestamps and sanitized test findings.
+    try {
+        $audit = Get-Content -LiteralPath $candidateAudit -Raw -Encoding UTF8 | ConvertFrom-Json
+        $summary.Add("Build-time runtime audit: present")
+        if ($null -ne $audit.game_build_pe_timestamp) {
+            $summary.Add("League PE game build timestamp: " + $audit.game_build_pe_timestamp)
+            $summary.Add("League PE game build UTC: " + $audit.game_build_utc)
+        }
+        else {
+            $summary.Add("League game build timestamp: unavailable in build audit")
+        }
+        if ($null -ne $audit.dll_cutoff_pe_timestamp) {
+            $summary.Add("Bundled DLL cutoff timestamp: " + $audit.dll_cutoff_pe_timestamp)
+            $summary.Add("Bundled DLL cutoff UTC: " + $audit.dll_cutoff_utc)
+        }
+        else {
+            $summary.Add("Bundled DLL cutoff: not detected in build audit")
+        }
+        if (
+            $null -ne $audit.game_build_pe_timestamp -and
+            $null -ne $audit.dll_cutoff_pe_timestamp
+        ) {
+            if ([long]$audit.game_build_pe_timestamp -gt [long]$audit.dll_cutoff_pe_timestamp) {
+                $summary.Add("Build-time cutoff comparison: UNSUPPORTED (game build newer than DLL cutoff)")
+            }
+            else {
+                $summary.Add("Build-time cutoff comparison: NOT EXPIRED by this check (other incompatibilities possible)")
+            }
+        }
+        if ($null -ne $audit.errors) {
+            foreach ($item in $audit.errors) {
+                # The supported audit errors are static messages. Never copy
+                # arbitrary source paths/command output to this shareable report.
+                if ($item -match '^The bundled patcher DLL is older than the installed League build
+if (Test-Path -LiteralPath $IssueFile -PathType Leaf) {
+    $summary.Add("PSM diagnostics summary: present (raw contents not copied).")
+}
+$summary.Add("")
+$summary.Add("Share this report rather than full League Client logs, passwords or tokens.")
+$summary | Set-Content -LiteralPath $Report -Encoding UTF8
+$summary | ForEach-Object { Write-Host $_ }
+Write-Host ""
+Write-Host "Saved diagnostic: $Report" -ForegroundColor Cyan
+) {
+                    $summary.Add("Runtime audit confirmed: bundled patcher DLL older than installed League build")
+                }
+                elseif ($item -match '^Could not establish League build') {
+                    $summary.Add("Runtime audit warning: could not read installed League build")
+                }
+                elseif ($item -match '^Required runtime binaries missing') {
+                    $summary.Add("Runtime audit warning: runtime binaries missing at build")
+                }
+            }
+        }
+    }
+    catch {
+        $summary.Add("Build-time runtime audit: found, but could not parse JSON")
+    }
 }
 if (Test-Path -LiteralPath $IssueFile -PathType Leaf) {
     $summary.Add("PSM diagnostics summary: present (raw contents not copied).")
