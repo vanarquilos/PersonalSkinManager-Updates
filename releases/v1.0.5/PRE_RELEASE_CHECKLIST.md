@@ -30,6 +30,18 @@ Do **not** merge, publish, or bypass security/overlay validation until the no-sk
 - **The actual no-skin compatibility problem is not yet repaired.** The vendor-controlled, signed LTK patcher distribution currently requires an eligible official manager and a matching host protocol. PSM cannot assume those DLLs are publicly redistributable or compatible with its older host.
 - Do not build or publish v1.0.5 until a legitimate, compatible runtime pair has been obtained, audited, and successfully tested. Do not bypass the build gate or patcher verification.
 
+## Upstream LTK v1.30.1 candidate available for PRIVATE test
+
+The LTK v1.30.1 Git tag points to commit `044e6b5fc2dfe78d92dc5a5ada3e0f57f32860f6`. Its bundled patcher DLL embeds **2026-10-28T23:06:41Z** as the cutoff, later than the maintainer's installed League executable timestamp **2026-10-16T22:15:09Z**. This is **cutoff compatibility only**, not proof of injection success.
+
+- [x] Identified upstream source tag, commit, exact host/DLL Git blob IDs, and the separate LTK Patcher License.
+- [x] Added `scripts/stage_ltk_v105_test.ps1`: download only from pinned official GitHub commit, verify each file size and Git blob ID, back up previous host/DLL, audit cutoff, swap both as a pair for **local private testing**.
+- [ ] On Windows run the staging script, record the local runtime audit, and then build the candidate.
+- [ ] In Practice Tool verify actual skin rendering on League 26.21, confirm no host protocol errors; then test Swiftplay gameplay and reconnect.
+- [ ] For *any public redistribution*, remove League Toolkit's official code signatures from both binaries (or obtain written permission), optionally sign with PSM's own certificate, and repeat final integrity and Windows QA. Do NOT upload the signed official upstream binaries in a PSM installer.
+
+The initial pair's 2026-10-04 cutoff was genuinely older than League's executable. The original block remains in place for that known-failing pair. The new upstream candidate does not bypass any checks.
+
 ## P0: Block publishing until ALL are complete
 
 - [ ] Identify the exact locally bundled `mod-tools.exe`, `ltk_patcher_host.exe`, and `ltk_patcher_dll.dll`. Record each filename, byte size, and SHA-256 using `python scripts/audit_runtime_v105.py --game-dir "C:\\Riot Games\\League of Legends\\Game"`. Supply an explicit, correct League Game folder if installed elsewhere.
