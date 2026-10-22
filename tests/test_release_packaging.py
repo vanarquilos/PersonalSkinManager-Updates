@@ -48,7 +48,7 @@ class ReleasePackagingTests(unittest.TestCase):
         self.assertIn("git hash-object", staged)
         self.assertIn("scripts\\audit_runtime_v105.py", staged.replace("/", "\\"))
         self.assertIn("PRIVATE TEST", staged)
-        self.assertIn("official code signatures", license_file.read_text(encoding="utf-8"))
+        self.assertIn("Remove League Toolkit's code signature", license_file.read_text(encoding="utf-8"))
         self.assertIn("licenses\\LTK-PATCHER-LICENSE.md", installer)
 
     def test_windows_powershell_51_candidate_scripts_are_ascii(self):
