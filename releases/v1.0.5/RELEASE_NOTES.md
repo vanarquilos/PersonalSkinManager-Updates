@@ -19,6 +19,14 @@
 
 **Not yet fixed:** Applying skins on League 26.21 still requires legitimate, protocol-compatible LTK runtime binaries that have not been supplied or verified. No security or overlay compatibility checks were bypassed.
 
+## New official upstream runtime candidate for local Windows testing
+
+- LTK Manager v1.30.1 tag, source commit `044e6b5fc2dfe78d92dc5a5ada3e0f57f32860f6`.
+- The updated tagged DLL has an embedded League build cutoff of **2026-10-28T23:06:41Z**, later than the tester's installed League executable **2026-10-16T22:15:09Z**.
+- The staging helper `scripts/stage_ltk_v105_test.ps1` downloads host and DLL from that **pinned upstream commit**, verifies both Git blob IDs and file sizes, audits the cutoff, and backs up the previous pair before replacing local runtime files.
+- This establishes a version-pinned private test candidate, **not a verified fix**: the new host/DLL protocol and League gameplay must be tested.
+- The exact LTK Patcher License is included in `licenses/LTK-PATCHER-LICENSE.md`. Official League Toolkit signatures must be removed from any binaries publicly redistributed in PSM unless explicit written permission exists; do not publish a local test installer containing those official signatures.
+
 ## Compatibility with patch 26.21
 
 League 26.21 changed skin/material data formats. LTK upstream published fixes in v1.29.1 and v1.30.1 and evolved host protocol support. **Those LTK Manager releases are not drop-in PSM runtime binaries.** The PSM source repository does not include the local third-party runtime trio, and we have not established that the files on the Windows build machine support these changes.
