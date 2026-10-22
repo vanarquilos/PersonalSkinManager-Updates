@@ -29,6 +29,9 @@ _ALLOWED_CODES = {
     'BASE_SKIN_VERIFY_FAILED',  # Base skin verification mismatch (often causes skin not to show)
     'LOW_DISK_SPACE',         # Injection could not build an overlay with available disk space
     'LTK_OVERLAY_REJECTED',   # Current LTK verification rejected the requested overlay
+    'LTK_PATCHER_EOL',       # The current DLL is older than the installed League build
+    'LTK_PATCHER_MISSING',   # Required host or DLL files are not present
+    'INJECTION_RUNTIME_UNAVAILABLE',  # Startup refused an incompatible runtime
 }
 
 
