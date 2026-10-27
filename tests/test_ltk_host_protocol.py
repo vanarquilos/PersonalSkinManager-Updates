@@ -8,6 +8,8 @@ from injection.overlay.ltk_host import (
     LTK_PATCHER_LOG_LEVEL,
     LTK_PATCHER_DEBUG_LOG_LEVEL,
     _runtime_log_level,
+    _league_game_process_running,
+    _should_stop_after_callback,
     LtkHostResult,
     _parse_stdout,
 )
@@ -179,6 +181,48 @@ class LtkHostProtocolTests(unittest.TestCase):
         with patch("injection.overlay.ltk_host.sys.argv", ["main.py"]):
             with patch("injection.overlay.ltk_host.sys.frozen", False, create=True):
                 self.assertEqual(_runtime_log_level(), 0x10)
+
+
+    def test_rose_lifecycle_keeps_host_when_client_exits_but_game_runs(self):
+        with patch(
+            "injection.overlay.ltk_host._league_game_process_running",
+            return_value=True,
+        ):
+            self.assertFalse(_should_stop_after_callback(True))
+            self.assertFalse(_should_stop_after_callback(False))
+
+    def test_rose_lifecycle_stops_only_after_game_process_exits(self):
+        with patch(
+            "injection.overlay.ltk_host._league_game_process_running",
+            return_value=False,
+        ):
+            self.assertTrue(_should_stop_after_callback(True))
+            self.assertFalse(_should_stop_after_callback(False))
+
+    def test_rose_lifecycle_detects_both_league_game_exe_names(self):
+        from types import SimpleNamespace
+
+        for exe_name in (
+            "League of Legends.exe",
+            "League of Legends (TM) Client.exe",
+        ):
+            with self.subTest(exe=exe_name):
+                with patch("injection.overlay.ltk_host.psutil") as mock_psutil:
+                    mock_psutil.process_iter.return_value = [
+                        SimpleNamespace(info={"name": "LeagueClientUx.exe"}),
+                        SimpleNamespace(info={"name": exe_name}),
+                    ]
+                    self.assertTrue(_league_game_process_running())
+        with patch("injection.overlay.ltk_host.psutil") as mock_psutil:
+            mock_psutil.process_iter.return_value = [
+                SimpleNamespace(info={"name": "LeagueClientUx.exe"})
+            ]
+            self.assertFalse(_league_game_process_running())
+
+    def test_rose_lifecycle_unknown_process_falls_back_to_stop_callback(self):
+        with patch("injection.overlay.ltk_host.psutil", None):
+            self.assertFalse(_league_game_process_running())
+            self.assertTrue(_should_stop_after_callback(True))
 
 
 if __name__ == "__main__":
