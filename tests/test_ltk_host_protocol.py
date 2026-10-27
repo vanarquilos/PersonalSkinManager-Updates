@@ -10,6 +10,7 @@ from injection.overlay.ltk_host import (
     _runtime_log_level,
     _league_game_process_running,
     _should_stop_after_callback,
+    _skin_redirect_not_observed,
     LtkHostResult,
     _parse_stdout,
 )
@@ -223,6 +224,27 @@ class LtkHostProtocolTests(unittest.TestCase):
         with patch("injection.overlay.ltk_host.psutil", None):
             self.assertFalse(_league_game_process_running())
             self.assertTrue(_should_stop_after_callback(True))
+
+
+    def test_attached_initialized_without_wad_is_not_confirmed_skin(self):
+        result = LtkHostResult()
+        result.attached = True
+        result.overlay_initialized = True
+        result.redirected_wads = 0
+        self.assertTrue(_skin_redirect_not_observed(result))
+
+    def test_real_redirection_clears_false_success_verdict(self):
+        result = LtkHostResult()
+        result.attached = True
+        result.overlay_initialized = True
+        result.redirected_wads = 1
+        self.assertFalse(_skin_redirect_not_observed(result))
+
+    def test_unattached_session_is_not_mislabeled_missing_skin(self):
+        result = LtkHostResult()
+        result.attached = False
+        result.overlay_initialized = False
+        self.assertFalse(_skin_redirect_not_observed(result))
 
 
 if __name__ == "__main__":
