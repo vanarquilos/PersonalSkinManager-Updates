@@ -113,5 +113,56 @@ class LtkHostProtocolTests(unittest.TestCase):
         self.assertEqual(result.verified_wads, 0)
 
 
+    def test_upstream_init_done_confirms_overlay_not_just_attach(self):
+        result = LtkHostResult()
+        _parse_stdout("status 1.0 injected dll attached", result)
+        self.assertTrue(result.attached)
+        self.assertFalse(result.overlay_initialized)
+        _parse_stdout(
+            "dll 2.0 100 200 INFO ltk_patcher_dll::entry: init done", result
+        )
+        self.assertTrue(result.overlay_initialized)
+        self.assertIsNone(result.failure)
+
+    def test_lazy_wad_rejection_is_a_hard_failure(self):
+        result = LtkHostResult()
+        _parse_stdout(
+            "dll 5.0 100 200 ERROR ltk_patcher_dll::verify: "
+            "lazy verification failed, not overlaying: "
+            "wad data/final/champions/example.wad.client: invalid signature",
+            result,
+        )
+        self.assertIsNotNone(result.failure)
+        self.assertIn("verification", result.failure)
+
+    def test_failed_hook_is_a_hard_failure(self):
+        result = LtkHostResult()
+        _parse_stdout(
+            "dll 5.0 100 200 ERROR ltk_patcher_dll::entry: "
+            "failed to install overlay hook",
+            result,
+        )
+        self.assertIsNotNone(result.failure)
+        self.assertIn("hook", result.failure)
+
+    def test_wad_scan_error_is_failure_not_a_transient_warning(self):
+        result = LtkHostResult()
+        _parse_stdout(
+            "dll 5.0 100 200 ERROR ltk_patcher_dll::verify: "
+            "WAD scan failed status with c000003e for example.wad.client",
+            result,
+        )
+        self.assertIsNotNone(result.failure)
+
+    def test_wad_scan_warn_remains_nonfatal(self):
+        result = LtkHostResult()
+        _parse_stdout(
+            "dll 5.0 100 200 WARN ltk_patcher_dll::verify: "
+            "WAD scan failed c0000229 for example.wad.client",
+            result,
+        )
+        self.assertIsNone(result.failure)
+
+
 if __name__ == "__main__":
     unittest.main()
