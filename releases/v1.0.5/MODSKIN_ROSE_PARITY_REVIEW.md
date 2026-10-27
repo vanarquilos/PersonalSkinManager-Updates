@@ -36,7 +36,7 @@ Reviewed: 2026-10-27 (Asia/Manila). This is a source-level parity review, **not 
 ## User's Windows evidence
 
 - League executable timestamp: `2026-10-16T22:15:09Z`.
-- Previous 2026-10-04 cutoff replaced locally with official pinned v1.30.1, cutoff `2026-10-28T23:06:41Z`.
+- Previous 2026-10-04 cutoff replaced locally with official pinned v1.30.1, cutoff `2026-10-28T23:06:41Z`. This is a **League executable build-timestamp boundary**, not automatic expiration on that calendar date: a later League build may fall outside this runtime.
 - Host/DLL SHA256 match in source, built, and installed locations.
 - Overlay WAD header rebase 1/1.
 - Local DEBUG requested, DLL events observed: 20; last host state `waiting`; attached `True`; DLL overlay initialized.
