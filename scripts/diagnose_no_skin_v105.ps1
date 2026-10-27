@@ -134,17 +134,7 @@ if (Test-Path -LiteralPath $candidateAudit -PathType Leaf) {
             foreach ($item in $audit.errors) {
                 # The supported audit errors are static messages. Never copy
                 # arbitrary source paths/command output to this shareable report.
-                if ($item -match '^The bundled patcher DLL is older than the installed League build
-if (Test-Path -LiteralPath $IssueFile -PathType Leaf) {
-    $summary.Add("PSM diagnostics summary: present (raw contents not copied).")
-}
-$summary.Add("")
-$summary.Add("Share this report rather than full League Client logs, passwords or tokens.")
-$summary | Set-Content -LiteralPath $Report -Encoding UTF8
-$summary | ForEach-Object { Write-Host $_ }
-Write-Host ""
-Write-Host "Saved diagnostic: $Report" -ForegroundColor Cyan
-) {
+                if ($item -match '^The bundled patcher DLL is older than the installed League build') {
                     $summary.Add("Runtime audit confirmed: bundled patcher DLL older than installed League build")
                 }
                 elseif ($item -match '^Could not establish League build') {
