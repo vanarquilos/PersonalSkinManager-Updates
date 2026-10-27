@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import os
 import queue
+import re
 import subprocess
 import sys
 import threading
@@ -68,6 +69,9 @@ class LtkHostResult:
         self.last_state: Optional[str] = None
         self.failure: Optional[str] = None
         self.dll_lines = 0
+        # None means no verification verdict was observed, not zero WADs.
+        self.verified_wads: Optional[int] = None
+        self.redirected_wads = 0
 
 
 class LtkHostSession:
@@ -160,6 +164,24 @@ def _parse_stdout(line: str, result: LtkHostResult) -> None:
             log.error(
                 "[INJECT][ltk-host] LTK joined the game too late - overlay was not applied"
             )
+            return
+
+        # Record positive overlay evidence at INFO without logging paths or
+        # requiring upstream DEBUG output. An attached host alone does not
+        # demonstrate that any modded WAD was actually used by the game.
+        verified = re.search(r"overlay verified\\s+(\\d+)\\s+wad", lower)
+        if verified is not None:
+            result.verified_wads = int(verified.group(1))
+            log.info(
+                "[INJECT][ltk-host] overlay verified %d WAD(s)",
+                result.verified_wads,
+            )
+            return
+
+        if "redirected wad:" in lower:
+            result.redirected_wads += 1
+            if result.redirected_wads == 1:
+                log.info("[INJECT][ltk-host] WAD redirection observed")
             return
 
         if "overlay verification failed, disabling overlay" in lower:
@@ -465,8 +487,15 @@ def run_ltk_patcher_host_session(
         log.info(
             "[INJECT][ltk-host] Rose-compatible session completed "
             f"(last_state={result.last_state}, injected={result.attached}, "
-            f"dll_lines={result.dll_lines})"
+            f"dll_lines={result.dll_lines}, verified_wads={result.verified_wads}, "
+            f"redirected_wads={result.redirected_wads})"
         )
+        if result.attached and result.verified_wads is None and result.redirected_wads == 0:
+            log.warning(
+                "[INJECT][ltk-host] Game attachment observed but no WAD verification "
+                "or redirection event was recorded. This may be limited runtime "
+                "logging; skin rendering is not confirmed."
+            )
         return 0
 
     except Exception as exc:
