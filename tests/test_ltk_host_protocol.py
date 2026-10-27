@@ -75,5 +75,43 @@ class LtkHostProtocolTests(unittest.TestCase):
         self.assertTrue(result.attached)
 
 
+    def test_overlay_verification_and_redirection_are_observed(self):
+        result = LtkHostResult()
+        with patch("injection.overlay.ltk_host.log") as log:
+            _parse_stdout(
+                "dll 5.5 100 200 INFO ltk_patcher_dll::verify: overlay verified 1 wad(s)",
+                result,
+            )
+            _parse_stdout(
+                "dll 5.6 100 200 DEBUG ltk_patcher_dll::fsov: redirected wad: "
+                "DATA/FINAL/Champions/Example.wad.client",
+                result,
+            )
+        self.assertEqual(result.verified_wads, 1)
+        self.assertEqual(result.redirected_wads, 1)
+        log.info.assert_any_call(
+            "[INJECT][ltk-host] overlay verified %d WAD(s)", 1
+        )
+        log.info.assert_any_call(
+            "[INJECT][ltk-host] WAD redirection observed"
+        )
+        self.assertNotIn("Example.wad.client", str(log.info.call_args_list))
+
+    def test_missing_verification_log_is_unknown_not_zero(self):
+        result = LtkHostResult()
+        _parse_stdout("status 1.0 injected dll attached", result)
+        self.assertTrue(result.attached)
+        self.assertIsNone(result.verified_wads)
+        self.assertEqual(result.redirected_wads, 0)
+
+    def test_explicit_zero_verified_wads_is_distinguishable(self):
+        result = LtkHostResult()
+        _parse_stdout(
+            "dll 5.5 100 200 INFO ltk_patcher_dll::verify: overlay verified 0 wad(s)",
+            result,
+        )
+        self.assertEqual(result.verified_wads, 0)
+
+
 if __name__ == "__main__":
     unittest.main()
