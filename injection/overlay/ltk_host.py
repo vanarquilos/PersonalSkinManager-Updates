@@ -109,6 +109,11 @@ def _should_stop_after_callback(stop_requested: bool) -> bool:
     return stop_requested and not _league_game_process_running()
 
 
+def _skin_redirect_not_observed(result: "LtkHostResult") -> bool:
+    """Reject the false-positive state: active overlay but no WAD served."""
+    return result.attached and result.overlay_initialized and result.redirected_wads == 0
+
+
 
 class LtkHostResult:
     def __init__(self) -> None:
@@ -595,7 +600,7 @@ def run_ltk_patcher_host_session(
         # Do not mark the user's skin as successfully applied when not a single
         # redirection event was observed. Never relax integrity checks to force
         # the redirect.
-        if result.attached and result.overlay_initialized and result.redirected_wads == 0:
+        if _skin_redirect_not_observed(result):
             log.warning(
                 "[INJECT][ltk-host] No WAD redirection confirmed during game. "
                 "Skin application not verified."
