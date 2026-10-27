@@ -48,8 +48,7 @@ if (Test-Path -LiteralPath $OriginPath -PathType Leaf) {
     }
 }
 $RecentLogs = @($Logs | Where-Object { $_.LastWriteTime -ge $EvidenceSince })
-# Diagnose one game-session log at a time. Combining adjacent sessions can
-# mask which runtime log level and skin archive the latest test actually used.
+# Analyze only the latest log so older game sessions cannot hide current behavior.
 $EvidenceLogs = @($RecentLogs | Select-Object -First 1)
 $lines = @()
 foreach ($Item in $EvidenceLogs) {
@@ -101,8 +100,6 @@ if ($sessionSummary.Count -gt 0) {
 else {
     $summary.Add(" - No completed LTK host session summary in this log.")
 }
-
-# mkoverlay rebase counts alone are not proof that the champion's mod was used.
 $rebaseLines = @($lines | Where-Object { $_ -match 'WAD header rebase:\s*restored\s+\d+/\d+' } | Select-Object -Last 1)
 if ($rebaseLines.Count -gt 0) {
     $match = [regex]::Match($rebaseLines[0], 'WAD header rebase:\s*restored\s+(\d+)/(\d+)')
@@ -111,134 +108,10 @@ if ($rebaseLines.Count -gt 0) {
     }
 }
 
-# Read ZIP/Fantome member metadata only; never extract files or copy full
-# local paths or raw log lines into the report.
+# ZIP/Fantome metadata inspection only; no extraction or raw paths reported.
 $skinLines = @($lines | Where-Object { $_ -match '\[INJECT\] Using skin file:\s*' } | Select-Object -Last 1)
 if ($skinLines.Count -gt 0) {
-    $match = [regex]::Match($skinLines[0], '(?i)\[INJECT\] Using skin file:\s*(.+)
-$Counts = @{}
-foreach ($Name in $Markers.Keys) {
-    $count = @($lines | Where-Object { $_ -match $Markers[$Name] }).Count
-    $Counts[$Name] = $count
-    $summary.Add(" - " + $Name + ": " + $count)
-}
-$summary.Add("")
-$summary.Add("Preliminary classification:")
-if ($Counts["LTK lazy WAD rejection"] -gt 0) {
-    $summary.Add("LTK explicitly declined the modded WAD. Check the WAD rejection using the local development log; do not override verification.")
-}
-elseif ($Counts["LTK hook initialization failed"] -gt 0) {
-    $summary.Add("LTK reported a required hook initialization error. Review the local diagnostic log without changing game security.")
-}
-elseif ($Counts["LTK WAD integrity scan error"] -gt 0) {
-    $summary.Add("LTK reported a WAD integrity scan error; treat the overlay as not applied.")
-}
-elseif ($Counts["Patch 26.21 material format parsing"] -gt 0) {
-    $summary.Add("LIKELY: League 26.21 material-format incompatibility in bundled LTK. Do not bypass verification.")
-}
-elseif ($Counts["Overlay verification rejected"] -gt 0) {
-    $summary.Add("LTK rejected the overlay. Inspect the exact rejection with sanitized logs.")
-}
-elseif ($Counts["LTK runtime unsupported or expired"] -gt 0) {
-    $summary.Add("LTK runtime unsupported for installed League. Do not bypass cutoff.")
-}
-elseif ($Counts["Overlay builder error or timeout"] -gt 0 -or $Counts["WAD header validation failed"] -gt 0) {
-    $summary.Add("Overlay creation or validation failed.")
-}
-elseif ($Counts["Patcher verified zero WAD files"] -gt 0) {
-    $summary.Add("Patcher attached but verified zero overlay WADs.")
-}
-elseif ($Counts["Patcher joined too late"] -gt 0) {
-    $summary.Add("Patcher joined the game after scan startup deadline.")
-}
-elseif ($Counts["Skin selection missing"] -gt 0) {
-    $summary.Add("No usable skin selection/trigger when preparing overlay.")
-}
-elseif ($Counts["Patcher injected or attached"] -gt 0 -and $Counts["LTK DLL overlay initialized"] -eq 0) {
-    $summary.Add("Host attached, but the DLL did not report overlay initialization. Attachment alone is not skin success.")
-}
-elseif ($Counts["LTK DLL overlay initialized"] -gt 0 -and $Counts["Patcher redirected a WAD"] -eq 0) {
-    $summary.Add("DLL overlay initialized, but no WAD redirection was observed. This may be limited DLL logging; verify mod content.")
-}
-else {
-    $summary.Add("Inconclusive; need recent PSM game-session log or live test.")
-}
-
-$summary.Add("")
-$summary.Add("Candidate source runtime hashes (identity only; not compatibility proof):")
-foreach ($Name in @("mod-tools.exe", "ltk_patcher_host.exe", "ltk_patcher_dll.dll")) {
-    $p = Join-Path $Root ("injection\tools\" + $Name)
-    if (Test-Path -LiteralPath $p -PathType Leaf) {
-        $hash = (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash
-        $size = (Get-Item -LiteralPath $p).Length
-        $summary.Add(" - " + $Name + ": " + $size + " bytes | SHA-256 " + $hash)
-    }
-    else {
-        $summary.Add(" - " + $Name + ": missing in source checkout")
-    }
-}
-$candidateAudit = Join-Path $Root "installer\candidates\v1.0.5\reports\runtime-audit.json"
-if (Test-Path -LiteralPath $candidateAudit -PathType Leaf) {
-    # The audit is a local JSON file that may contain user paths. Include
-    # only build/cutoff UTC timestamps and sanitized test findings.
-    try {
-        $audit = Get-Content -LiteralPath $candidateAudit -Raw -Encoding UTF8 | ConvertFrom-Json
-        $summary.Add("Build-time runtime audit: present")
-        if ($null -ne $audit.game_build_pe_timestamp) {
-            $summary.Add("League PE game build timestamp: " + $audit.game_build_pe_timestamp)
-            $summary.Add("League PE game build UTC: " + $audit.game_build_utc)
-        }
-        else {
-            $summary.Add("League game build timestamp: unavailable in build audit")
-        }
-        if ($null -ne $audit.dll_cutoff_pe_timestamp) {
-            $summary.Add("Bundled DLL cutoff timestamp: " + $audit.dll_cutoff_pe_timestamp)
-            $summary.Add("Bundled DLL cutoff UTC: " + $audit.dll_cutoff_utc)
-        }
-        else {
-            $summary.Add("Bundled DLL cutoff: not detected in build audit")
-        }
-        if (
-            $null -ne $audit.game_build_pe_timestamp -and
-            $null -ne $audit.dll_cutoff_pe_timestamp
-        ) {
-            if ([long]$audit.game_build_pe_timestamp -gt [long]$audit.dll_cutoff_pe_timestamp) {
-                $summary.Add("Build-time cutoff comparison: UNSUPPORTED (game build newer than DLL cutoff)")
-            }
-            else {
-                $summary.Add("Build-time cutoff comparison: NOT EXPIRED by this check (other incompatibilities possible)")
-            }
-        }
-        if ($null -ne $audit.errors) {
-            foreach ($item in $audit.errors) {
-                # The supported audit errors are static messages. Never copy
-                # arbitrary source paths/command output to this shareable report.
-                if ($item -match '^The bundled patcher DLL is older than the installed League build') {
-                    $summary.Add("Runtime audit confirmed: bundled patcher DLL older than installed League build")
-                }
-                elseif ($item -match '^Could not establish League build') {
-                    $summary.Add("Runtime audit warning: could not read installed League build")
-                }
-                elseif ($item -match '^Required runtime binaries missing') {
-                    $summary.Add("Runtime audit warning: runtime binaries missing at build")
-                }
-            }
-        }
-    }
-    catch {
-        $summary.Add("Build-time runtime audit: found, but could not parse JSON")
-    }
-}
-if (Test-Path -LiteralPath $IssueFile -PathType Leaf) {
-    $summary.Add("PSM diagnostics summary: present (raw contents not copied).")
-}
-$summary.Add("")
-$summary.Add("Share this report rather than full League Client logs, passwords or tokens.")
-$summary | Set-Content -LiteralPath $Report -Encoding UTF8
-$summary | ForEach-Object { Write-Host $_ }
-Write-Host ""
-Write-Host "Saved diagnostic: $Report" -ForegroundColor Cyan
-)
+    $match = [regex]::Match($skinLines[0], '(?i)\[INJECT\] Using skin file:\s*(.+)$')
     if ($match.Success) {
         $skinPath = $match.Groups[1].Value.Trim()
         $summary.Add(" - Selected skin archive observed in PSM debug log: True")
@@ -249,130 +122,7 @@ Write-Host "Saved diagnostic: $Report" -ForegroundColor Cyan
                 $archive = [System.IO.Compression.ZipFile]::OpenRead($skinPath)
                 try {
                     $entries = @($archive.Entries | Where-Object { -not $_.FullName.EndsWith("/") })
-                    $wadEntries = @($entries | Where-Object { $_.FullName -match '(?i)\.wad\.client
-$Counts = @{}
-foreach ($Name in $Markers.Keys) {
-    $count = @($lines | Where-Object { $_ -match $Markers[$Name] }).Count
-    $Counts[$Name] = $count
-    $summary.Add(" - " + $Name + ": " + $count)
-}
-$summary.Add("")
-$summary.Add("Preliminary classification:")
-if ($Counts["LTK lazy WAD rejection"] -gt 0) {
-    $summary.Add("LTK explicitly declined the modded WAD. Check the WAD rejection using the local development log; do not override verification.")
-}
-elseif ($Counts["LTK hook initialization failed"] -gt 0) {
-    $summary.Add("LTK reported a required hook initialization error. Review the local diagnostic log without changing game security.")
-}
-elseif ($Counts["LTK WAD integrity scan error"] -gt 0) {
-    $summary.Add("LTK reported a WAD integrity scan error; treat the overlay as not applied.")
-}
-elseif ($Counts["Patch 26.21 material format parsing"] -gt 0) {
-    $summary.Add("LIKELY: League 26.21 material-format incompatibility in bundled LTK. Do not bypass verification.")
-}
-elseif ($Counts["Overlay verification rejected"] -gt 0) {
-    $summary.Add("LTK rejected the overlay. Inspect the exact rejection with sanitized logs.")
-}
-elseif ($Counts["LTK runtime unsupported or expired"] -gt 0) {
-    $summary.Add("LTK runtime unsupported for installed League. Do not bypass cutoff.")
-}
-elseif ($Counts["Overlay builder error or timeout"] -gt 0 -or $Counts["WAD header validation failed"] -gt 0) {
-    $summary.Add("Overlay creation or validation failed.")
-}
-elseif ($Counts["Patcher verified zero WAD files"] -gt 0) {
-    $summary.Add("Patcher attached but verified zero overlay WADs.")
-}
-elseif ($Counts["Patcher joined too late"] -gt 0) {
-    $summary.Add("Patcher joined the game after scan startup deadline.")
-}
-elseif ($Counts["Skin selection missing"] -gt 0) {
-    $summary.Add("No usable skin selection/trigger when preparing overlay.")
-}
-elseif ($Counts["Patcher injected or attached"] -gt 0 -and $Counts["LTK DLL overlay initialized"] -eq 0) {
-    $summary.Add("Host attached, but the DLL did not report overlay initialization. Attachment alone is not skin success.")
-}
-elseif ($Counts["LTK DLL overlay initialized"] -gt 0 -and $Counts["Patcher redirected a WAD"] -eq 0) {
-    $summary.Add("DLL overlay initialized, but no WAD redirection was observed. This may be limited DLL logging; verify mod content.")
-}
-else {
-    $summary.Add("Inconclusive; need recent PSM game-session log or live test.")
-}
-
-$summary.Add("")
-$summary.Add("Candidate source runtime hashes (identity only; not compatibility proof):")
-foreach ($Name in @("mod-tools.exe", "ltk_patcher_host.exe", "ltk_patcher_dll.dll")) {
-    $p = Join-Path $Root ("injection\tools\" + $Name)
-    if (Test-Path -LiteralPath $p -PathType Leaf) {
-        $hash = (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash
-        $size = (Get-Item -LiteralPath $p).Length
-        $summary.Add(" - " + $Name + ": " + $size + " bytes | SHA-256 " + $hash)
-    }
-    else {
-        $summary.Add(" - " + $Name + ": missing in source checkout")
-    }
-}
-$candidateAudit = Join-Path $Root "installer\candidates\v1.0.5\reports\runtime-audit.json"
-if (Test-Path -LiteralPath $candidateAudit -PathType Leaf) {
-    # The audit is a local JSON file that may contain user paths. Include
-    # only build/cutoff UTC timestamps and sanitized test findings.
-    try {
-        $audit = Get-Content -LiteralPath $candidateAudit -Raw -Encoding UTF8 | ConvertFrom-Json
-        $summary.Add("Build-time runtime audit: present")
-        if ($null -ne $audit.game_build_pe_timestamp) {
-            $summary.Add("League PE game build timestamp: " + $audit.game_build_pe_timestamp)
-            $summary.Add("League PE game build UTC: " + $audit.game_build_utc)
-        }
-        else {
-            $summary.Add("League game build timestamp: unavailable in build audit")
-        }
-        if ($null -ne $audit.dll_cutoff_pe_timestamp) {
-            $summary.Add("Bundled DLL cutoff timestamp: " + $audit.dll_cutoff_pe_timestamp)
-            $summary.Add("Bundled DLL cutoff UTC: " + $audit.dll_cutoff_utc)
-        }
-        else {
-            $summary.Add("Bundled DLL cutoff: not detected in build audit")
-        }
-        if (
-            $null -ne $audit.game_build_pe_timestamp -and
-            $null -ne $audit.dll_cutoff_pe_timestamp
-        ) {
-            if ([long]$audit.game_build_pe_timestamp -gt [long]$audit.dll_cutoff_pe_timestamp) {
-                $summary.Add("Build-time cutoff comparison: UNSUPPORTED (game build newer than DLL cutoff)")
-            }
-            else {
-                $summary.Add("Build-time cutoff comparison: NOT EXPIRED by this check (other incompatibilities possible)")
-            }
-        }
-        if ($null -ne $audit.errors) {
-            foreach ($item in $audit.errors) {
-                # The supported audit errors are static messages. Never copy
-                # arbitrary source paths/command output to this shareable report.
-                if ($item -match '^The bundled patcher DLL is older than the installed League build') {
-                    $summary.Add("Runtime audit confirmed: bundled patcher DLL older than installed League build")
-                }
-                elseif ($item -match '^Could not establish League build') {
-                    $summary.Add("Runtime audit warning: could not read installed League build")
-                }
-                elseif ($item -match '^Required runtime binaries missing') {
-                    $summary.Add("Runtime audit warning: runtime binaries missing at build")
-                }
-            }
-        }
-    }
-    catch {
-        $summary.Add("Build-time runtime audit: found, but could not parse JSON")
-    }
-}
-if (Test-Path -LiteralPath $IssueFile -PathType Leaf) {
-    $summary.Add("PSM diagnostics summary: present (raw contents not copied).")
-}
-$summary.Add("")
-$summary.Add("Share this report rather than full League Client logs, passwords or tokens.")
-$summary | Set-Content -LiteralPath $Report -Encoding UTF8
-$summary | ForEach-Object { Write-Host $_ }
-Write-Host ""
-Write-Host "Saved diagnostic: $Report" -ForegroundColor Cyan
- })
+                    $wadEntries = @($entries | Where-Object { $_.FullName -match '(?i)\.wad\.client$' })
                     $assetEntries = @($entries | Where-Object { $_.FullName -match '(?i)^(WAD|DATA|RAW)/' })
                     $summary.Add(" - Selected archive file entries: $($entries.Count)")
                     $summary.Add(" - Selected archive WAD archive entries: $($wadEntries.Count)")
