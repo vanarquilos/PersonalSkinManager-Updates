@@ -1,6 +1,6 @@
 # Personal Skin Manager v1.0.5 — release readiness checklist
 
-**Prepared:** 2026-10-22. **Status: NOT RELEASE-READY.** The current public installer remains v1.0.4 (community-test pre-release). No 1.0.5 installer has been built or verified.
+**Prepared:** 2026-10-22. **Updated:** 2026-10-28. **Status: PRIVATE SOURCE-QA CANDIDATE, NOT RELEASE-READY.** The current public installer remains v1.0.4 (community-test pre-release). A local v1.0.5 TEST installer was built on 2026-10-27 but did not render the selected skin; it is not approved for distribution. Current debugging proceeds from Python source without rebuilding.
 
 ## Scope and evidence
 
@@ -36,11 +36,24 @@ The LTK v1.30.1 Git tag points to commit `044e6b5fc2dfe78d92dc5a5ada3e0f57f32860
 
 - [x] Identified upstream source tag, commit, exact host/DLL Git blob IDs, and the separate LTK Patcher License.
 - [x] Added `scripts/stage_ltk_v105_test.ps1`: download only from pinned official GitHub commit, verify each file size and Git blob ID, back up previous host/DLL, audit cutoff, swap both as a pair for **local private testing**.
-- [ ] On Windows run the staging script, record the local runtime audit, and then build the candidate.
+- [x] On Windows stage the pinned runtime, record runtime audit, and build a **private TEST** candidate (2026-10-27); installation/build verification alone did not fix in-game skin rendering.
 - [ ] In Practice Tool verify actual skin rendering on League 26.21, confirm no host protocol errors; then test Swiftplay gameplay and reconnect.
 - [ ] For *any public redistribution*, remove League Toolkit's official code signatures from both binaries (or obtain written permission), optionally sign with PSM's own certificate, and repeat final integrity and Windows QA. Do NOT upload the signed official upstream binaries in a PSM installer.
 
 The initial pair's 2026-10-04 cutoff was genuinely older than League's executable. The original block remains in place for that known-failing pair. The new upstream candidate does not bypass any checks.
+
+## October 27-28: private Windows diagnostic status and source update
+
+- [x] Maintainer staged pinned official v1.30.1 host/DLL locally; verified sizes, Git blobs and signatures. League PE build: 2026-10-16T22:15:09Z; DLL cutoff: 2026-10-28T23:06:41Z (**game-build timestamp comparison**, not wall-clock expiration).
+- [x] Built local v1.0.5-TEST installer, and confirmed source/built/installed host and DLL SHA-256 matched. **No successful skin rendering** from installer or directly launched Python source.
+- [x] Latest debug report: log level DEBUG, LTK DLL attached, overlay initialized, 20 DLL events, 1/1 WAD header rebased; **no WAD redirection observed**, verified-WAD verdict missing. Selected archive contains two files, one WAD. These findings are not proof of archive compatibility.
+- [x] Compared `injection` implementation with Rose `main` at `12a0d46b`, particularly the client-phase/game-process host-lifetime guard; ported the guard to PSM. The host now remains active if the game process is still running after an early client-phase transition.
+- [x] Changed PSM to report missing WAD redirection as **not confirmed skin application** instead of silently reporting success; this does not bypass integrity checks.
+- [x] Added local-only LTK DEBUG logging, sanitized latest-session diagnostics, read-only WAD archive/payload comparison, and regression tests. Both local live-QA and manually dispatched source-check workflow include the new archive tests.
+- [ ] Run the new tests on Windows, confirm the selected WAD path/payload, and verify **a real redirected WAD and visible non-default skin** in Practice Tool.
+- [ ] Test Swiftplay, reconnects, runtime provenance/licensing, packaging and in-app update distribution separately.
+
+See `releases/v1.0.5/MODSKIN_ROSE_PARITY_REVIEW.md` for source comparison, evidence limits and acceptance criteria. The pull request stays **draft**; no stable manifest or public installer should be updated.
 
 ## P0: Block publishing until ALL are complete
 
