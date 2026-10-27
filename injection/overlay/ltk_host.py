@@ -589,6 +589,30 @@ def run_ltk_patcher_host_session(
                 "[INJECT][ltk-host] Game attachment observed but overlay activation "
                 "was not confirmed by the DLL. Skin rendering remains unverified."
             )
+
+        # A skin mod in PSM includes at least one WAD. The upstream runtime
+        # distinguishes an initialized overlay from an archive actually served.
+        # Do not mark the user's skin as successfully applied when not a single
+        # redirection event was observed. Never relax integrity checks to force
+        # the redirect.
+        if result.attached and result.overlay_initialized and result.redirected_wads == 0:
+            log.warning(
+                "[INJECT][ltk-host] No WAD redirection confirmed during game. "
+                "Skin application not verified."
+            )
+            report_issue(
+                "LTK_NO_WAD_REDIRECTION",
+                "warning",
+                "Skin not confirmed: patcher initialized but served no recorded modded WAD.",
+                details={
+                    "dll_events": result.dll_lines,
+                    "verified_wads": result.verified_wads,
+                    "overlay_initialized": result.overlay_initialized,
+                },
+                hint="Check the selected mod archive's WAD path and compare it to the installed League WAD.",
+                dedupe_window_s=60.0,
+            )
+            return 3
         return 0
 
     except Exception as exc:
