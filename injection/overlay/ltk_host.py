@@ -169,7 +169,7 @@ def _parse_stdout(line: str, result: LtkHostResult) -> None:
         # Record positive overlay evidence at INFO without logging paths or
         # requiring upstream DEBUG output. An attached host alone does not
         # demonstrate that any modded WAD was actually used by the game.
-        verified = re.search(r"overlay verified\\s+(\\d+)\\s+wad", lower)
+        verified = re.search(r"overlay verified\s+(\d+)\s+wad", lower)
         if verified is not None:
             result.verified_wads = int(verified.group(1))
             log.info(
