@@ -14,7 +14,11 @@ $Markers = [ordered]@{
     "Patch 26.21 material format parsing" = '(?i)invalid property kind|no discriminant in enum|original WAD has a corrupt bin|staticmaterialdef.*hash'
     "Overlay verification rejected" = '(?i)overlay verification failed|overlay rejected|base-skin baseline anomaly'
     "Patcher verified zero WAD files" = '(?i)overlay verified\s+0\s+wad'
-    "Patcher redirected a WAD" = '(?i)redirected wad:'
+    "Patcher redirected a WAD" = '(?i)redirected wad:|WAD redirection observed'
+    "LTK DLL overlay initialized" = '(?i)DLL overlay initialization confirmed|DLL overlay initialization observed: True'
+    "LTK lazy WAD rejection" = '(?i)lazy verification failed, not overlaying|LTK did not apply the overlay: WAD verification failed'
+    "LTK hook initialization failed" = '(?i)failed to install .* hook|LTK could not initialize a required hook'
+    "LTK WAD integrity scan error" = '(?i)LTK WAD integrity scan failed'
     "Patcher injected or attached" = '(?i)\bstatus\s+\S+\s+injected\b|\bdll attached\b|host\s+injected'
     "LTK runtime unsupported or expired" = '(?i)end.of.life|runtime does not support this League build|patcher DLL reached|LTK_PATCHER_EOL'
     "Patcher joined too late" = '(?i)joined too late|started before the LTK scanner was ready'
@@ -80,7 +84,16 @@ foreach ($Name in $Markers.Keys) {
 }
 $summary.Add("")
 $summary.Add("Preliminary classification:")
-if ($Counts["Patch 26.21 material format parsing"] -gt 0) {
+if ($Counts["LTK lazy WAD rejection"] -gt 0) {
+    $summary.Add("LTK explicitly declined the modded WAD. Check the WAD rejection using the local development log; do not override verification.")
+}
+elseif ($Counts["LTK hook initialization failed"] -gt 0) {
+    $summary.Add("LTK reported a required hook initialization error. Review the local diagnostic log without changing game security.")
+}
+elseif ($Counts["LTK WAD integrity scan error"] -gt 0) {
+    $summary.Add("LTK reported a WAD integrity scan error; treat the overlay as not applied.")
+}
+elseif ($Counts["Patch 26.21 material format parsing"] -gt 0) {
     $summary.Add("LIKELY: League 26.21 material-format incompatibility in bundled LTK. Do not bypass verification.")
 }
 elseif ($Counts["Overlay verification rejected"] -gt 0) {
@@ -100,6 +113,12 @@ elseif ($Counts["Patcher joined too late"] -gt 0) {
 }
 elseif ($Counts["Skin selection missing"] -gt 0) {
     $summary.Add("No usable skin selection/trigger when preparing overlay.")
+}
+elseif ($Counts["Patcher injected or attached"] -gt 0 -and $Counts["LTK DLL overlay initialized"] -eq 0) {
+    $summary.Add("Host attached, but the DLL did not report overlay initialization. Attachment alone is not skin success.")
+}
+elseif ($Counts["LTK DLL overlay initialized"] -gt 0 -and $Counts["Patcher redirected a WAD"] -eq 0) {
+    $summary.Add("DLL overlay initialized, but no WAD redirection was observed. This may be limited DLL logging; verify mod content.")
 }
 else {
     $summary.Add("Inconclusive; need recent PSM game-session log or live test.")
