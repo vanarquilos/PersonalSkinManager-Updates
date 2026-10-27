@@ -28,8 +28,24 @@ $Markers = [ordered]@{
 
 $Logs = @(Get-ChildItem -LiteralPath $LogDir -File -Filter "rose_*.log*" -ErrorAction SilentlyContinue |
     Sort-Object LastWriteTime -Descending | Select-Object -First 2)
+
+# Exclude pre-staging failures and outdated session logs. Otherwise the previous
+# expired-DLL messages can falsely classify a new v1.30.1 test as failed.
+$EvidenceSince = (Get-Date).AddHours(-48)
+$OriginPath = Join-Path $Root "injection\tools\_v105_runtime_origin.json"
+if (Test-Path -LiteralPath $OriginPath -PathType Leaf) {
+    try {
+        $Origin = Get-Content -LiteralPath $OriginPath -Raw | ConvertFrom-Json
+        $StagedAt = ([datetimeoffset]::Parse([string]$Origin.created_utc)).LocalDateTime
+        if ($StagedAt -gt $EvidenceSince) { $EvidenceSince = $StagedAt }
+    }
+    catch {
+        # An unavailable provenance timestamp is not evidence of a runtime failure.
+    }
+}
+$RecentLogs = @($Logs | Where-Object { $_.LastWriteTime -ge $EvidenceSince })
 $lines = @()
-foreach ($Item in $Logs) {
+foreach ($Item in $RecentLogs) {
     $lines += @(Get-Content -LiteralPath $Item.FullName -Tail $LogLines -ErrorAction SilentlyContinue)
 }
 
@@ -39,6 +55,10 @@ $summary.Add("Generated: " + (Get-Date -Format "yyyy-MM-dd HH:mm:ss zzz"))
 $summary.Add("This report contains only known failure markers and hashes, not raw logs.")
 $summary.Add("")
 $summary.Add("Log sessions found: $($Logs.Count)")
+$summary.Add("Session logs since current runtime staging: $($RecentLogs.Count)")
+if ($RecentLogs.Count -eq 0) {
+    $summary.Add("No recent logs for the staged runtime; older failure signatures excluded.")
+}
 if ($Logs.Count -gt 0) {
     $summary.Add("Latest log modified: " + $Logs[0].LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss"))
     if ($Logs[0].LastWriteTime -lt (Get-Date).AddDays(-2)) {
