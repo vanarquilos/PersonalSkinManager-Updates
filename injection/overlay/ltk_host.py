@@ -52,6 +52,19 @@ LTK_DLL_NAME = LTK_PATCHER_DLL
 # Info=0x10. Flag 4 = CSLOL_HOOK_OPT_OUT_AH_V1, which disables the
 # base-skin anti-skinhack enforcement that rejects Rose's generic skin0 carrier.
 LTK_PATCHER_LOG_LEVEL = 0x10
+LTK_PATCHER_DEBUG_LOG_LEVEL = 0x20
+
+
+def _runtime_log_level() -> int:
+    """Ask LTK for DEBUG records only in local Python --debug sessions.
+
+    The upstream host marks redirection and material details at varying
+    verbosity. Release builds retain the existing INFO level and no paths
+    from DLL records are written to the normal PSM log.
+    """
+    if not getattr(sys, "frozen", False) and "--debug" in sys.argv:
+        return LTK_PATCHER_DEBUG_LOG_LEVEL
+    return LTK_PATCHER_LOG_LEVEL
 LTK_PATCHER_FLAGS = 4
 
 # Backward-compatible alias for older PSM tests/imports.
@@ -390,7 +403,12 @@ def start_ltk_patcher_host(
             name="LtkHostStderr",
         ).start()
 
-        _send_line(proc, f"config loglevel {LTK_PATCHER_LOG_LEVEL}")
+        selected_log_level = _runtime_log_level()
+        log.info(
+            "[INJECT][ltk-host] DLL log level: %s",
+            "DEBUG (local source QA)" if selected_log_level == LTK_PATCHER_DEBUG_LOG_LEVEL else "INFO",
+        )
+        _send_line(proc, f"config loglevel {selected_log_level}")
         _send_line(proc, f"config flags {LTK_PATCHER_FLAGS}")
         _send_line(proc, f"config prefix {overlay_prefix}")
         _send_line(proc, "start scan")
