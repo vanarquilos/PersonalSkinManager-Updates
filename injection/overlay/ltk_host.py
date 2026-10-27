@@ -72,6 +72,9 @@ class LtkHostResult:
         # None means no verification verdict was observed, not zero WADs.
         self.verified_wads: Optional[int] = None
         self.redirected_wads = 0
+        # Upstream emits `init done` when its DLL overlay is initialized.
+        # This is separate from the host's `injected` attachment state.
+        self.overlay_initialized = False
 
 
 class LtkHostSession:
@@ -184,6 +187,24 @@ def _parse_stdout(line: str, result: LtkHostResult) -> None:
                 log.info("[INJECT][ltk-host] WAD redirection observed")
             return
 
+        # Upstream uses "init done" for a live DLL overlay, which is distinct
+        # from the host's earlier "injected" attachment state.
+        if re.search(r"(?:^|:\s+|\s+)init done\s*$", lower):
+            result.overlay_initialized = True
+            log.info("[INJECT][ltk-host] DLL overlay initialization confirmed")
+            return
+
+        # Fail visibly for distinct upstream overlay rejection signatures.
+        if "lazy verification failed, not overlaying:" in lower:
+            result.failure = "LTK declined a WAD because lazy verification failed"
+            log.error("[INJECT][ltk-host] LTK did not apply the overlay: WAD verification failed")
+            return
+
+        if "failed to install " in lower and " hook" in lower:
+            result.failure = "LTK failed to install a required game hook"
+            log.error("[INJECT][ltk-host] LTK could not initialize a required hook")
+            return
+
         if "overlay verification failed, disabling overlay" in lower:
             result.failure = line
             log.error(f"[INJECT][ltk-host] {line}")
@@ -191,7 +212,12 @@ def _parse_stdout(line: str, result: LtkHostResult) -> None:
             return
 
         if "wad scan failed" in lower:
-            log.warning(f"[INJECT][ltk-host] {line}")
+            # A WARN is an observation; an ERROR is a rejection verdict.
+            if re.search(r"\bERROR\b", line):
+                result.failure = "LTK WAD integrity scan reported an error"
+                log.error("[INJECT][ltk-host] LTK WAD integrity scan failed")
+            else:
+                log.warning("[INJECT][ltk-host] LTK reported a WAD scan warning")
             return
 
         log.debug(f"[INJECT][ltk-host] {line}")
@@ -490,11 +516,14 @@ def run_ltk_patcher_host_session(
             f"dll_lines={result.dll_lines}, verified_wads={result.verified_wads}, "
             f"redirected_wads={result.redirected_wads})"
         )
-        if result.attached and result.verified_wads is None and result.redirected_wads == 0:
+        log.info(
+            "[INJECT][ltk-host] DLL overlay initialization observed: %s",
+            result.overlay_initialized,
+        )
+        if result.attached and not result.overlay_initialized and result.redirected_wads == 0:
             log.warning(
-                "[INJECT][ltk-host] Game attachment observed but no WAD verification "
-                "or redirection event was recorded. This may be limited runtime "
-                "logging; skin rendering is not confirmed."
+                "[INJECT][ltk-host] Game attachment observed but overlay activation "
+                "was not confirmed by the DLL. Skin rendering remains unverified."
             )
         return 0
 
