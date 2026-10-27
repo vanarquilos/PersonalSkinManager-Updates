@@ -6,6 +6,8 @@ from injection.overlay.ltk_host import (
     LTK_DEFAULT_FLAGS,
     LTK_PATCHER_FLAGS,
     LTK_PATCHER_LOG_LEVEL,
+    LTK_PATCHER_DEBUG_LOG_LEVEL,
+    _runtime_log_level,
     LtkHostResult,
     _parse_stdout,
 )
@@ -162,6 +164,21 @@ class LtkHostProtocolTests(unittest.TestCase):
             result,
         )
         self.assertIsNone(result.failure)
+
+
+    def test_ltk_debug_events_enabled_in_local_source_mode_only(self):
+        self.assertEqual(LTK_PATCHER_DEBUG_LOG_LEVEL, 0x20)
+        with patch("injection.overlay.ltk_host.sys.argv", ["main.py", "--dev", "--debug", "--logs"]):
+            with patch("injection.overlay.ltk_host.sys.frozen", False, create=True):
+                self.assertEqual(_runtime_log_level(), 0x20)
+
+    def test_ltk_release_mode_keeps_info_logging(self):
+        with patch("injection.overlay.ltk_host.sys.argv", ["PersonalSkinManager.exe", "--debug"]):
+            with patch("injection.overlay.ltk_host.sys.frozen", True, create=True):
+                self.assertEqual(_runtime_log_level(), 0x10)
+        with patch("injection.overlay.ltk_host.sys.argv", ["main.py"]):
+            with patch("injection.overlay.ltk_host.sys.frozen", False, create=True):
+                self.assertEqual(_runtime_log_level(), 0x10)
 
 
 if __name__ == "__main__":
