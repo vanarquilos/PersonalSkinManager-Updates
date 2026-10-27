@@ -30,6 +30,11 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
+try:
+    import psutil
+except ImportError:
+    psutil = None
+
 from utils.core.logging import get_logger
 from utils.core.issue_reporter import report_issue
 from ..tools.patcher import (
@@ -74,6 +79,35 @@ END_OF_LIFE_MESSAGE = "end of life reached"
 
 _SUCCESS_STATES = {"injected"}
 _FAILURE_STATES = {"failed"}
+# Keep both current League game process names, as in Rose's live lifecycle.
+_LEAGUE_GAME_NAMES = frozenset(
+    ("league of legends.exe", "league of legends (tm) client.exe")
+)
+
+
+def _league_game_process_running() -> bool:
+    """Check the actual League game, not the client's potentially stale phase.
+
+    When the client disconnects or reports post-game prematurely, stopping
+    the LTK host can leave the game running without its overlay.
+    """
+    if psutil is None:
+        return False
+    try:
+        for process in psutil.process_iter(["name"]):
+            if (process.info.get("name") or "").casefold() in _LEAGUE_GAME_NAMES:
+                return True
+    except (psutil.Error, OSError):
+        # We cannot establish that the game is still running; defer to the
+        # existing stop callback instead of leaving an orphaned host.
+        log.debug("[INJECT][ltk-host] Could not check League game process")
+    return False
+
+
+def _should_stop_after_callback(stop_requested: bool) -> bool:
+    """Only stop on a client-phase transition once League itself has exited."""
+    return stop_requested and not _league_game_process_running()
+
 
 
 class LtkHostResult:
@@ -480,6 +514,7 @@ def run_ltk_patcher_host_session(
     result = session.result
     events = session.events
     game_ended = False
+    early_client_end_logged = False
 
     try:
         _drain_events(events, result)
@@ -506,10 +541,21 @@ def run_ltk_patcher_host_session(
 
             # Match Rose 1.3.1: "exited" only means the current game process
             # closed. Keep the host alive so a reconnect can be scanned/hooked.
-            if stop_callback and stop_callback():
-                log.info("[INJECT] Game session ended, stopping LTK patcher host")
+            stop_requested = bool(stop_callback and stop_callback())
+            if _should_stop_after_callback(stop_requested):
+                log.info("[INJECT] League game process exited; stopping LTK patcher host")
                 game_ended = True
                 break
+            if stop_requested and not early_client_end_logged:
+                # Rose main guards this exact race: the client may disconnect
+                # or close while League is still loading or in a live match.
+                log.info(
+                    "[INJECT][ltk-host] Client phase ended while League game "
+                    "is still running; keeping overlay host alive"
+                )
+                early_client_end_logged = True
+            elif not stop_requested:
+                early_client_end_logged = False
 
             time.sleep(PROCESS_MONITOR_SLEEP_S)
 
