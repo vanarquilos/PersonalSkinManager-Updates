@@ -7,6 +7,7 @@ from pathlib import Path
 
 from scripts.inspect_v105_skin_wad import (
     game_relative_wad,
+    packed_fantome_wad_alias,
     inspect_archive,
     wad_payload_fingerprint,
 )
@@ -22,6 +23,48 @@ class SkinWadInspectionTests(unittest.TestCase):
         self.assertIsNone(game_relative_wad("META/info.json"))
         self.assertIsNone(game_relative_wad("WAD/DATA/../secret.wad.client"))
         self.assertIsNone(game_relative_wad("C:/Windows/secret.wad.client"))
+
+    def test_packed_fantome_alias_is_valid_without_game_relative_path(self):
+        self.assertEqual(
+            packed_fantome_wad_alias("WAD/Aphelios.wad.client"),
+            "Aphelios.wad.client",
+        )
+        self.assertEqual(
+            packed_fantome_wad_alias("wad/aphelios.wad.client"),
+            "aphelios.wad.client",
+        )
+        self.assertIsNone(game_relative_wad("WAD/Aphelios.wad.client"))
+        self.assertIsNone(packed_fantome_wad_alias("WAD/../bad.wad.client"))
+
+    def test_packed_fantome_inspection_reports_advisory_game_candidates(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            game = root / "game"
+            installed = game / "DATA" / "FINAL" / "Champions" / "Aphelios.wad.client"
+            installed.parent.mkdir(parents=True, exist_ok=True)
+            installed.write_bytes(WAD_HEADER + b"large-original-game-payload")
+
+            mod = root / "aphelios.fantome"
+            with zipfile.ZipFile(mod, "w") as z:
+                z.writestr("META/info.json", "{}")
+                z.writestr(
+                    "WAD/Aphelios.wad.client",
+                    WAD_HEADER + b"small-modified-chunks",
+                )
+            report = inspect_archive(mod, game)
+            self.assertEqual(report["archive_member_count"], 2)
+            self.assertEqual(report["wad_member_count"], 1)
+            check = report["wad_checks"][0]
+            self.assertEqual(check["package_wad_format"], "fantome_packed_wad")
+            self.assertEqual(check["wad_alias"], "Aphelios.wad.client")
+            self.assertTrue(check["packed_wad_header_valid"])
+            self.assertIsNone(check["recognized_game_relative_path"])
+            self.assertEqual(
+                check["game_wad_filename_candidates"],
+                ["DATA/FINAL/Champions/Aphelios.wad.client"],
+            )
+            self.assertFalse(check["matching_game_wad_exists"])
+            self.assertIsNone(check["payload_identical_to_installed_game"])
 
     def test_identical_and_modified_wads_are_distinguished(self):
         with tempfile.TemporaryDirectory() as temp:
