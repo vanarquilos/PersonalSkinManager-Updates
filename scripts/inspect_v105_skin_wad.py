@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only PSM v1.0.5 selected-skin WAD inspection.
+r"""Read-only PSM v1.0.5 selected-skin WAD inspection.
 
 Does not launch League, extract/write archives, alter files, or invoke a patcher.
 Prints only relative archive member paths and structural/comparison results.
@@ -61,6 +61,41 @@ def game_relative_wad(member_name: str) -> PurePosixPath | None:
     return PurePosixPath(*parts)
 
 
+
+def packed_fantome_wad_alias(member_name: str) -> str | None:
+    """A packed WAD directly under Fantome's WAD/ directory.
+
+    This name is a *mod layer alias*, not necessarily a game-relative path.
+    The overlay builder resolves its entries against installed WAD mounts.
+    """
+    name = member_name.replace("\\", "/")
+    parts = name.split("/")
+    if (
+        len(parts) == 2
+        and parts[0].casefold() == "wad"
+        and parts[1].casefold().endswith(".wad.client")
+        and parts[1] not in {".", ".."}
+        and ":" not in parts[1]
+    ):
+        return parts[1]
+    return None
+
+
+def find_name_matched_game_wads(game_dir: Path, alias: str) -> list[str]:
+    """Find filename matches for context; NEVER infer definitive mount mapping."""
+    try:
+        game_root = game_dir.resolve()
+        if not game_root.is_dir():
+            return []
+        results = []
+        for path in game_root.rglob("*.wad.client"):
+            if path.name.casefold() == alias.casefold() and path.is_file():
+                results.append(path.relative_to(game_root).as_posix())
+        return sorted(results)
+    except OSError:
+        return []
+
+
 def wad_payload_fingerprint(stream) -> tuple[bool, str]:
     header = stream.read(WAD_HEADER_SIZE)
     if len(header) < WAD_HEADER_SIZE:
@@ -95,23 +130,45 @@ def inspect_archive(archive_path: Path, game_dir: Path) -> dict:
             game_root = game_dir.resolve()
             for member in wads[:MAX_REPORT_WADS]:
                 normalized = game_relative_wad(member.filename)
+                alias = packed_fantome_wad_alias(member.filename)
+                # Fantome WAD/Aphelios.wad.client is the normal packed-mod
+                # form. It must not be compared to an original game WAD as
+                # though it were a complete game replacement by the same path.
+                format_kind = (
+                    "fantome_packed_wad" if alias is not None
+                    else "explicit_game_relative" if normalized is not None
+                    else "unrecognized"
+                )
                 check = {
                     "member_relative_path": member.filename.replace("\\", "/"),
                     "wad_bytes": member.file_size,
+                    "package_wad_format": format_kind,
+                    "wad_alias": alias,
                     "recognized_game_relative_path": str(normalized) if normalized else None,
+                    "game_wad_filename_candidates": [],
                     "packed_wad_header_valid": False,
                     "matching_game_wad_exists": False,
                     "game_wad_header_valid": None,
                     "payload_identical_to_installed_game": None,
                 }
-                if normalized is not None:
-                    game_wad = (game_root / Path(*normalized.parts)).resolve()
-                    if game_wad.is_relative_to(game_root) and game_wad.is_file():
+                game_wad = None
+                if alias is not None:
+                    # These are only possible matches by filename. A packed
+                    # Fantome WAD may hold a few changed chunks and can be
+                    # much smaller than the original. An inequality of entire
+                    # payload hashes has no meaningful compatibility verdict.
+                    check["game_wad_filename_candidates"] = (
+                        find_name_matched_game_wads(game_root, alias)[:8]
+                    )
+                elif normalized is not None:
+                    candidate = (game_root / Path(*normalized.parts)).resolve()
+                    if candidate.is_relative_to(game_root) and candidate.is_file():
                         check["matching_game_wad_exists"] = True
+                        game_wad = candidate
                 with package.open(member) as packed:
                     valid, packed_hash = wad_payload_fingerprint(packed)
                 check["packed_wad_header_valid"] = valid
-                if check["matching_game_wad_exists"]:
+                if game_wad is not None:
                     with game_wad.open("rb") as game_stream:
                         game_valid, game_hash = wad_payload_fingerprint(game_stream)
                     check["game_wad_header_valid"] = game_valid
@@ -121,7 +178,12 @@ def inspect_archive(archive_path: Path, game_dir: Path) -> dict:
     except (OSError, RuntimeError, zipfile.BadZipFile, EOFError, ValueError):
         report["notes"].append("Could not read/compare this archive; check whether it is a valid ZIP/Fantome.")
     report["notes"].append(
-        "Different payload bytes indicate changes, not that the skin was redirected or rendered."
+        "WAD/<champion>.wad.client is a valid packed Fantome mod layout. "
+        "Filename-matched game archives are candidates, not confirmed overlay targets."
+    )
+    report["notes"].append(
+        "An archive WAD can contain only modified chunks; file-size or full-payload "
+        "hash differences do not prove a skin was applied or rejected."
     )
     return report
 
