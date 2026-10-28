@@ -63,7 +63,7 @@ class SkinWadInspectionTests(unittest.TestCase):
                 check["game_wad_filename_candidates"],
                 ["DATA/FINAL/Champions/Aphelios.wad.client"],
             )
-            self.assertFalse(check["matching_game_wad_exists"])
+            self.assertIsNone(check["matching_game_wad_exists"])
             self.assertIsNone(check["payload_identical_to_installed_game"])
 
     def test_identical_and_modified_wads_are_distinguished(self):
