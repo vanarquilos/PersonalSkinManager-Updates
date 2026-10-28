@@ -129,6 +129,20 @@ class LtkHostProtocolTests(unittest.TestCase):
         self.assertTrue(result.overlay_initialized)
         self.assertIsNone(result.failure)
 
+    def test_ltK_host_verification_refusal_is_terminal_and_sanitized(self):
+        result = LtkHostResult()
+        with patch("injection.overlay.ltk_host.report_issue") as reported:
+            _parse_stdout(
+                "dll 5.0 100 200 ERROR ltk_patcher_dll::verify: "
+                "host verification failed, refusing overlay: "
+                "[VRF00000008] (19480,ltk-manager.exe)",
+                result,
+            )
+        self.assertEqual(result.failure, "LTK host verification refused the overlay")
+        self.assertEqual(reported.call_args.args[0], "LTK_HOST_VERIFICATION_FAILED")
+        self.assertNotIn("VRF", str(reported.call_args))
+        self.assertNotIn("19480", str(reported.call_args))
+
     def test_lazy_wad_rejection_is_a_hard_failure(self):
         result = LtkHostResult()
         _parse_stdout(
