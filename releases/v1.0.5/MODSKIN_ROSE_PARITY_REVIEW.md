@@ -45,6 +45,12 @@ Reviewed: 2026-10-27 (Asia/Manila). This is a source-level parity review, **not 
 
 These findings do not establish whether the generated WAD contains a modified payload, whether its path matches the game's requested WAD, or whether the host previously stopped prematurely.
 
+## October 29: Aphelios archive inspection correction
+
+Windows focused source tests passed. The selected archive is ZIP-compatible with two files, one packed `WAD/Aphelios.wad.client` of 11,990 bytes, and a valid RW WAD header. The first inspection script printed `recognized_game_relative_path: null` and `matching_game_wad_exists: false`, but these were **a false diagnostic caused by assuming Fantome WAD member names must already be full `DATA/...` paths**. This is not evidence the mod was rejected.
+
+LeagueToolkit's [Fantome format reference](https://github.com/LeagueToolkit/wiki/blob/1964862c571555cca6662575cafe6bd58ae6bf8a/src/content/docs/reference/mod-packages/fantome.mdx) explicitly permits packed `.wad.client` directly under `WAD/`. Such archives store a mod layer's changed chunks and are resolved/rebased by the mod tools, so whole-file size and payload hashes are not valid evidence of mod application. The inspector now reports `package_wad_format: fantome_packed_wad`, `wad_alias`, and advisory filename-matched game archive candidates without mislabeling the format invalid. Added regression tests and fixed the non-fatal invalid-escape docstring warning. Re-run tests on Windows and inspect the new output; **in-game skin rendering is still unverified**.
+
 ## Safe remaining QA gates (no installer)
 
 - [ ] Run Python host regression tests (including the added lifecycle and missing-redirection tests) on Windows.
