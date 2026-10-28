@@ -17,13 +17,14 @@ $Markers = [ordered]@{
     "Patcher redirected a WAD" = '(?i)redirected wad:|WAD redirection observed'
     "LTK DLL overlay initialized" = '(?i)DLL overlay initialization confirmed|DLL overlay initialization observed: True'
     "LTK lazy WAD rejection" = '(?i)lazy verification failed, not overlaying|LTK did not apply the overlay: WAD verification failed'
+    "LTK host verification refused" = '(?i)host verification failed.*refusing overlay|LTK host verification refused the overlay|LTK_HOST_VERIFICATION_FAILED'
     "LTK hook initialization failed" = '(?i)failed to install .* hook|LTK could not initialize a required hook'
     "LTK WAD integrity scan error" = '(?i)LTK WAD integrity scan failed'
     "Patcher injected or attached" = '(?i)\bstatus\s+\S+\s+injected\b|\bdll attached\b|host\s+injected'
     "LTK runtime unsupported or expired" = '(?i)end.of.life|runtime does not support this League build|patcher DLL reached|LTK_PATCHER_EOL'
     "Patcher joined too late" = '(?i)joined too late|started before the LTK scanner was ready'
     "Patcher startup failed" = '(?i)Could not arm LTK scanner|Scanner exited before|Scanner failed before|Missing LTK runtime|Could not start scanner'
-    "Overlay builder error or timeout" = '(?i)mkoverlay failed|mkoverlay timeout|mkoverlay error|error.*mkoverlay'
+    "Overlay builder error or timeout" = '(?i)\bmkoverlay\s+(?:failed\b|timeout\b|timed out\b|error:)'
     "Overlay preparation succeeded" = '(?i)mkoverlay completed|overlay ready'
     "WAD header validation failed" = '(?i)No overlay WAD headers could be rebased|WAD magic/version mismatch|WAD header verification failed'
     "Skin selection missing" = '(?i)no skin ID available|skipping injection for default skin|no selected skin'
@@ -55,6 +56,28 @@ foreach ($Item in $EvidenceLogs) {
     $lines += @(Get-Content -LiteralPath $Item.FullName -Tail $LogLines -ErrorAction SilentlyContinue)
 }
 
+# Distinguish a prior failed build from the last selected-skin attempt.
+# Keep the full session evidence for host/DLL counters and support signatures.
+$lastSkinIndex = -1
+for ($index = 0; $index -lt $lines.Count; $index++) {
+    if ($lines[$index] -match '(?i)\[INJECT\] Using skin file:\s*') {
+        $lastSkinIndex = $index
+    }
+}
+$attemptLines = @($lines)
+if ($lastSkinIndex -ge 0) {
+    $attemptLines = @($lines[$lastSkinIndex..($lines.Count - 1)])
+}
+$builderOutcome = "unknown"
+foreach ($line in $attemptLines) {
+    if ($line -match '(?i)\bmkoverlay completed in\b|mkoverlay \+ WAD rebase done.*overlay ready') {
+        $builderOutcome = "succeeded"
+    }
+    if ($line -match '(?i)\bmkoverlay\s+(?:failed\b|timeout\b|timed out\b|error:)') {
+        $builderOutcome = "failed"
+    }
+}
+
 $summary = [System.Collections.Generic.List[string]]::new()
 $summary.Add("PSM v1.0.5 - no-skin diagnosis")
 $summary.Add("Generated: " + (Get-Date -Format "yyyy-MM-dd HH:mm:ss zzz"))
@@ -83,6 +106,7 @@ $debugRequested = @($lines | Where-Object { $_ -match 'DLL log level:\s*DEBUG \(
 $infoRequested = @($lines | Where-Object { $_ -match 'DLL log level:\s*INFO' }).Count -gt 0
 $summary.Add(" - LTK DEBUG requested in latest session: $debugRequested")
 $summary.Add(" - LTK INFO requested in latest session: $infoRequested")
+$summary.Add(" - Last selected-skin builder outcome: $builderOutcome")
 $sessionSummary = @($lines | Where-Object { $_ -match 'Rose-compatible session completed' } | Select-Object -Last 1)
 if ($sessionSummary.Count -gt 0) {
     $match = [regex]::Match($sessionSummary[0], 'last_state=([^,]+), injected=([^,]+), dll_lines=(\d+), verified_wads=([^,]+), redirected_wads=(\d+)')
@@ -155,7 +179,10 @@ foreach ($Name in $Markers.Keys) {
 }
 $summary.Add("")
 $summary.Add("Preliminary classification:")
-if ($Counts["LTK lazy WAD rejection"] -gt 0) {
+if ($Counts["LTK host verification refused"] -gt 0) {
+    $summary.Add("LTK host integrity/provenance verification refused the overlay. Check vendor-compatible host and DLL files; never bypass verification.")
+}
+elseif ($Counts["LTK lazy WAD rejection"] -gt 0) {
     $summary.Add("LTK explicitly declined the modded WAD. Check the WAD rejection using the local development log; do not override verification.")
 }
 elseif ($Counts["LTK hook initialization failed"] -gt 0) {
@@ -173,8 +200,8 @@ elseif ($Counts["Overlay verification rejected"] -gt 0) {
 elseif ($Counts["LTK runtime unsupported or expired"] -gt 0) {
     $summary.Add("LTK runtime unsupported for installed League. Do not bypass cutoff.")
 }
-elseif ($Counts["Overlay builder error or timeout"] -gt 0 -or $Counts["WAD header validation failed"] -gt 0) {
-    $summary.Add("Overlay creation or validation failed.")
+elseif ($builderOutcome -eq "failed") {
+    $summary.Add("Latest selected-skin overlay build failed. Review the current PSM debug log without sharing secrets or raw paths.")
 }
 elseif ($Counts["Patcher verified zero WAD files"] -gt 0) {
     $summary.Add("Patcher attached but verified zero overlay WADs.")
