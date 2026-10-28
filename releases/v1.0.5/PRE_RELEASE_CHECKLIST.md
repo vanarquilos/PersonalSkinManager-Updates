@@ -53,6 +53,8 @@ The initial pair's 2026-10-04 cutoff was genuinely older than League's executabl
 - [ ] Run the new tests on Windows, confirm the selected WAD path/payload, and verify **a real redirected WAD and visible non-default skin** in Practice Tool.
 - [ ] Test Swiftplay, reconnects, runtime provenance/licensing, packaging and in-app update distribution separately.
 
+October 29 archive result: maintainer's earlier source tests passed; selected Aphelios archive contained two files and a 11,990-byte packed `WAD/Aphelios.wad.client` with an RW header. This is a valid Fantome packed WAD path per upstream specification. The first inspector incorrectly expected a full `DATA/...` path and thus reported `null`/missing. The inspection code and tests now recognize packed Fantome aliases and avoid false game-WAD comparison verdicts; updated tests and game rendering have not yet been verified on Windows.
+
 See `releases/v1.0.5/MODSKIN_ROSE_PARITY_REVIEW.md` for source comparison, evidence limits and acceptance criteria. The pull request stays **draft**; no stable manifest or public installer should be updated.
 
 ## P0: Block publishing until ALL are complete
