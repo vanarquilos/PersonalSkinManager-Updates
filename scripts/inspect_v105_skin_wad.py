@@ -147,7 +147,7 @@ def inspect_archive(archive_path: Path, game_dir: Path) -> dict:
                     "recognized_game_relative_path": str(normalized) if normalized else None,
                     "game_wad_filename_candidates": [],
                     "packed_wad_header_valid": False,
-                    "matching_game_wad_exists": False,
+                    "matching_game_wad_exists": None if alias is not None else False,
                     "game_wad_header_valid": None,
                     "payload_identical_to_installed_game": None,
                 }
