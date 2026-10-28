@@ -1,6 +1,6 @@
 # Personal Skin Manager v1.0.5 — release readiness checklist
 
-**Prepared:** 2026-10-22. **Updated:** 2026-10-28. **Status: PRIVATE SOURCE-QA CANDIDATE, NOT RELEASE-READY.** The current public installer remains v1.0.4 (community-test pre-release). A local v1.0.5 TEST installer was built on 2026-10-27 but did not render the selected skin; it is not approved for distribution. Current debugging proceeds from Python source without rebuilding.
+**Prepared:** 2026-10-22. **Updated:** 2026-10-29. **Status: PRIVATE SOURCE-QA CANDIDATE, NOT RELEASE-READY.** The current public installer remains v1.0.4 (community-test pre-release). A local v1.0.5 TEST installer was built on 2026-10-27 but did not render the selected skin; it is not approved for distribution. Current debugging proceeds from Python source without rebuilding.
 
 ## Scope and evidence
 
@@ -56,6 +56,17 @@ The initial pair's 2026-10-04 cutoff was genuinely older than League's executabl
 October 29 archive result: maintainer's earlier source tests passed; selected Aphelios archive contained two files and a 11,990-byte packed `WAD/Aphelios.wad.client` with an RW header. This is a valid Fantome packed WAD path per upstream specification. The first inspector incorrectly expected a full `DATA/...` path and thus reported `null`/missing. The inspection code and tests now recognize packed Fantome aliases and avoid false game-WAD comparison verdicts; updated tests and game rendering have not yet been verified on Windows.
 
 See `releases/v1.0.5/MODSKIN_ROSE_PARITY_REVIEW.md` for source comparison, evidence limits and acceptance criteria. The pull request stays **draft**; no stable manifest or public installer should be updated.
+
+## October 29: Rose/LTK current status and host-verification refusal
+
+- Rose official latest release: [v1.4.9](https://github.com/Alban1911/Rose/releases/tag/1.4.9), published 2026-10-16. Latest main commit: `12a0d46bfc63` (2026-10-22); no later public modskin fix was found as of this review.
+- Rose [issue #401](https://github.com/Alban1911/Rose/issues/401) remains open for selected skins failing to appear in League 26.21. [Issue #404](https://github.com/Alban1911/Rose/issues/404) reported `host verification failed, refusing overlay [VRF00000008]` on League 26.21; its closed status is not evidence of a published runtime fix. [LTK issue #896](https://github.com/LeagueToolkit/ltk-manager/issues/896) reports attached DLL but zero redirections with another LTK version.
+- LTK Manager's latest release checked: [v1.31.1](https://github.com/LeagueToolkit/ltk-manager/releases/tag/v1.31.1), 2026-10-28. Its release notes do not confirm a fix for PSM's zero-redirection symptom, and its distribution is not automatically a compatible host/DLL pair for PSM.
+- New user diagnostic generated 2026-10-29 07:28 +08:00: source DEBUG, game DLL attached, overlay initialized, 20 DLL events, WAD header rebase 1/1, 0 observed redirected WADs, no observed verified-WAD verdict; last state exited. The old report counted one `mkoverlay` error alongside completed overlay runs.
+- PSM now reports a vendor `host verification failed, refusing overlay` verdict as a **terminal failure**, with sanitized issue text and no vendor proof/identifiers logged by that branch. No verification bypass was introduced.
+- The latest diagnostic script has a narrower builder-error pattern and reports the **last selected-skin builder outcome**, so a previous failed attempt does not override a later successful one. Added offline tests for these reporting contracts to both source QA entry points.
+- [ ] Re-run Windows Python tests and the read-only diagnostic on the existing October 29 log to distinguish `succeeded` / `failed` builder outcome from DLL redirection absence.
+- [ ] Actual in-game WAD redirection and visible skin rendering remain **unverified/failed**. Do not release, merge, update stable manifest, or distribute official-signed LTK binaries.
 
 ## P0: Block publishing until ALL are complete
 
