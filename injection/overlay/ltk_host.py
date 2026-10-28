@@ -253,7 +253,7 @@ def _parse_stdout(line: str, result: LtkHostResult) -> None:
             result.failure = "LTK host verification refused the overlay"
             log.error(
                 "[INJECT][ltk-host] LTK host verification refused the overlay; "
-                "use a legitimate vendor-compatible runtime pair"
+                "third-party host integration is not vendor-supported"
             )
             report_issue(
                 "LTK_HOST_VERIFICATION_FAILED",
@@ -261,8 +261,9 @@ def _parse_stdout(line: str, result: LtkHostResult) -> None:
                 "The LTK patcher refused its host verification; no skin was applied.",
                 details={"backend": "ltk", "stage": "host_verification"},
                 hint=(
-                    "Check the installed LTK Manager and patcher version/provenance. "
-                    "Do not bypass vendor integrity or game security verification."
+                    "The current vendor patcher may reject third-party hosts. "
+                    "Seek an authorized integration or supported backend; "
+                    "do not bypass vendor integrity or game security verification."
                 ),
                 dedupe_window_s=30.0,
             )
