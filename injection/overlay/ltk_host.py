@@ -246,6 +246,28 @@ def _parse_stdout(line: str, result: LtkHostResult) -> None:
             log.info("[INJECT][ltk-host] DLL overlay initialization confirmed")
             return
 
+        # Rose issue #404 (League 26.21): a vendor host-verification
+        # refusal is a terminal runtime verdict, not successful injection.
+        # Report only its category; do not leak vendor proof or host details.
+        if "host verification failed" in lower and "refusing overlay" in lower:
+            result.failure = "LTK host verification refused the overlay"
+            log.error(
+                "[INJECT][ltk-host] LTK host verification refused the overlay; "
+                "use a legitimate vendor-compatible runtime pair"
+            )
+            report_issue(
+                "LTK_HOST_VERIFICATION_FAILED",
+                "error",
+                "The LTK patcher refused its host verification; no skin was applied.",
+                details={"backend": "ltk", "stage": "host_verification"},
+                hint=(
+                    "Check the installed LTK Manager and patcher version/provenance. "
+                    "Do not bypass vendor integrity or game security verification."
+                ),
+                dedupe_window_s=30.0,
+            )
+            return
+
         # Fail visibly for distinct upstream overlay rejection signatures.
         if "lazy verification failed, not overlaying:" in lower:
             result.failure = "LTK declined a WAD because lazy verification failed"
