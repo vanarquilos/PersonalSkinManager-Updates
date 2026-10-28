@@ -73,7 +73,8 @@ foreach ($line in $attemptLines) {
     if ($line -match '(?i)\bmkoverlay completed in\b|mkoverlay \+ WAD rebase done.*overlay ready') {
         $builderOutcome = "succeeded"
     }
-    if ($line -match '(?i)\bmkoverlay\s+(?:failed\b|timeout\b|timed out\b|error:)') {
+    if ($line -match '(?i)\bmkoverlay\s+(?:failed\b|timeout\b|timed out\b|error:)' -or
+        $line -match $Markers["WAD header validation failed"]) {
         $builderOutcome = "failed"
     }
 }
