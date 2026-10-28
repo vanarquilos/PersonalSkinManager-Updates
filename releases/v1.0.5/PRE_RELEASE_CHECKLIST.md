@@ -70,6 +70,18 @@ See `releases/v1.0.5/MODSKIN_ROSE_PARITY_REVIEW.md` for source comparison, evide
 - [ ] Re-run Windows Python tests and the read-only diagnostic on the existing October 29 log to distinguish `succeeded` / `failed` builder outcome from DLL redirection absence.
 - [ ] Actual in-game WAD redirection and visible skin rendering remain **unverified/failed**. Do not release, merge, update stable manifest, or distribute official-signed LTK binaries.
 
+## October 29, 07:48 Manila time — verified failure classification
+
+Maintainer reran the **read-only diagnostic** against the same October 29 07:28 PSM log. Updated report confirms:
+- Last selected-skin `mkoverlay` outcome: **succeeded**; rebased WAD headers **1/1**; selected Fantome archive contains **2 members**, including **1 packed WAD**.
+- DLL attached, **20** DLL events, overlay initialized, host final state `exited`.
+- `LTK host verification refused: 1`; verified-WAD verdict **not observed**; WAD redirections **0**. No expired-runtime, late-join, hook, or material-parser error recorded in this session.
+- The previous 'overlay builder failed' classification was a false lead: the scanner counted an older/misclassified marker while the last skin build succeeded.
+- This is **host verification refusal**, not evidence that Aphelios's packed Fantome format is invalid. Vendor verification is an intended third-party-host restriction per [LeagueToolkit issue #923](https://github.com/LeagueToolkit/ltk-manager/issues/923).
+- **Blocker / next action:** obtain an **authorized/supported integration** or choose a lawful independent backend. No further installer or gameplay loops with the currently refused integration; no DLL patch, forced validation bypass, or unsupported downgrade. Obtain new evidence only when the backend is supported.
+- Source changes already detect and report this failure; the report predates the latest source detection addition, so no claim is made that the runtime-side error dialog was tested on Windows.
+- The PR stays draft and stable `v1.0.4` remains unchanged.
+
 ## P0: Block publishing until ALL are complete
 
 - [ ] Identify the exact locally bundled `mod-tools.exe`, `ltk_patcher_host.exe`, and `ltk_patcher_dll.dll`. Record each filename, byte size, and SHA-256 using `python scripts/audit_runtime_v105.py --game-dir "C:\\Riot Games\\League of Legends\\Game"`. Supply an explicit, correct League Game folder if installed elsewhere.
