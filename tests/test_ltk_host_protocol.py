@@ -129,7 +129,7 @@ class LtkHostProtocolTests(unittest.TestCase):
         self.assertTrue(result.overlay_initialized)
         self.assertIsNone(result.failure)
 
-    def test_ltK_host_verification_refusal_is_terminal_and_sanitized(self):
+    def test_ltk_host_verification_refusal_is_terminal_and_sanitized(self):
         result = LtkHostResult()
         with patch("injection.overlay.ltk_host.report_issue") as reported:
             _parse_stdout(
