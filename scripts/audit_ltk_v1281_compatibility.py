@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only identity and game-build audit for official legacy LTK v1.28.1.
+r"""Read-only identity and game-build audit for official legacy LTK v1.28.1.
 
 This does not download, install, load or replace any executable. An old
 official build passing this audit is NOT vendor authorization or proof that
@@ -39,7 +39,7 @@ EXPECTED = {
 
 
 def git_blob_sha1(payload: bytes) -> str:
-    prefix = b"blob " + str(len(payload)).encode("ascii") + b"\\x00"
+    prefix = b"blob " + str(len(payload)).encode("ascii") + b"\x00"
     return hashlib.sha1(prefix + payload).hexdigest()
 
 
