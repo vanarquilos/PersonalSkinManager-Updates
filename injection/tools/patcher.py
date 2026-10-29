@@ -9,6 +9,8 @@ therefore remain valid after its calendar EOL until League itself updates.
 """
 
 import struct
+import os
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -20,6 +22,47 @@ GAME_EXECUTABLE_NAMES = (
     "League of Legends.exe",
     "League of Legends (TM) Client.exe",
 )
+
+# Explicit local QA override to compare unchanged official v1.28.1 and
+# separately signature-removed files WITHOUT modifying source injection/tools.
+# The QA selector is intentionally pinned to the reviewed v1.28.1 build.
+LTK_QA_RUNTIME_DIR_ENV = "PSM_LTK_QA_RUNTIME_DIR"
+LTK_QA_ORIGINAL_SHA256 = {
+    LTK_PATCHER_HOST: "23FA1AAEDA1A0C743DA44227F179084E1FB81C7CD262144A3C8604FFC49D3BC1",
+    LTK_PATCHER_DLL: "6D419057E6667994BA752AD0FB089B363DB98267618644D7F7B6632441A21D74",
+}
+LTK_QA_UNSIGNED_SHA256 = {
+    LTK_PATCHER_HOST: "5E52DC5A30220E735599BE57308CE7BF52E21416CF2C2D9D449A8637F683C4E9",
+    LTK_PATCHER_DLL: "B164A14A2D6C1F1EA6D546782C556050F6F9045DFAB686E4967E7D7CD2E87E29",
+}
+
+
+def _hash_file(path: Path) -> str:
+    checksum = hashlib.sha256()
+    with path.open("rb") as data:
+        for block in iter(lambda: data.read(1024 * 1024), b""):
+            checksum.update(block)
+    return checksum.hexdigest().upper()
+
+
+def _resolve_qa_runtime(tools_dir: Path) -> tuple[Path, list[str]]:
+    supplied = os.environ.get(LTK_QA_RUNTIME_DIR_ENV)
+    if not supplied:
+        return tools_dir, []
+    selected = Path(supplied)
+    if not selected.is_absolute() or not selected.is_dir():
+        return selected, ["invalid local QA runtime directory"]
+    paths = {name: selected / name for name in (LTK_PATCHER_HOST, LTK_PATCHER_DLL)}
+    if any(not path.is_file() for path in paths.values()):
+        return selected, ["incomplete local QA runtime"]
+    try:
+        hashes = {name: _hash_file(path) for name, path in paths.items()}
+    except OSError:
+        return selected, ["unreadable local QA runtime"]
+    if hashes not in (LTK_QA_ORIGINAL_SHA256, LTK_QA_UNSIGNED_SHA256):
+        return selected, ["local QA runtime does not match the reviewed pair"]
+    return selected, []
+
 
 _EOL_MESSAGE = b"end of life reached, please update: "
 _EOL_SEARCH_WINDOW = 0x100
@@ -47,9 +90,10 @@ class LtkPatcherStatus:
 
 def check_ltk_patcher(tools_dir: Path) -> LtkPatcherStatus:
     """Report required LTK files and the DLL's embedded build cutoff."""
-    host = tools_dir / LTK_PATCHER_HOST
-    dll = tools_dir / LTK_PATCHER_DLL
-    missing = [p.name for p in (host, dll) if not p.is_file()]
+    selected_dir, qa_errors = _resolve_qa_runtime(tools_dir)
+    host = selected_dir / LTK_PATCHER_HOST
+    dll = selected_dir / LTK_PATCHER_DLL
+    missing = qa_errors or [p.name for p in (host, dll) if not p.is_file()]
     eol = read_dll_eol(dll) if dll.is_file() else None
     return LtkPatcherStatus(host=host, dll=dll, missing=missing, eol=eol)
 
