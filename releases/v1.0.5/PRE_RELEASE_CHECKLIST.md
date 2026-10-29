@@ -93,6 +93,19 @@ Rose community members in [issue #401](https://github.com/Alban1911/Rose/issues/
 - [ ] Confirm upstream-approved integration, production game compatibility, licensing and actual visible skin rendering before authorizing a PSM public release.
 - [ ] No automatic downgrade, legacy DLL redistribution, bypass of signature/host verification or stable-channel changes are authorized.
 
+## October 29 evening: Rose-reported legacy runtime private source test
+
+After verifying Rose's latest public main (October 22) and latest published release (1.4.9), there is still no new public code fix for the LTK host refusal. Users in Rose [#401](https://github.com/Alban1911/Rose/issues/401) reported working with the original official **LTK v1.28.1** pair, rather than patching the newer DLL.
+
+**Local opt-in implementation committed:**
+- `scripts/review_rose_ltk_v1281.ps1`: separately download and verify official historical files against pinned Git blob IDs, then audit the League executable build cutoff.
+- `scripts/use_rose_legacy_runtime_local.ps1 -Action Activate`: after successful audit and while League/PSM are closed, make a backup of the existing LTK host/DLL and select the unmodified official historical pair **for private local source QA only**.
+- `-Action Restore`: recover the original host/DLL from checksummed backups, with a rollback state file recorded before replacement.
+- The existing `scripts/run_live_qa.ps1` warns when the historical pair is active. The installer builder and v1.30.1 stage helper **refuse to run while the legacy test is active**.
+- Added offline static regression checks and source-QA wiring. Windows tests have **not** been executed yet.
+
+**No public release approval:** The historical pair predates the League 26.21 material parsing fixes, is not a vendor-supported current integration, and may be incompatible with the game or individual skins. No binary is committed to the repository. Test only in Practice Tool using the source app, inspect the sanitized diagnostic, and restore the original pair afterward. No bypass of newer DLL verification, game security modifications, signed binary redistribution or v1.0.5 public package is part of this change.
+
 ## P0: Block publishing until ALL are complete
 
 - [ ] Identify the exact locally bundled `mod-tools.exe`, `ltk_patcher_host.exe`, and `ltk_patcher_dll.dll`. Record each filename, byte size, and SHA-256 using `python scripts/audit_runtime_v105.py --game-dir "C:\\Riot Games\\League of Legends\\Game"`. Supply an explicit, correct League Game folder if installed elsewhere.
