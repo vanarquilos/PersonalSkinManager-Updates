@@ -41,7 +41,7 @@ $Pair = @("ltk_patcher_host.exe", "ltk_patcher_dll.dll")
 if (Test-Path -LiteralPath $LegacyActive -PathType Leaf) {
     Write-Host "Private v1.28.1 local runtime is active; preserving it during RC packaging." -ForegroundColor Cyan
     foreach ($Name in $Pair) {
-        $ActiveFile = Join-Path $Root ("injection\\tools\\" + $Name)
+        $ActiveFile = Join-Path (Join-Path $Root "injection\tools") $Name
         $PinnedFile = Join-Path $Official $Name
         if (-not (Test-Path -LiteralPath $ActiveFile -PathType Leaf) -or
             -not (Test-Path -LiteralPath $PinnedFile -PathType Leaf) -or
