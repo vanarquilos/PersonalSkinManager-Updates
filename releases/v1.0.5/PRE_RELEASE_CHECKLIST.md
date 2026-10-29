@@ -1,3 +1,18 @@
+## Final release decision — October 29, 2026
+
+**NO-GO for the existing v1.0.5 unsigned installer.** Installed runtime fingerprints are host `5E52DC5A30220E735599BE57308CE7BF52E21416CF2C2D9D449A8637F683C4E9` and DLL `B164A14A2D6C1F1EA6D546782C556050F6F9045DFAB686E4967E7D7CD2E87E29`. In the October 29 installed game test, overlay construction succeeded, but the LTK host failed with `hook install failed` and `SetWindowsHookEx failed: 0x00000000` at 21:11:20; selected skin was not applied.
+
+The original signed v1.28.1 source tester has separate hashes and was reported working. **Do not touch, restore, overwrite, or package that working local pair.** Removing a digital signature alters bytes; correlation is not yet proof that the signature removal caused the hook failure. The LeagueToolkit license prevents redistributing official upstream-signed binaries under PSM without permission.
+
+- [x] Confirm installed/default-skin failure and isolate the hook-installation stage using sanitized log evidence
+- [x] Record exact known-bad unsigned host/DLL fingerprints
+- [x] Add a fail-closed publisher block for those fingerprints regardless of manually supplied QA flags
+- [ ] Obtain a compatible, distributable runtime consistent with the upstream license and platform security
+- [ ] Build a new release candidate using separate distribution copies, install it, and demonstrate non-default skin rendering in Practice Tool and Swiftplay, plus a second match
+- [ ] Only then publish a pre-release and verify the GitHub asset hash
+
+**Existing v1.0.4 GitHub releases and stable manifest stay unchanged.**
+
 # Personal Skin Manager v1.0.5 — release readiness checklist
 
 **Prepared:** 2026-10-22. **Updated:** 2026-10-29. **Status: RELEASE-CANDIDATE PREPARATION, NOT YET PUBLISHED.** The current public installer remains v1.0.4 (community-test pre-release). A local v1.0.5 TEST installer was built on 2026-10-27 but did not render the selected skin; it is not approved for distribution. Current debugging proceeds from Python source without rebuilding.
