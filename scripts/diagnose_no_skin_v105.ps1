@@ -1,11 +1,23 @@
 # PSM v1.0.5 - read-only no-skin diagnostics; does not modify game/PSM/runtime.
 # Run after a failed test: powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\diagnose_no_skin_v105.ps1
-param([int]$LogLines = 6000)
+param(
+    [int]$LogLines = 6000,
+    [ValidateSet("Source", "Installed")]
+    [string]$Runtime = "Source",
+    [string]$InstalledDir = "C:\Program Files\Personal Skin Manager"
+)
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$RuntimeTools = Join-Path $Root "injection\tools"
+if ($Runtime -eq "Installed") {
+    $RuntimeTools = Join-Path $InstalledDir "_internal\injection\tools"
+    if (-not (Test-Path -LiteralPath $RuntimeTools -PathType Container)) {
+        $RuntimeTools = Join-Path $InstalledDir "injection\tools"
+    }
+}
 $LogDir = Join-Path $env:LOCALAPPDATA "Rose\logs"
 $IssueFile = Join-Path $env:LOCALAPPDATA "Rose\rose_diagnostics.txt"
 $Report = Join-Path ([Environment]::GetFolderPath("Desktop")) "PSM-v1.0.5-no-skin-report.txt"
@@ -83,6 +95,8 @@ $summary = [System.Collections.Generic.List[string]]::new()
 $summary.Add("PSM v1.0.5 - no-skin diagnosis")
 $summary.Add("Generated: " + (Get-Date -Format "yyyy-MM-dd HH:mm:ss zzz"))
 $summary.Add("This report contains only known failure markers and hashes, not raw logs.")
+$summary.Add("Runtime files selected: $Runtime")
+$summary.Add("Log origin: shared application logs (process attribution unverified).")
 $summary.Add("")
 $summary.Add("Log sessions found: $($Logs.Count)")
 $summary.Add("Session logs since current runtime staging: $($RecentLogs.Count)")
@@ -224,16 +238,16 @@ else {
 }
 
 $summary.Add("")
-$summary.Add("Candidate source runtime hashes (identity only; not compatibility proof):")
+$summary.Add("Selected runtime hashes (identity only; not compatibility proof):")
 foreach ($Name in @("mod-tools.exe", "ltk_patcher_host.exe", "ltk_patcher_dll.dll")) {
-    $p = Join-Path $Root ("injection\tools\" + $Name)
+    $p = Join-Path $RuntimeTools $Name
     if (Test-Path -LiteralPath $p -PathType Leaf) {
         $hash = (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash
         $size = (Get-Item -LiteralPath $p).Length
         $summary.Add(" - " + $Name + ": " + $size + " bytes | SHA-256 " + $hash)
     }
     else {
-        $summary.Add(" - " + $Name + ": missing in source checkout")
+        $summary.Add(" - " + $Name + ": missing in selected runtime directory")
     }
 }
 $candidateAudit = Join-Path $Root "installer\candidates\v1.0.5\reports\runtime-audit.json"
