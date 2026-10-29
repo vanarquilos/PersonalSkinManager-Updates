@@ -45,6 +45,8 @@ For v1.0.5 compatibility testing, the LTK host/DLL source is pinned to `LeagueTo
 
 The local v1.0.5 staging script checks file size and pinned Git blob identity, then audits the embedded DLL cutoff before swapping the original host/DLL as a pair. It preserves backup copies but does not establish in-game compatibility or automatically authorize redistribution.
 
+For the v1.0.5 release candidate, the maintainer reported a successful local source test using original LTK v1.28.1 host/DLL files. The official v1.28.1 binaries are retained unmodified for provenance; the separate release-candidate builder creates copies in an ignored staging directory and uses Microsoft SignTool to remove upstream embedded Authenticode signatures from those copies, in accordance with the LTK Patcher License. It then checks that the actual bundled host and DLL have no upstream signature and match the staged unsigned copies. **The packaged installer must still pass its own gameplay and installation QA before public distribution.**
+
 The retired `cslol-dll.dll` runtime is not required by PSM v1.0.2 and is not part of the v1.0.2 installer.
 
 ## Python dependencies
