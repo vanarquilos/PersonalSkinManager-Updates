@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 if (-not ($Publish -and $ConfirmedCleanInstall -and $ConfirmedPackagedPracticeTool -and
            $ConfirmedPackagedSwiftplay -and $ConfirmedSecondMatch)) {
-    throw "Require -Publish and all four truthful, explicit INSTALLED-PA CKAGE QA confirmations."
+    throw "Require -Publish and all four truthful, explicit INSTALLED-PACKAGE QA confirmations."
 }
 if ($env:OS -ne "Windows_NT") { throw "Windows required." }
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
