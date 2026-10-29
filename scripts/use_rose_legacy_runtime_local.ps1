@@ -4,7 +4,7 @@
 # Before Activate: run scripts/review_rose_ltk_v1281.ps1 and close League/PSM.
 # Restore: powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\use_rose_legacy_runtime_local.ps1 -Action Restore
 param(
-    [ValidateSet("Activate", "Restore")]
+    [ValidateSet("Activate", "Restore", "Status")]
     [string]$Action = "Activate",
     [string]$LeagueGameDir = "C:\Riot Games\League of Legends\Game"
 )
@@ -21,6 +21,42 @@ $Pair = @("ltk_patcher_host.exe", "ltk_patcher_dll.dll")
 
 if ($env:OS -ne "Windows_NT") { throw "Windows required." }
 if (-not (Get-Command python -ErrorAction SilentlyContinue)) { throw "Python unavailable." }
+# Read-only status is available even while League or PSM is running.
+if ($Action -eq "Status") {
+    $MatchesOfficial = $true
+    foreach ($Name in $Pair) {
+        $Installed = Join-Path $Tools $Name
+        $Reference = Join-Path $Candidate $Name
+        if (-not (Test-Path -LiteralPath $Installed -PathType Leaf) -or
+            -not (Test-Path -LiteralPath $Reference -PathType Leaf)) {
+            Write-Warning "Missing active or pinned official file: $Name"
+            $MatchesOfficial = $false
+            continue
+        }
+        $InstalledHash = (Get-FileHash -LiteralPath $Installed -Algorithm SHA256).Hash
+        $ReferenceHash = (Get-FileHash -LiteralPath $Reference -Algorithm SHA256).Hash
+        if ($InstalledHash -eq $ReferenceHash) {
+            Write-Host "MATCH: $Name is the original LTK v1.28.1 binary." -ForegroundColor Green
+        }
+        else {
+            Write-Warning "DIFFERENT: $Name is not the official v1.28.1 binary."
+            $MatchesOfficial = $false
+        }
+    }
+    if (Test-Path -LiteralPath $StatePath -PathType Leaf) {
+        Write-Host "Local runtime backup and restore record: present"
+    }
+    else {
+        Write-Host "Local runtime backup and restore record: absent"
+    }
+    if ($MatchesOfficial) {
+        Write-Host "Active PSM host/DLL pair matches the Rose-reported v1.28.1 source-test pair." -ForegroundColor Green
+        exit 0
+    }
+    Write-Warning "The active pair differs from the tested version. Run -Action Activate with PSM and League closed."
+    exit 2
+}
+
 $Active = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
     $_.ProcessName -in @(
         "PersonalSkinManager", "League of Legends",
@@ -80,7 +116,22 @@ if ($Action -eq "Restore") {
 }
 
 if (Test-Path -LiteralPath $StatePath -PathType Leaf) {
-    throw "Legacy runtime already activated. Run -Action Restore first."
+    $Matching = $true
+    foreach ($Name in $Pair) {
+        $Existing = Join-Path $Tools $Name
+        $Known = Join-Path $Candidate $Name
+        if (-not (Test-Path -LiteralPath $Existing -PathType Leaf) -or
+            -not (Test-Path -LiteralPath $Known -PathType Leaf) -or
+            (Get-FileHash -LiteralPath $Existing -Algorithm SHA256).Hash -ne
+            (Get-FileHash -LiteralPath $Known -Algorithm SHA256).Hash) {
+            $Matching = $false
+        }
+    }
+    if ($Matching) {
+        Write-Host "Original LTK v1.28.1 pair is already active; keeping your working setup." -ForegroundColor Green
+        exit 0
+    }
+    throw "Backup state exists but active files differ. Inspect the saved restore state before making changes."
 }
 Verify-ExistingPair $Tools
 Verify-ExistingPair $Candidate
@@ -161,4 +212,5 @@ catch {
 Write-Host "Official historical LTK host/DLL selected for LOCAL SOURCE QA." -ForegroundColor Green
 Write-Host "Backup retained under: $Backup"
 Write-Host "Run scripts/run_live_qa.ps1 for source-only Practice Tool testing."
-Write-Host "Restore afterward using -Action Restore. Do not build or publish an installer."
+Write-Host "Keep the v1.28.1 pair active for source testing. Restore only if you intentionally want the old pair again."
+Write-Host "The release-candidate builder uses isolated unsigned copies, not this working local pair."
