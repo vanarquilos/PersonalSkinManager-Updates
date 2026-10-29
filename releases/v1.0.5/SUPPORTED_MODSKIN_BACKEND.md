@@ -11,6 +11,17 @@
 - LTK's [ecosystem integration documentation](https://github.com/LeagueToolkit/wiki/blob/1964862c571555cca6662575cafe6bd58ae6bf8a/src/content/docs/developers/ecosystem-integration.mdx) describes `.fantome` and `.modpkg` interoperability, but explicitly says a public mod-management/overlay API and replacement LTK modtools CLI are not yet available.
 - LTK's `ltk://install` documented deep-link accepts **HTTPS package URLs**, not a local file path, and is a user-facing *install* workflow. It does not grant PSM permission or a mechanism to start a patcher session.
 
+## October 29: Rose community v1.28.1 compatibility workaround
+
+Rose has **not** published a code fix for the vendor host-verification refusal. In [Rose issue #401](https://github.com/Alban1911/Rose/issues/401), several users report restoring skins by reverting their LTK patcher host/DLL to *official* LTK Manager v1.28.1, before the intentional third-party-host check. This is an unofficial community workaround, **not a vendor-authorized integration** and **not a PSM release solution**.
+
+- Official historical tag: [v1.28.1](https://github.com/LeagueToolkit/ltk-manager/releases/tag/v1.28.1), commit `9f06802de5d83d6dde3ff1644a1c56049fadf9bb`.
+- Host Git blob `b2fc81c6de7bf5b40b81daaf8987706308ed5b33`, 1,238,272 bytes; DLL Git blob `0cd0f58530906c3792e3189ea8af1a8f8bc6f264`, 764,160 bytes. Confirmed against the official tag tree.
+- Community reports an October 18, 2026 07:00 UTC **game executable build** cutoff. Last PSM League executable was built October 16 22:15 UTC, but a newer League update would invalidate that comparison.
+- The older pair predates the [LTK v1.29.1 material-format parser fix](https://github.com/LeagueToolkit/ltk-manager/releases/tag/v1.29.1) for League 26.21 and may fail on some champion WADs.
+- Added `scripts/audit_ltk_v1281_compatibility.py` as a **read-only identity and build-cutoff check** for separately obtained official binaries. It will not install, start, copy, replace, or alter the runtime, and it does not assert that PSM is authorized as a patcher host.
+- No automatic downgrade, binary patches, host impersonation, verification bypass, or redistribution is implemented.
+
 ## Technical decision
 
 Do **not** fake/impersonate the official host, patch the DLL, force-disable verification, or substitute old binaries to evade the host policy. Do not advertise 'skin applied' unless gameplay and WAD redirection are confirmed. Keep a clear hard failure in PSM on host verification refusal.
