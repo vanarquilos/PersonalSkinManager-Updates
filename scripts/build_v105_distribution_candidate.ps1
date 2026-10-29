@@ -129,6 +129,15 @@ foreach ($Name in $Pair) {
     Write-Host "Reviewed unsigned copy: $Name"
 }
 
+# The exact 2026-10-29 unsigned pair has repeatedly failed hook installation.
+# Never rebuild an installer that is known to display only the default skin.
+$RejectedHost = "5E52DC5A30220E735599BE57308CE7BF52E21416CF2C2D9D449A8637F683C4E9"
+$RejectedDll = "B164A14A2D6C1F1EA6D546782C556050F6F9045DFAB686E4967E7D7CD2E87E29"
+if ($UnsignedHashes["ltk_patcher_host.exe"] -eq $RejectedHost -and
+    $UnsignedHashes["ltk_patcher_dll.dll"] -eq $RejectedDll) {
+    throw "Known failing unsigned pair: SetWindowsHookEx failed. Do not rebuild or publish this RC. Run the isolated source A/B test and use a verified distributable alternative."
+}
+
 Write-Host "4/5: Build standalone installer using ONLY the staged LTK copies" -ForegroundColor Cyan
 $PriorOverride = [Environment]::GetEnvironmentVariable("PSM_RELEASE_LTK_DIR")
 try {
