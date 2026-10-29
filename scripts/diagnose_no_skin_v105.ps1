@@ -61,6 +61,13 @@ if (Test-Path -LiteralPath $OriginPath -PathType Leaf) {
     }
 }
 $RecentLogs = @($Logs | Where-Object { $_.LastWriteTime -ge $EvidenceSince })
+# Check for stale shared-log evidence. A late report does not mean the
+# application produced an associated game session. Never turn zero markers
+# in an older log into proof that the installed patcher succeeded or failed.
+$NewestLogAgeMinutes = $null
+if ($Logs.Count -gt 0) {
+    $NewestLogAgeMinutes = [int][math]::Floor(((Get-Date) - $Logs[0].LastWriteTime).TotalMinutes)
+}
 # Analyze only the latest log so older game sessions cannot hide current behavior.
 $EvidenceLogs = @($RecentLogs | Select-Object -First 1)
 $lines = @()
@@ -96,6 +103,10 @@ $summary.Add("PSM v1.0.5 - no-skin diagnosis")
 $summary.Add("Generated: " + (Get-Date -Format "yyyy-MM-dd HH:mm:ss zzz"))
 $summary.Add("This report contains only known failure markers and hashes, not raw logs.")
 $summary.Add("Runtime files selected: $Runtime")
+if ($Runtime -eq "Installed") {
+    $summary.Add("Installed runtime path: provided or default, omitted from report.")
+    $summary.Add("Log source: shared Rose directory; NOT positively attributed to installed PSM.")
+}
 $summary.Add("Log origin: shared application logs (process attribution unverified).")
 $summary.Add("")
 $summary.Add("Log sessions found: $($Logs.Count)")
@@ -116,6 +127,12 @@ else {
 }
 
 $summary.Add("")
+if ($Logs.Count -gt 0) {
+    $summary.Add("Newest shared-log age in minutes: " + $NewestLogAgeMinutes)
+    if ($NewestLogAgeMinutes -gt 10) {
+        $summary.Add("WARNING: latest shared log is stale (>10 minutes). It may not cover the installed-app test.")
+    }
+}
 $summary.Add("Latest session evidence (no raw paths):")
 $debugRequested = @($lines | Where-Object { $_ -match 'DLL log level:\s*DEBUG \(local source QA\)' }).Count -gt 0
 $infoRequested = @($lines | Where-Object { $_ -match 'DLL log level:\s*INFO' }).Count -gt 0
@@ -250,7 +267,13 @@ foreach ($Name in @("mod-tools.exe", "ltk_patcher_host.exe", "ltk_patcher_dll.dl
         $summary.Add(" - " + $Name + ": missing in selected runtime directory")
     }
 }
+# The older source audit may cover an entirely different host/DLL pair.
+# Do not represent it as the installed runtime's compatibility verdict.
 $candidateAudit = Join-Path $Root "installer\candidates\v1.0.5\reports\runtime-audit.json"
+if ($Runtime -eq "Installed") {
+    $summary.Add("Historical source build-time audit: excluded from installed-runtime compatibility verdict.")
+    $candidateAudit = Join-Path $Root "installer\candidates\v1.0.5\reports\not-an-installed-audit.json"
+}
 if (Test-Path -LiteralPath $candidateAudit -PathType Leaf) {
     # The audit is a local JSON file that may contain user paths. Include
     # only build/cutoff UTC timestamps and sanitized test findings.
