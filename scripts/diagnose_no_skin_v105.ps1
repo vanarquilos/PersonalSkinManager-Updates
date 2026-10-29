@@ -272,9 +272,8 @@ foreach ($Name in @("mod-tools.exe", "ltk_patcher_host.exe", "ltk_patcher_dll.dl
 $candidateAudit = Join-Path $Root "installer\candidates\v1.0.5\reports\runtime-audit.json"
 if ($Runtime -eq "Installed") {
     $summary.Add("Historical source build-time audit: excluded from installed-runtime compatibility verdict.")
-    $candidateAudit = Join-Path $Root "installer\candidates\v1.0.5\reports\not-an-installed-audit.json"
 }
-if (Test-Path -LiteralPath $candidateAudit -PathType Leaf) {
+if ($Runtime -eq "Source" -and (Test-Path -LiteralPath $candidateAudit -PathType Leaf)) {
     # The audit is a local JSON file that may contain user paths. Include
     # only build/cutoff UTC timestamps and sanitized test findings.
     try {
