@@ -14,7 +14,21 @@ $Names = @("ltk_patcher_host.exe", "ltk_patcher_dll.dll")
 $Rows = @()
 foreach ($Group in $Groups.Keys) {
     foreach ($Name in $Names) {
-        $Items = @(Get-ChildItem -LiteralPath $Groups[$Group] -Recurse -File -Filter $Name -ErrorAction SilentlyContinue)
+        # Source and reference directories contain other nested copies; inspect
+        # only the actual runtime file in each expected location.
+        if ($Group -eq "build output" -or $Group -eq "installed PSM") {
+            $Base = Join-Path $Groups[$Group] "_internal\injection\tools"
+            $Candidate = Join-Path $Base $Name
+            if (-not (Test-Path -LiteralPath $Candidate -PathType Leaf)) {
+                $Candidate = Join-Path (Join-Path $Groups[$Group] "injection\tools") $Name
+            }
+        } else {
+            $Candidate = Join-Path $Groups[$Group] $Name
+        }
+        $Items = @()
+        if (Test-Path -LiteralPath $Candidate -PathType Leaf) {
+            $Items = @(Get-Item -LiteralPath $Candidate)
+        }
         if ($Items.Count -eq 1) {
             $Rows += [pscustomobject]@{
                 group = $Group
@@ -35,6 +49,8 @@ foreach ($Group in $Groups.Keys) {
     }
 }
 $Rows | Format-Table -AutoSize group,file,status,signature,sha256
+Write-Host "Full fingerprints:"
+$Rows | ForEach-Object { Write-Host ("{0} | {1} | {2} | {3}" -f $_.group, $_.file, $_.signature, $_.sha256) }
 foreach ($Name in $Names) {
     $Source = @($Rows | Where-Object { $_.group -eq "working tester" -and $_.file -eq $Name })[0]
     $Installed = @($Rows | Where-Object { $_.group -eq "installed PSM" -and $_.file -eq $Name })[0]
