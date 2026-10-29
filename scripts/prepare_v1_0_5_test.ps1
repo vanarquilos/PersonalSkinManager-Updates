@@ -22,7 +22,7 @@ $ReportDir = Join-Path $OutDir "reports"
 # Never package official-signed legacy runtime files selected for source QA.
 $LegacyTest = Join-Path $Root "injection\tools\_v105_rose_legacy_local_state.json"
 if (Test-Path -LiteralPath $LegacyTest -PathType Leaf) {
-    throw "Legacy Rose test runtime is active. Restore the original LTK pair before building an installer."
+    throw "Private source-test runtime is active. This legacy builder cannot package it; use build_v105_distribution_candidate.ps1 for isolated unsigned release inputs. Do not Restore the working pair merely to build."
 }
 
 if ($env:OS -ne "Windows_NT") { throw "Requires Windows." }
