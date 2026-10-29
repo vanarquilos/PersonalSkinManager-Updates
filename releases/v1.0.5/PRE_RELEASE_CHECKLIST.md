@@ -82,6 +82,17 @@ Maintainer reran the **read-only diagnostic** against the same October 29 07:28 
 - Source changes already detect and report this failure; the report predates the latest source detection addition, so no claim is made that the runtime-side error dialog was tested on Windows.
 - The PR stays draft and stable `v1.0.4` remains unchanged.
 
+## October 29: Historical v1.28.1 compatibility evaluation (read-only)
+
+Rose community members in [issue #401](https://github.com/Alban1911/Rose/issues/401) report that official LTK Manager v1.28.1 patcher host/DLL pairs worked for them. Rose itself did **not** commit a host-verification fix. That older pair predates the third-party-host restriction but also predates League 26.21's [material-format repair in v1.29.1](https://github.com/LeagueToolkit/ltk-manager/releases/tag/v1.29.1). Neither gameplay compatibility nor authorization follows from a successful prior report.
+
+- [x] Pinned the official v1.28.1 tag's two original Git blobs and file sizes in a new **read-only** auditor `scripts/audit_ltk_v1281_compatibility.py`.
+- [x] Added standalone offline tests for the Git object fingerprint, missing files, cutoff and identity mismatch.
+- [x] Included those tests in the source QA and manual GitHub checks.
+- [ ] On Windows, run the auditor only against separately obtained official binaries and the *current* League Game folder. This does **not** stage or execute the older files.
+- [ ] Confirm upstream-approved integration, production game compatibility, licensing and actual visible skin rendering before authorizing a PSM public release.
+- [ ] No automatic downgrade, legacy DLL redistribution, bypass of signature/host verification or stable-channel changes are authorized.
+
 ## P0: Block publishing until ALL are complete
 
 - [ ] Identify the exact locally bundled `mod-tools.exe`, `ltk_patcher_host.exe`, and `ltk_patcher_dll.dll`. Record each filename, byte size, and SHA-256 using `python scripts/audit_runtime_v105.py --game-dir "C:\\Riot Games\\League of Legends\\Game"`. Supply an explicit, correct League Game folder if installed elsewhere.
