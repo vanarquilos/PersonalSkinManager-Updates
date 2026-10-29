@@ -1,6 +1,6 @@
 # Personal Skin Manager v1.0.5 — release readiness checklist
 
-**Prepared:** 2026-10-22. **Updated:** 2026-10-29. **Status: PRIVATE SOURCE-QA CANDIDATE, NOT RELEASE-READY.** The current public installer remains v1.0.4 (community-test pre-release). A local v1.0.5 TEST installer was built on 2026-10-27 but did not render the selected skin; it is not approved for distribution. Current debugging proceeds from Python source without rebuilding.
+**Prepared:** 2026-10-22. **Updated:** 2026-10-29. **Status: RELEASE-CANDIDATE PREPARATION, NOT YET PUBLISHED.** The current public installer remains v1.0.4 (community-test pre-release). A local v1.0.5 TEST installer was built on 2026-10-27 but did not render the selected skin; it is not approved for distribution. Current debugging proceeds from Python source without rebuilding.
 
 ## Scope and evidence
 
@@ -105,6 +105,20 @@ After verifying Rose's latest public main (October 22) and latest published rele
 - Added offline static regression checks and source-QA wiring. Windows tests have **not** been executed yet.
 
 **No public release approval:** The historical pair predates the League 26.21 material parsing fixes, is not a vendor-supported current integration, and may be incompatible with the game or individual skins. No binary is committed to the repository. Test only in Practice Tool using the source app, inspect the sanitized diagnostic, and restore the original pair afterward. No bypass of newer DLL verification, game security modifications, signed binary redistribution or v1.0.5 public package is part of this change.
+
+## October 29 evening: maintainer source test succeeded; distributable installer pending
+
+The maintainer reports that the legacy v1.28.1 source test is now **working**. This is user-reported gameplay feedback, not an uploaded rendered-skin screenshot, new WAD redirect report, or packaged installer QA record.
+
+We are preparing a *separate* redistributable candidate:
+- [x] PyInstaller spec accepts `PSM_RELEASE_LTK_DIR` for only the two patcher host/DLL inputs, keeping `mod-tools.exe` in the reviewed tools directory.
+- [x] Added `scripts/build_v105_distribution_candidate.ps1` which audits the original pinned v1.28.1 files, copies them into an ignored staging directory, invokes Windows SDK `signtool remove /s` **on the copies only**, checks that their embedded Authenticode signatures are absent, and builds a local v1.0.5 RC installer.
+- [x] The builder verifies that the *actual bundled* host and DLL match the unsigned staging files by SHA-256, checks that private state and signing materials are absent, and creates a release-candidate hash manifest.
+- [x] Existing source and tests include release-specific packaging safeguards; `releases/v1.0.5/RELEASE_NOTES_DRAFT.md` contains notes for a future GitHub pre-release.
+- [ ] Run Windows source tests and the new candidate builder. Windows SDK SignTool and Inno Setup are required.
+- [ ] **Install and gameplay-test the unsigned-binary RC** in Practice Tool, Swiftplay and a second match. A working original signed local pair does not prove that its signature-removed distribution copy works.
+- [ ] Confirm installer hash, license notices, version/channel copy, installation/uninstallation, and publish a `v1.0.5` GitHub **pre-release** only after QA.
+- [ ] Keep existing GitHub releases and stable updater manifest unchanged until the release is approved.
 
 ## P0: Block publishing until ALL are complete
 
