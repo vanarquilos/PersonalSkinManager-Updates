@@ -35,8 +35,21 @@ $Dist = Join-Path $Root "dist\PersonalSkinManager"
 $LegacyActive = Join-Path $Root "injection\tools\_v105_rose_legacy_local_state.json"
 $Pair = @("ltk_patcher_host.exe", "ltk_patcher_dll.dll")
 
+# Keep the working local v1.28.1 pair untouched. The build copies the
+# pinned originals into an isolated unsigned distribution input directory.
+# Having a private test-selection state is not itself a packaging failure.
 if (Test-Path -LiteralPath $LegacyActive -PathType Leaf) {
-    throw "Restore the active historical runtime with -Action Restore before building a release candidate."
+    Write-Host "Private v1.28.1 local runtime is active; preserving it during RC packaging." -ForegroundColor Cyan
+    foreach ($Name in $Pair) {
+        $ActiveFile = Join-Path $Root ("injection\\tools\\" + $Name)
+        $PinnedFile = Join-Path $Official $Name
+        if (-not (Test-Path -LiteralPath $ActiveFile -PathType Leaf) -or
+            -not (Test-Path -LiteralPath $PinnedFile -PathType Leaf) -or
+            (Get-FileHash -LiteralPath $ActiveFile -Algorithm SHA256).Hash -ne
+            (Get-FileHash -LiteralPath $PinnedFile -Algorithm SHA256).Hash) {
+            throw "Private test state exists, but the active $Name differs from the pinned original. Refusing to proceed until reviewed."
+        }
+    }
 }
 foreach ($Command in @("git", "python")) {
     if (-not (Get-Command $Command -ErrorAction SilentlyContinue)) {
@@ -48,6 +61,12 @@ if (-not (Test-Path -LiteralPath $LeagueGameDir -PathType Container)) {
 }
 if (-not (Test-Path -LiteralPath (Join-Path $Root "injection\tools\mod-tools.exe") -PathType Leaf)) {
     throw "Required locally reviewed mod-tools.exe is missing."
+}
+$Processes = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
+    $_.ProcessName -in @("PersonalSkinManager", "League of Legends", "League of Legends (TM) Client", "ltk_patcher_host")
+})
+if ($Processes.Count -gt 0) {
+    throw "Close PSM, League gameplay and the patcher before building the installer; files will not be changed."
 }
 Set-Location -LiteralPath $Root
 $Branch = (& git branch --show-current).Trim()
