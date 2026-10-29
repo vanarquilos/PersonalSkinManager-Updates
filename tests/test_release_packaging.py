@@ -66,12 +66,11 @@ class ReleasePackagingTests(unittest.TestCase):
 
     def test_spec_bundles_current_runtime(self):
         spec = (ROOT / "PersonalSkinManager.spec").read_text(encoding="utf-8")
-        for path in (
-            "injection/tools/mod-tools.exe",
-            "injection/tools/ltk_patcher_host.exe",
-            "injection/tools/ltk_patcher_dll.dll",
-        ):
-            self.assertIn(path, spec)
+        self.assertIn("injection/tools/mod-tools.exe", spec)
+        self.assertIn("PSM_RELEASE_LTK_DIR", spec)
+        self.assertIn("ltk_patcher_host.exe", spec)
+        self.assertIn("ltk_patcher_dll.dll", spec)
+        self.assertIn("release_ltk_root", spec)
         self.assertIn("'injection.overlay.ltk_host'", spec)
 
     def test_legacy_cslol_startup_dependency_is_retired(self):
