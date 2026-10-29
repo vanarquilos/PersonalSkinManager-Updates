@@ -39,9 +39,9 @@ foreach ($Name in $Names) {
     $Source = @($Rows | Where-Object { $_.group -eq "working tester" -and $_.file -eq $Name })[0]
     $Installed = @($Rows | Where-Object { $_.group -eq "installed PSM" -and $_.file -eq $Name })[0]
     if ($Source.status -ne "found" -or $Installed.status -ne "found") {
-        Write-Warning "$Name: cannot compare; verify installed directory."
+        Write-Warning "${Name}: cannot compare; verify installed directory."
     } elseif ($Source.sha256 -ne $Installed.sha256) {
-        Write-Warning "$Name: installed copy differs from working tester."
+        Write-Warning "${Name}: installed copy differs from working tester."
     } else {
         Write-Host "$Name matches the tester byte-for-byte." -ForegroundColor Green
     }
