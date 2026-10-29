@@ -45,8 +45,8 @@ class LegacyRuntimeLocalContractTests(unittest.TestCase):
         self.assertIn(key, self.script)
         self.assertIn(key, self.release)
         self.assertIn(key, self.staging)
-        self.assertIn("before building an installer", self.release)
-        self.assertIn("before staging another LTK pair", self.staging)
+        self.assertIn("use build_v105_distribution_candidate.ps1", self.release)
+        self.assertIn("Do not overwrite it with v1.30.1 staging", self.staging)
 
     def test_no_binary_modification_or_verification_override(self):
         self.assertNotIn("Set-AuthenticodeSignature", self.script)
