@@ -10,6 +10,7 @@ therefore remain valid after its calendar EOL until League itself updates.
 
 import struct
 import os
+import sys
 import hashlib
 from dataclasses import dataclass
 from pathlib import Path
@@ -46,6 +47,10 @@ def _hash_file(path: Path) -> str:
 
 
 def _resolve_qa_runtime(tools_dir: Path) -> tuple[Path, list[str]]:
+    # QA overrides must never redirect the frozen production executable.
+    # Its LTK host/DLL must come exclusively from the audited installed tree.
+    if getattr(sys, "frozen", False):
+        return tools_dir, []
     supplied = os.environ.get(LTK_QA_RUNTIME_DIR_ENV)
     if not supplied:
         return tools_dir, []
