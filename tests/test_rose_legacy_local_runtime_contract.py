@@ -28,7 +28,7 @@ class LegacyRuntimeLocalContractTests(unittest.TestCase):
         self.assertNotIn("Invoke-WebRequest", self.script)
 
     def test_rollback_record_written_before_activation(self):
-        self.assertIn('ValidateSet("Activate", "Restore")', self.script)
+        self.assertIn('ValidateSet("Activate", "Restore", "Status")', self.script)
         self.assertIn("original_sha256 = $Hashes", self.script)
         self.assertIn("PRIVATE_SOURCE_QA_ONLY", self.script)
         record = self.script.index("$State | ConvertTo-Json -Depth 5 | Set-Content")
@@ -36,6 +36,9 @@ class LegacyRuntimeLocalContractTests(unittest.TestCase):
         self.assertLess(record, changed)
         self.assertIn('if ($Action -eq "Restore")', self.script)
         self.assertIn("Restored the original local LTK host/DLL pair.", self.script)
+        self.assertIn('if ($Action -eq "Status")', self.script)
+        self.assertIn("Active PSM host/DLL pair matches", self.script)
+        self.assertIn("already active; keeping your working setup", self.script)
 
     def test_release_and_staging_block_active_legacy_session(self):
         key = "_v105_rose_legacy_local_state.json"
