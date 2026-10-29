@@ -10,6 +10,10 @@ Set-StrictMode -Version Latest
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Set-Location -LiteralPath $Root
 $Tools = Join-Path $Root "injection\tools"
+$LegacyTest = Join-Path $Tools "_v105_rose_legacy_local_state.json"
+if (Test-Path -LiteralPath $LegacyTest -PathType Leaf) {
+    throw "Restore the active Rose legacy local-test runtime before staging another LTK pair."
+}
 $Commit = "044e6b5fc2dfe78d92dc5a5ada3e0f57f32860f6"
 $Files = @(
     @{ Name = "ltk_patcher_host.exe"; Size = 1239304; Blob = "1636152586db31d40f4331dba07e752c7a929b90" },
