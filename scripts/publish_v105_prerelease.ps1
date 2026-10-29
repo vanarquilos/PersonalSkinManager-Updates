@@ -32,8 +32,10 @@ foreach ($Cmd in @("git", "gh")) {
         throw "$Cmd is unavailable. Install GitHub CLI and authenticate with gh auth login."
     }
 }
+# Publishing uses the already-built, SHA-256-checked distribution candidate.
+# Leave the maintainer's working source-test runtime untouched.
 if (Test-Path -LiteralPath $LegacyState -PathType Leaf) {
-    throw "Restore the private legacy runtime before publishing."
+    Write-Host "Private LTK v1.28.1 pair remains selected for source use; publishing only the separately verified RC." -ForegroundColor Cyan
 }
 foreach ($Path in @($AuditFile, $Candidate, $NotesFile)) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
