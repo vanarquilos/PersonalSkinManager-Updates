@@ -34,6 +34,33 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\review_
 If the League Game folder is elsewhere, pass `-LeagueGameDir` explicitly. Keep downloaded candidate files in the isolated audit-only directory. **Do not use those binaries in PSM or distribute them merely because the identity and cutoff checks pass.**
 - No automatic downgrade, binary patches, host impersonation, verification bypass, or redistribution is implemented.
 
+## Opt-in local compatibility test using Rose-reported historical files
+
+The `scripts/use_rose_legacy_runtime_local.ps1` helper now supports an **explicit private source-only** test. It does not patch or spoof the DLL. After the separate `review_rose_ltk_v1281.ps1` downloads the original pinned v1.28.1 pair, it validates identity and the current game build, backs up the active PSM host/DLL to an ignored installer-candidate directory, records the restore manifest **before** replacing them locally, and selects those unmodified historical files in `injection/tools`. This is reversible with `-Action Restore`.
+
+The private test is NOT a vendor-supported API. This approach uses an older build before later third-party host checks and before the 26.21 material-parser fixes, so individual champions may still fail. It must **never** be packaged or published as a PSM release. The local installer-build script and v1.30.1 staging script refuse to proceed while this historical test state is active.
+
+From an up-to-date local Windows checkout, with PSM and League fully closed:
+
+```powershell
+Set-Location -LiteralPath "C:\Users\Van Arquilos\Desktop\PersonalSkinManager-Updates"
+git switch fix/v1.0.5-pre-release-hardening
+git pull --ff-only origin fix/v1.0.5-pre-release-hardening
+python -m unittest tests.test_ltk_v1281_compatibility_audit tests.test_rose_legacy_review_contract tests.test_rose_legacy_local_runtime_contract tests.test_ltk_host_protocol
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\review_rose_ltk_v1281.ps1"
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\use_rose_legacy_runtime_local.ps1" -Action Activate
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\run_live_qa.ps1"
+```
+
+**After testing and closing League/PSM**, generate the sanitized report and restore:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\diagnose_no_skin_v105.ps1"
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\use_rose_legacy_runtime_local.ps1" -Action Restore
+```
+
+Use `-LeagueGameDir "<actual Game folder>"` on **both** review and activation if League is installed elsewhere. Keep unmodified binaries private, retain build provenance, do not attempt to bypass game security or vendor verification in newer DLLs, and do not claim skin success without actual in-game rendering.
+
 ## Technical decision
 
 Do **not** fake/impersonate the official host, patch the DLL, force-disable verification, or substitute old binaries to evade the host policy. Do not advertise 'skin applied' unless gameplay and WAD redirection are confirmed. Keep a clear hard failure in PSM on host verification refusal.
