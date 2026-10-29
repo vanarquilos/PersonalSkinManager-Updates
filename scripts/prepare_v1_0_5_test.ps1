@@ -19,6 +19,11 @@ $Installer = Join-Path $Root "installer\PersonalSkinManager_Setup.exe"
 $OutDir = Join-Path $Root "installer\candidates\v1.0.5"
 $TestInstaller = Join-Path $OutDir "PersonalSkinManager_Setup_v1.0.5-TEST.exe"
 $ReportDir = Join-Path $OutDir "reports"
+# Never package official-signed legacy runtime files selected for source QA.
+$LegacyTest = Join-Path $Root "injection\tools\_v105_rose_legacy_local_state.json"
+if (Test-Path -LiteralPath $LegacyTest -PathType Leaf) {
+    throw "Legacy Rose test runtime is active. Restore the original LTK pair before building an installer."
+}
 
 if ($env:OS -ne "Windows_NT") { throw "Requires Windows." }
 foreach ($Cmd in @("git", "python")) {
