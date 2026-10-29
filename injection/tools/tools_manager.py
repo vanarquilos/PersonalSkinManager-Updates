@@ -78,10 +78,11 @@ class ToolsManager:
 
     def detect_tools(self) -> Dict[str, Path]:
         """Return overlay builder and current LTK runtime paths."""
+        patcher = check_ltk_patcher(self.tools_dir)
         tools = {
             "modtools": self.tools_dir / "mod-tools.exe",
-            "ltk_host": self.tools_dir / LTK_PATCHER_HOST,
-            "ltk_dll": self.tools_dir / LTK_PATCHER_DLL,
+            "ltk_host": patcher.host,
+            "ltk_dll": patcher.dll,
         }
         for name, path in tools.items():
             if not path.exists():
