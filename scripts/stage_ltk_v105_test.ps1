@@ -12,7 +12,7 @@ Set-Location -LiteralPath $Root
 $Tools = Join-Path $Root "injection\tools"
 $LegacyTest = Join-Path $Tools "_v105_rose_legacy_local_state.json"
 if (Test-Path -LiteralPath $LegacyTest -PathType Leaf) {
-    throw "Restore the active Rose legacy local-test runtime before staging another LTK pair."
+    throw "Original LTK v1.28.1 source-test runtime is active. Do not overwrite it with v1.30.1 staging; use build_v105_distribution_candidate.ps1 for release packaging."
 }
 $Commit = "044e6b5fc2dfe78d92dc5a5ada3e0f57f32860f6"
 $Files = @(
