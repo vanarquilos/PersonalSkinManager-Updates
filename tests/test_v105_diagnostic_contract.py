@@ -19,6 +19,14 @@ class V105DiagnosticContractTests(unittest.TestCase):
         self.assertIn('$summary | Set-Content', self.source)
         self.assertNotIn('$lines | Set-Content', self.source)
 
+    def test_installed_runtime_does_not_reuse_source_cutoff_audit(self):
+        self.assertIn('Runtime files selected: $Runtime', self.source)
+        self.assertIn('Newest shared-log age in minutes:', self.source)
+        self.assertIn('latest shared log is stale', self.source)
+        self.assertIn('Log source: shared Rose directory; NOT positively attributed', self.source)
+        self.assertIn('Historical source build-time audit: excluded', self.source)
+        self.assertIn('$Runtime -eq "Source" -and (Test-Path -LiteralPath $candidateAudit', self.source)
+
     def test_vendor_host_verification_has_separate_terminal_classification(self):
         self.assertIn('"LTK host verification refused"', self.source)
         self.assertIn('$Counts["LTK host verification refused"] -gt 0', self.source)
