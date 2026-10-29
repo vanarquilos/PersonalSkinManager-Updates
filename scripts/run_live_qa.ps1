@@ -30,9 +30,20 @@ Write-Host "Python: $pythonVersion"
 
 $LegacyState = Join-Path $Root "injection\tools\_v105_rose_legacy_local_state.json"
 if (Test-Path -LiteralPath $LegacyState -PathType Leaf) {
-    Write-Warning "PRIVATE LOCAL QA: original historical LTK v1.28.1 runtime selected."
-    Write-Warning "It predates League 26.21 material parsing fixes and is not approved for installer distribution."
-    Write-Warning "After testing, close PSM and League and run scripts/use_rose_legacy_runtime_local.ps1 -Action Restore."
+    Write-Host "PRIVATE SOURCE QA: verifying selected LTK v1.28.1 host/DLL pair." -ForegroundColor Cyan
+    $Pinned = Join-Path $Root "installer\candidates\v1.0.5\audit-only-ltk-v1.28.1"
+    foreach ($Name in @("ltk_patcher_host.exe", "ltk_patcher_dll.dll")) {
+        $ActiveFile = Join-Path $Root ("injection\tools\" + $Name)
+        $PinnedFile = Join-Path $Pinned $Name
+        if (-not (Test-Path -LiteralPath $ActiveFile -PathType Leaf) -or
+            -not (Test-Path -LiteralPath $PinnedFile -PathType Leaf) -or
+            (Get-FileHash -LiteralPath $ActiveFile -Algorithm SHA256).Hash -ne
+            (Get-FileHash -LiteralPath $PinnedFile -Algorithm SHA256).Hash) {
+            throw "Active $Name differs from the Rose-reported tested pair. Close PSM/League and run use_rose_legacy_runtime_local.ps1 -Action Status."
+        }
+        Write-Host "Verified active original LTK v1.28.1 file: $Name" -ForegroundColor Green
+    }
+    Write-Warning "Keep this source test pair if it works. The separate release installer uses independently staged unsigned copies."
 }
 
 $requiredRuntime = @(
