@@ -29,11 +29,12 @@ class PreReleasePublicationContracts(unittest.TestCase):
         self.assertIn("source_commit -ne $Head", self.publish)
         self.assertIn("Hash -ne [string]$Audit.sha256", self.publish)
 
-    def test_known_failing_unsigned_host_and_dll_cannot_be_published(self):
-        self.assertIn("5E52DC5A30220E735599BE57308CE7BF52E21416CF2C2D9D449A8637F683C4E9", self.publish)
-        self.assertIn("B164A14A2D6C1F1EA6D546782C556050F6F9045DFAB686E4967E7D7CD2E87E29", self.publish)
-        self.assertIn("Known failing unsigned LTK pair", self.publish)
-        self.assertIn("SetWindowsHookEx", self.publish)
+    def test_old_elevated_candidate_cannot_be_published(self):
+        self.assertIn('$Audit.launch_profile -ne "asInvoker"', self.publish)
+        self.assertIn("Legacy or unreviewed release candidate", self.publish)
+        self.assertIn("ConfirmedPackagedPracticeTool", self.publish)
+        self.assertIn("ConfirmedPackagedSwiftplay", self.publish)
+        self.assertIn("ConfirmedSecondMatch", self.publish)
 
     def test_github_release_is_prerelease_and_non_destructive(self):
         self.assertIn("gh release create $Tag $Published", self.publish)
