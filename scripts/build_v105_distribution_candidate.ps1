@@ -96,6 +96,7 @@ $Tests = @(
     "tests.test_rose_legacy_review_contract",
     "tests.test_rose_legacy_local_runtime_contract",
     "tests.test_v105_distribution_contract",
+    "tests.test_v105_exe_manifest",
     "tests.test_v105_publish_contract",
     "tests.test_v105_diagnostic_contract",
     "tests.test_v105_skin_wad_inspection",
