@@ -435,7 +435,9 @@ def start_ltk_patcher_host(
     try:
         proc = subprocess.Popen(
             cmd,
-            cwd=str(tools_dir),
+            # The LTK DLL is loaded relative to its host binary. An isolated
+            # QA pair must run from its own directory, not the source tools dir.
+            cwd=str(host_exe.parent),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
