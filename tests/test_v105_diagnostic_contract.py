@@ -27,6 +27,17 @@ class V105DiagnosticContractTests(unittest.TestCase):
         self.assertIn('Historical source build-time audit: excluded', self.source)
         self.assertIn('$Runtime -eq "Source" -and (Test-Path -LiteralPath $candidateAudit', self.source)
 
+    def test_installed_launch_inspection_is_read_only(self):
+        inspector = (ROOT / "scripts" / "inspect_v105_installed_launch.ps1").read_text(encoding="utf-8")
+        self.assertIn("PE-Machine", inspector)
+        self.assertIn("Get-AuthenticodeSignature", inspector)
+        self.assertIn("SetWindowsHookEx failed", inspector)
+        self.assertIn("Shared log cannot be conclusively attributed", inspector)
+        self.assertNotIn("Copy-Item", inspector)
+        self.assertNotIn("Remove-Item", inspector)
+        self.assertNotIn("signtool", inspector)
+        self.assertTrue(inspector.isascii())
+
     def test_vendor_host_verification_has_separate_terminal_classification(self):
         self.assertIn('"LTK host verification refused"', self.source)
         self.assertIn('$Counts["LTK host verification refused"] -gt 0', self.source)
