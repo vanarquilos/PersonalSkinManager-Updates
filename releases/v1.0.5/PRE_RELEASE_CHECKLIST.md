@@ -120,6 +120,17 @@ We are preparing a *separate* redistributable candidate:
 - [ ] Confirm installer hash, license notices, version/channel copy, installation/uninstallation, and publish a `v1.0.5` GitHub **pre-release** only after QA.
 - [ ] Keep existing GitHub releases and stable updater manifest unchanged until the release is approved.
 
+## October 29 evening: correct regression from forced LTK runtime restore
+
+The previous release workflow instructed the maintainer to use `-Action Restore` before packaging. That restores the pre-test host/DLL pair and can undo the Rose-reported v1.28.1 local working configuration. **This was a release-workflow error, not the disappearance of LTK itself.**
+
+- [x] `scripts/use_rose_legacy_runtime_local.ps1 -Action Status` compares the current live source host/DLL to the pinned original v1.28.1 files by SHA-256, without changing files. `-Action Activate` is idempotent if the tested pair is already selected.
+- [x] `scripts/run_live_qa.ps1` verifies that an active private v1.28.1 pair actually matches the pinned files instead of relying on the backup-state marker alone. It no longer urges automatic restore.
+- [x] `scripts/build_v105_distribution_candidate.ps1` preserves a working source host/DLL while packaging independently staged unsigned **release-only** copies. It also checks an active test pair's identity before building and requires PSM/League to be closed.
+- [x] `scripts/publish_v105_prerelease.ps1` no longer unnecessarily restores the active source runtime; it must still independently verify installed candidate QA and installer provenance.
+- [ ] Rerun the source app explicitly after verifying or reactivating the pinned v1.28.1 pair. An existing installed PSM executable uses its **own bundled host/DLL**, not the source checkout's files.
+- [ ] If the unsigned packaged RC fails while the original signed source pair works, treat this as a **distribution compatibility blocker**, not a justification to redistribute upstream-signed binaries contrary to the LTK Patcher License.
+
 ## P0: Block publishing until ALL are complete
 
 - [ ] Identify the exact locally bundled `mod-tools.exe`, `ltk_patcher_host.exe`, and `ltk_patcher_dll.dll`. Record each filename, byte size, and SHA-256 using `python scripts/audit_runtime_v105.py --game-dir "C:\\Riot Games\\League of Legends\\Game"`. Supply an explicit, correct League Game folder if installed elsewhere.
