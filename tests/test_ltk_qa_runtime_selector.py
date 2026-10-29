@@ -16,6 +16,13 @@ class LtkQaRuntimeSelectorTests(unittest.TestCase):
         self.assertEqual(selected, Path("injection/tools"))
         self.assertEqual(errors, [])
 
+    def test_frozen_runtime_ignores_any_source_qa_override(self):
+        with patch.dict(os.environ, {patcher.LTK_QA_RUNTIME_DIR_ENV: "C:/unreviewed"}):
+            with patch.object(patcher.sys, "frozen", True, create=True):
+                selected, errors = patcher._resolve_qa_runtime(Path("installed/tools"))
+        self.assertEqual(selected, Path("installed/tools"))
+        self.assertEqual(errors, [])
+
     def test_absolute_verified_pair_selected_without_replacing_originals(self):
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
