@@ -10,16 +10,28 @@
 - Audited original LTK Manager **v1.28.1** host/DLL files isolated under `installer/candidates/v1.0.5/audit-only-ltk-v1.28.1`. Obtain them through `scripts/review_rose_ltk_v1281.ps1`; do not commit to Git.
 - Reviewed local `injection/tools/mod-tools.exe`; the project build pipeline expects it.
 
-## 1. Restore the private local QA runtime
+## 1. Preserve or reactivate the working local source runtime
 
-Close PSM and League. If the private historical runtime selection is active, restore the previous host/DLL pair first:
+**Do not run `-Action Restore` merely to build a candidate.** That command intentionally reinstalls the earlier host/DLL pair, which previously failed in PSM. The local historical LTK v1.28.1 pair can remain selected while the release process stages **different copies** for distribution.
+
+For the working source-only setup, close PSM and League first, then:
 
 ```powershell
 Set-Location -LiteralPath "C:\Users\Van Arquilos\Desktop\PersonalSkinManager-Updates"
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\use_rose_legacy_runtime_local.ps1" -Action Restore
+git switch fix/v1.0.5-pre-release-hardening
+git pull --ff-only origin fix/v1.0.5-pre-release-hardening
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\use_rose_legacy_runtime_local.ps1" -Action Status
 ```
 
-Do not run Restore if you have never activated the legacy local QA pair; the helper will correctly report that no restore state exists.
+If the Status command reports `DIFFERENT` for either file, reactivate the pinned original pair (with League and PSM closed):
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\use_rose_legacy_runtime_local.ps1" -Action Activate
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\use_rose_legacy_runtime_local.ps1" -Action Status
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\run_live_qa.ps1" -SkipTests
+```
+
+This launches the Python source app against the original tested LTK files. **An already-installed `PersonalSkinManager.exe` includes its own bundled runtime** and is not fixed by changing the source directory. The installed release-candidate version must be tested independently.
 
 ## 2. Build the **separate unsigned** release candidate
 
@@ -33,7 +45,7 @@ The builder checks tests and original binary identity; copies the official host/
 
 Expected output: `installer/candidates/v1.0.5/PersonalSkinManager_Setup_v1.0.5-RC.exe`, alongside `release-candidate-audit.json`.
 
-The builder **does not publish**, modify the signed upstream originals, override game security, or change `stable/manifest.json`. If the build stops, fix the reported failure; do not fall back to distributing the upstream-signed originals.
+The builder **preserves the active working source runtime** and does not publish, modify the signed upstream originals, override game security, or change `stable/manifest.json`. If the build stops, fix the reported failure; do not fall back to distributing the upstream-signed originals.
 
 ## 3. Test the **actual installed RC**, not the source checkout
 
@@ -57,7 +69,7 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\publish
     -ConfirmedSecondMatch
 ```
 
-These flags are explicit statements of completed real tests, **not a way to skip them**. The publishing script rejects a missing candidate, a mismatched installer hash/byte size or source commit, an active legacy test runtime, an existing GitHub v1.0.5 release, or missing GitHub CLI authentication. It creates a GitHub **pre-release** using the verified installer with the established `PersonalSkinManager_Setup.exe` asset name.
+These flags are explicit statements of completed real tests, **not a way to skip them**. The publishing script rejects a missing candidate, a mismatched installer hash/byte size or source commit, an existing GitHub v1.0.5 release, or missing GitHub CLI authentication. It leaves an active local source-test runtime untouched. It creates a GitHub **pre-release** using the verified installer with the established `PersonalSkinManager_Setup.exe` asset name.
 
 Existing v1.0.4 files and the `stable/manifest.json` signed updater remain unchanged. Any future stable-channel promotion must use the separate signed-manifest workflow, not a plaintext edit.
 
