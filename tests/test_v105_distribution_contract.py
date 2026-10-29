@@ -46,10 +46,13 @@ class DistributionCandidateContracts(unittest.TestCase):
         self.assertIn("original upstream", self.build.lower())
         self.assertIn("1.0.5", self.inno)
 
-    def test_active_legacy_runtime_does_not_enter_release(self):
+    def test_active_working_source_runtime_is_preserved_and_never_packaged(self):
         self.assertIn("_v105_rose_legacy_local_state.json", self.build)
-        self.assertIn("Restore the active historical runtime", self.build)
+        self.assertIn("preserving it during RC packaging", self.build)
+        self.assertIn("Private test state exists, but the active", self.build)
+        self.assertIn("release-unsigned-ltk", self.build)
         self.assertIn("Private runtime state or signing material was bundled", self.build)
+        self.assertNotIn("Restore the active historical runtime", self.build)
 
 
 if __name__ == "__main__":
