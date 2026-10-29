@@ -6,6 +6,7 @@ Fast builds with Windows UI API support
 """
 
 import sys
+import os
 import subprocess
 import shutil
 import time
@@ -25,20 +26,25 @@ if sys.version_info < MIN_PYTHON:
 
 
 
-REQUIRED_RUNTIME_FILES = (
-    ROOT / "injection/tools/mod-tools.exe",
-    ROOT / "injection/tools/ltk_patcher_host.exe",
-    ROOT / "injection/tools/ltk_patcher_dll.dll",
-)
+def required_runtime_files():
+    # Scope the release override to the two LTK binaries. The selected
+    # directory is validated by the Windows release-candidate builder.
+    supplied = os.environ.get("PSM_RELEASE_LTK_DIR")
+    ltk = Path(supplied) if supplied else ROOT / "injection/tools"
+    return (
+        ROOT / "injection/tools/mod-tools.exe",
+        ltk / "ltk_patcher_host.exe",
+        ltk / "ltk_patcher_dll.dll",
+    )
 
 
 def verify_release_runtime_inputs():
     """Fail closed unless all required local runtime components are present."""
-    missing = [path for path in REQUIRED_RUNTIME_FILES if not path.is_file()]
+    missing = [path for path in required_runtime_files() if not path.is_file()]
     if missing:
         print("[ERROR] Required release runtime file(s) are missing:")
         for path in missing:
-            print(f"  - {path.relative_to(ROOT)}")
+            print(f"  - {path}")
         print("[INFO] Restore the trusted local release binaries before building.")
         return False
 
