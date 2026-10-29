@@ -62,4 +62,8 @@ foreach ($Name in $Names) {
         Write-Host "$Name matches the tester byte-for-byte." -ForegroundColor Green
     }
 }
+Write-Host ""
+Write-Host "Interpretation: Different hashes are EXPECTED after Authenticode signature removal." -ForegroundColor Cyan
+Write-Host "This report alone cannot establish why the packaged version shows a default skin."
+Write-Host "Retain the working source runtime. Capture a sanitized log from the installed candidate before altering binaries."
 Write-Host "Read-only comparison finished. No files modified." -ForegroundColor Cyan
