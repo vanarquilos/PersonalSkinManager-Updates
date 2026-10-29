@@ -32,10 +32,22 @@ else:
 # into the one-click installer. They are intentionally not tracked in source.
 import os
 
+# Release candidates can supply separately staged, license-compliant unsigned
+# host/DLL copies. Never mutate the developer's original signed runtime.
+# This override is effective only for the two patcher binaries.
+release_ltk_dir = os.environ.get('PSM_RELEASE_LTK_DIR')
+if release_ltk_dir:
+    release_ltk_root = Path(release_ltk_dir).resolve(strict=True)
+    if not release_ltk_root.is_dir():
+        raise RuntimeError('PSM_RELEASE_LTK_DIR is not a directory')
+    print('[INFO] Using isolated release patcher directory')
+else:
+    release_ltk_root = Path('injection/tools')
+
 injection_binaries = [
-    'injection/tools/mod-tools.exe',
-    'injection/tools/ltk_patcher_host.exe',
-    'injection/tools/ltk_patcher_dll.dll',
+    ('injection/tools/mod-tools.exe', 'injection/tools'),
+    (str(release_ltk_root / 'ltk_patcher_host.exe'), 'injection/tools'),
+    (str(release_ltk_root / 'ltk_patcher_dll.dll'), 'injection/tools'),
 ]
 # Data files (text files, etc.)
 injection_data_files = [
@@ -44,9 +56,9 @@ injection_data_files = [
 # Verify and add injection binaries
 binaries = []
 missing_binaries = []
-for tool in injection_binaries:
-    if Path(tool).exists():
-        binaries.append((tool, 'injection/tools'))
+for tool, dest in injection_binaries:
+    if Path(tool).is_file():
+        binaries.append((tool, dest))
     else:
         missing_binaries.append(tool)
 
