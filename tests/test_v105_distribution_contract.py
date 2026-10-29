@@ -33,7 +33,7 @@ class DistributionCandidateContracts(unittest.TestCase):
         self.assertIn("Copy-Item -LiteralPath $Source -Destination $Target", self.build)
         self.assertIn("& $SignTool remove /s $Target", self.build)
         self.assertIn("Get-AuthenticodeSignature", self.build)
-        self.assertIn('if ($Signature.Status -ne "NotSigned")', self.build)
+        self.assertIn('(Get-AuthenticodeSignature -LiteralPath $Target).Status -ne "NotSigned"', self.build)
         self.assertIn("release-unsigned-ltk", self.build)
         self.assertIn("PSM_RELEASE_LTK_DIR", self.build)
         self.assertNotIn("gh release create", self.build)
