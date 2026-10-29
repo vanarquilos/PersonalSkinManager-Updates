@@ -38,10 +38,15 @@ class DistributionCandidateContracts(unittest.TestCase):
         self.assertIn("PSM_RELEASE_LTK_DIR", self.build)
         self.assertNotIn("gh release create", self.build)
 
-    def test_known_failing_unsigned_pair_cannot_be_rebuilt(self):
-        self.assertIn('Known failing unsigned pair: SetWindowsHookEx failed', self.build)
-        self.assertIn('5E52DC5A30220E735599BE57308CE7BF52E21416CF2C2D9D449A8637F683C4E9', self.build)
-        self.assertIn('B164A14A2D6C1F1EA6D546782C556050F6F9045DFAB686E4967E7D7CD2E87E29', self.build)
+    def test_new_candidate_must_match_normal_user_launch_profile(self):
+        self.assertIn("uac_admin=False", self.spec)
+        self.assertNotIn("uac_admin=True", self.spec)
+        self.assertIn("runasoriginaluser", self.inno)
+        self.assertNotIn("Verb: runas", self.inno)
+        self.assertIn("asInvoker", self.build)
+        self.assertIn("audit_v105_exe_manifest.py", self.build)
+        self.assertIn("Packaged PSM", (ROOT / "scripts/audit_v105_exe_manifest.py").read_text(encoding="utf-8"))
+        self.assertIn('installed_launch_context_qa = "PENDING"', self.build)
 
     def test_installer_is_local_only_and_hash_checked(self):
         self.assertIn("RELEASE CANDIDATE - NOT PUBLISHED", self.build)
