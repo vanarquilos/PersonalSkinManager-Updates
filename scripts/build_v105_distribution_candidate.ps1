@@ -87,6 +87,7 @@ $Tests = @(
     "tests.test_psm_ui_polish_release",
     "tests.test_patch_2619_wad_headers",
     "tests.test_ltk_host_protocol",
+    "tests.test_ltk_qa_runtime_selector",
     "tests.test_ltk_countdown_prearm",
     "tests.test_overlay_cleanup",
     "tests.test_runtime_failure_reporting",
