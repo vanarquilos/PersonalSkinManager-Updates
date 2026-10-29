@@ -1,6 +1,6 @@
 # PSM v1.0.5 — Windows pre-release publishing procedure
 
-**Current state:** Source release engineering implemented. The maintainer reports a working legacy-patcher source run, but no installer made from unsigned LTK binaries has been tested or published.
+**Current state (October 30, 2026):** Maintainer reports both the original signed source tester and the isolated unsigned v1.28.1 source A/B test render a non-default skin. The former installed elevated candidate failed SetWindowsHookEx. A NEW asInvoker installed candidate has not been gameplay verified or published.
 
 ## Requirements
 
@@ -33,6 +33,8 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\run_liv
 
 This launches the Python source app against the original tested LTK files. **An already-installed `PersonalSkinManager.exe` includes its own bundled runtime** and is not fixed by changing the source directory. The installed release-candidate version must be tested independently.
 
+**Important October 30 correction:** The previous compiled EXE forced administrator elevation even though the successful isolated source test ran without forced elevation. The new spec sets `uac_admin=False` and the installer launches the original user without `Verb: runas`. The build audits the **embedded PE manifest** using `scripts/audit_v105_exe_manifest.py`; only `asInvoker` is accepted. This is a newly testable candidate, **not** the previous failing installed executable. PyInstaller's `pefile` dependency is required for the manifest audit.
+
 ## 2. Build the **separate unsigned** release candidate
 
 ```powershell
@@ -41,7 +43,7 @@ git pull --ff-only origin fix/v1.0.5-pre-release-hardening
 powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\build_v105_distribution_candidate.ps1"
 ```
 
-The builder checks tests and original binary identity; copies the official host/DLL; removes the original LeagueToolkit Authenticode signatures from **isolated copies only**; validates these copies; packages them using `PSM_RELEASE_LTK_DIR`; checks the bundled copies by SHA-256 and signature status; and records an installer hash.
+The builder runs source regression tests, verifies the official host/DLL pair, removes upstream signatures from **isolated copies only**, packages the source-tested unsigned pair using `PSM_RELEASE_LTK_DIR`, checks hashes/signature status, **verifies the actual packaged EXE is asInvoker**, and records the installer SHA-256/source commit. It does not modify the signed working tester.
 
 Expected output: `installer/candidates/v1.0.5/PersonalSkinManager_Setup_v1.0.5-RC.exe`, alongside `release-candidate-audit.json`.
 
