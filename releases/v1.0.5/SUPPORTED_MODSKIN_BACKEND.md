@@ -20,6 +20,18 @@ Rose has **not** published a code fix for the vendor host-verification refusal. 
 - Community reports an October 18, 2026 07:00 UTC **game executable build** cutoff. Last PSM League executable was built October 16 22:15 UTC, but a newer League update would invalidate that comparison.
 - The older pair predates the [LTK v1.29.1 material-format parser fix](https://github.com/LeagueToolkit/ltk-manager/releases/tag/v1.29.1) for League 26.21 and may fail on some champion WADs.
 - Added `scripts/audit_ltk_v1281_compatibility.py` as a **read-only identity and build-cutoff check** for separately obtained official binaries. It will not install, start, copy, replace, or alter the runtime, and it does not assert that PSM is authorized as a patcher host.
+- Added `scripts/review_rose_ltk_v1281.ps1`: opt-in isolated **download and identity audit** from the pinned official tag. Saves the files solely under the ignored `installer/candidates/v1.0.5/audit-only-ltk-v1.28.1` folder, verifies each Git blob, then invokes the read-only cutoff audit. It neither launches the patcher nor replaces files in `injection/tools`; passing it is **not** a license or compatibility verdict.
+
+To run the new isolated review on Windows:
+
+```powershell
+Set-Location -LiteralPath "C:\Users\Van Arquilos\Desktop\PersonalSkinManager-Updates"
+git pull --ff-only origin fix/v1.0.5-pre-release-hardening
+python -m unittest tests.test_ltk_v1281_compatibility_audit tests.test_rose_legacy_review_contract
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\review_rose_ltk_v1281.ps1"
+```
+
+If the League Game folder is elsewhere, pass `-LeagueGameDir` explicitly. Keep downloaded candidate files in the isolated audit-only directory. **Do not use those binaries in PSM or distribute them merely because the identity and cutoff checks pass.**
 - No automatic downgrade, binary patches, host impersonation, verification bypass, or redistribution is implemented.
 
 ## Technical decision
