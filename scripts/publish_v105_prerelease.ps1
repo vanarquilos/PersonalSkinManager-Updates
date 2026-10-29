@@ -56,6 +56,15 @@ if ($Audit.version -ne "1.0.5" -or
     $Audit.official_vendor_signatures_removed -ne $true) {
     throw "Release candidate provenance mismatch. Rebuild and retest the candidate."
 }
+# Hard stop for the exact known-bad unsigned LTK pair: this installed
+# candidate produced SetWindowsHookEx failed during the 2026-10-29 game test.
+# CLI confirmation flags cannot override a known failed runtime fingerprint.
+$KnownBadHost = "5E52DC5A30220E735599BE57308CE7BF52E21416CF2C2D9D449A8637F683C4E9"
+$KnownBadDll = "B164A14A2D6C1F1EA6D546782C556050F6F9045DFAB686E4967E7D7CD2E87E29"
+if ([string]$Audit.unsigned_bundled_sha256."ltk_patcher_host.exe" -eq $KnownBadHost -and
+    [string]$Audit.unsigned_bundled_sha256."ltk_patcher_dll.dll" -eq $KnownBadDll) {
+    throw "Known failing unsigned LTK pair (SetWindowsHookEx). v1.0.5 cannot be published with this installer. Preserve the working tester and obtain a compatible distributable runtime."
+}
 $Hash = (Get-FileHash -LiteralPath $Candidate -Algorithm SHA256).Hash
 $Size = (Get-Item -LiteralPath $Candidate).Length
 if ($Hash -ne [string]$Audit.sha256 -or $Size -ne [int64]$Audit.size_bytes) {
