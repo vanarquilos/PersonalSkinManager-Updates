@@ -129,13 +129,21 @@ foreach ($Name in $Pair) {
     Write-Host "Reviewed unsigned copy: $Name"
 }
 
-# The exact 2026-10-29 unsigned pair has repeatedly failed hook installation.
-# Never rebuild an installer that is known to display only the default skin.
-$RejectedHost = "5E52DC5A30220E735599BE57308CE7BF52E21416CF2C2D9D449A8637F683C4E9"
-$RejectedDll = "B164A14A2D6C1F1EA6D546782C556050F6F9045DFAB686E4967E7D7CD2E87E29"
-if ($UnsignedHashes["ltk_patcher_host.exe"] -eq $RejectedHost -and
-    $UnsignedHashes["ltk_patcher_dll.dll"] -eq $RejectedDll) {
-    throw "Known failing unsigned pair: SetWindowsHookEx failed. Do not rebuild or publish this RC. Run the isolated source A/B test and use a verified distributable alternative."
+# The same unsigned pair succeeded in the October 30 isolated source QA,
+# but the earlier elevated installed executable failed SetWindowsHookEx.
+# Rebuilding is only permitted with a normal-user launch manifest and installer
+# launch behavior. The previous elevated installer remains NOT APPROVED.
+$SpecFile = Join-Path $Root "PersonalSkinManager.spec"
+$InnoFile = Join-Path $Root "installer.iss"
+$SpecText = Get-Content -LiteralPath $SpecFile -Raw -Encoding UTF8
+$InnoText = Get-Content -LiteralPath $InnoFile -Raw -Encoding UTF8
+if ($SpecText -notmatch 'uac_admin\s*=\s*False' -or
+    $InnoText -notmatch 'Flags:\s*nowait\s+postinstall\s+skipifsilent\s+runasoriginaluser' -or
+    $InnoText -match 'Verb:\s*runas') {
+    throw "Packaging still forces elevation. Rebuild blocked until source-test-aligned asInvoker launch is configured."
+}
+if ($env:PSM_LTK_QA_RUNTIME_DIR) {
+    throw "Private source QA runtime selector is set. Close that session before packaging."
 }
 
 Write-Host "4/5: Build standalone installer using ONLY the staged LTK copies" -ForegroundColor Cyan
@@ -152,6 +160,9 @@ try {
     if ($Built.Length -lt 1000000 -or $Built.LastWriteTime -lt $Started.AddSeconds(-3)) {
         throw "Installer output appears stale or too small."
     }
+    # Verify the actual frozen EXE, not only the source spec.
+    & python (Join-Path $Root "scripts\audit_v105_exe_manifest.py") --exe (Join-Path $Dist "PersonalSkinManager.exe")
+    Check-Exit "Frozen EXE normal-user launch manifest audit"
     foreach ($Name in $Pair) {
         $Found = @(Get-ChildItem -LiteralPath $Dist -Recurse -File -Filter $Name)
         if ($Found.Count -ne 1) {
@@ -183,6 +194,10 @@ try {
         official_input_sha256 = $SignedHashes
         unsigned_bundled_sha256 = $UnsignedHashes
         official_vendor_signatures_removed = $true
+        launch_profile = "asInvoker"
+        source_unsigned_ab_result = "MAINTAINER_REPORTED_WORKING"
+        installed_launch_context_qa = "PENDING"
+
         filename = (Split-Path -Leaf $Rc)
         sha256 = $Hash
         size_bytes = (Get-Item -LiteralPath $Rc).Length
