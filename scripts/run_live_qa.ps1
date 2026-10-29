@@ -28,6 +28,13 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "Python: $pythonVersion"
 
+$LegacyState = Join-Path $Root "injection\tools\_v105_rose_legacy_local_state.json"
+if (Test-Path -LiteralPath $LegacyState -PathType Leaf) {
+    Write-Warning "PRIVATE LOCAL QA: original historical LTK v1.28.1 runtime selected."
+    Write-Warning "It predates League 26.21 material parsing fixes and is not approved for installer distribution."
+    Write-Warning "After testing, close PSM and League and run scripts/use_rose_legacy_runtime_local.ps1 -Action Restore."
+}
+
 $requiredRuntime = @(
     "injection\tools\mod-tools.exe",
     "injection\tools\ltk_patcher_host.exe",
