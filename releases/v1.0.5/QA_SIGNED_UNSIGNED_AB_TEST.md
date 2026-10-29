@@ -1,6 +1,6 @@
 # v1.0.5 — source-only LTK signed-vs-unsigned A/B test
 
-**Status: Awaiting a real Windows gameplay result. No release or installer approval.**
+**Status: The maintainer reports the isolated unsigned source test rendered a non-default skin successfully on October 30, 2026. A newly built, asInvoker installed candidate still needs its own gameplay verification before public release.**
 
 ## Reason
 
@@ -43,3 +43,16 @@ To distribute v1.0.5, use a genuinely compatible and license-compliant runtime (
 After that fix, run all relevant tests, create a **new** installer candidate, and test **that installed candidate** in Practice Tool, Swiftplay and a second match before publishing a GitHub pre-release.
 
 Working local source tester and previous GitHub releases remain untouched.
+
+
+## October 30 follow-up: isolated unsigned test PASSED
+
+The maintainer confirmed the `-Variant Unsigned` source test rendered the non-default skin. Therefore the tested unsigned host/DLL can function in the source app and removal of the original signatures **is not sufficient by itself** to explain the old installed hook failure.
+
+The original installer had two packaged-only elevation differences:
+- `PersonalSkinManager.spec` set `uac_admin=True`, forcing a `requireAdministrator` manifest.
+- Inno Setup's post-install launcher specified `Verb: runas`, forcing administrator launch.
+
+These are now changed for a new release candidate to `uac_admin=False` (embedded `asInvoker` manifest) and `runasoriginaluser`. The Windows build script verifies the compiled EXE's actual embedded manifest and preserves the signed source tester.
+
+**This is a plausible launch-context correction, not yet demonstrated in the newly installed app.** The old installed candidate remains failed. Only the new candidate and its exact SHA-256 may be considered for release after clean installation, Practice Tool, Swiftplay and second-match tests; old published releases are untouched.
