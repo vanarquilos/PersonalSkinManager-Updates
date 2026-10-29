@@ -80,7 +80,7 @@ if ($running) {
 if (-not $SkipTests) {
     Write-Host ""
     Write-Host "Running focused source checks..." -ForegroundColor Cyan
-    & python -m unittest tests.test_release_skin_routing tests.test_ltk_host_protocol tests.test_v105_skin_wad_inspection tests.test_v105_diagnostic_contract tests.test_ltk_v1281_compatibility_audit tests.test_rose_legacy_review_contract tests.test_rose_legacy_local_runtime_contract tests.test_v105_distribution_contract tests.test_v105_publish_contract tests.test_ltk_countdown_prearm tests.test_overlay_cleanup tests.test_lcu_put_reconnect tests.test_game_monitor_vanishing_process tests.test_runtime_failure_reporting tests.test_runtime_audit_v105 tests.test_patcher_eol tests.test_swiftplay_runtime tests.test_patch_2619_wad_headers tests.test_psm_ui_polish_release tests.test_release_packaging
+    & python -m unittest tests.test_release_skin_routing tests.test_ltk_host_protocol tests.test_ltk_qa_runtime_selector tests.test_v105_skin_wad_inspection tests.test_v105_diagnostic_contract tests.test_ltk_v1281_compatibility_audit tests.test_rose_legacy_review_contract tests.test_rose_legacy_local_runtime_contract tests.test_v105_distribution_contract tests.test_v105_publish_contract tests.test_ltk_countdown_prearm tests.test_overlay_cleanup tests.test_lcu_put_reconnect tests.test_game_monitor_vanishing_process tests.test_runtime_failure_reporting tests.test_runtime_audit_v105 tests.test_patcher_eol tests.test_swiftplay_runtime tests.test_patch_2619_wad_headers tests.test_psm_ui_polish_release tests.test_release_packaging
 
     if ($LASTEXITCODE -ne 0) {
         throw "Focused source checks failed. Fix them before live League QA."
