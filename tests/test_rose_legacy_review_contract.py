@@ -25,7 +25,7 @@ class RoseLegacyReviewContractTests(unittest.TestCase):
 
     def test_downloads_stay_in_ignored_isolated_audit_directory(self):
         self.assertIn(
-            'installer\\candidates\\v1.0.5\\audit-only-ltk-v1.28.1',
+            r'installer\\candidates\\v1.0.5\\audit-only-ltk-v1.28.1',
             self.script,
         )
         self.assertIn("No active PSM binaries will be changed or executed", self.script)
