@@ -110,6 +110,18 @@ if (Test-Path -LiteralPath $OriginPath -PathType Leaf) {
     Copy-Item -LiteralPath $OriginPath -Destination (Join-Path $Backup "_v105_runtime_origin.json")
 }
 
+# Write rollback metadata BEFORE changing the active pair so an interrupted
+# session can always be restored by running -Action Restore.
+$State = [ordered]@{
+    purpose = "PRIVATE_SOURCE_QA_ONLY"
+    source = "LeagueToolkit/ltk-manager"
+    source_tag = "v1.28.1"
+    source_commit = "9f06802de5d83d6dde3ff1644a1c56049fadf9bb"
+    created_utc = (Get-Date).ToUniversalTime().ToString("o")
+    backup_folder = $Backup
+    original_sha256 = $Hashes
+}
+$State | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $StatePath -Encoding UTF8
 try {
     foreach ($Name in $Pair) {
         Copy-Item -LiteralPath (Join-Path $Candidate $Name) -Destination (Join-Path $Tools $Name) -Force
@@ -118,16 +130,6 @@ try {
             throw "Local copy checksum mismatch for $Name"
         }
     }
-    $State = [ordered]@{
-        purpose = "PRIVATE_SOURCE_QA_ONLY"
-        source = "LeagueToolkit/ltk-manager"
-        source_tag = "v1.28.1"
-        source_commit = "9f06802de5d83d6dde3ff1644a1c56049fadf9bb"
-        created_utc = (Get-Date).ToUniversalTime().ToString("o")
-        backup_folder = $Backup
-        original_sha256 = $Hashes
-    }
-    $State | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $StatePath -Encoding UTF8
     $Origin = [ordered]@{
         purpose = "LOCAL QA ONLY - NOT FOR DISTRIBUTION"
         source = "LeagueToolkit/ltk-manager"
