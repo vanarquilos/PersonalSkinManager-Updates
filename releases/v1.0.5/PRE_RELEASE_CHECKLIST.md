@@ -1,3 +1,16 @@
+## October 30, 2026 — unsigned source passed; new asInvoker RC pending
+
+- [x] Original signed source runtime: non-default skin rendered
+- [x] Isolated original-signature-removed v1.28.1 host/DLL: maintainer reports non-default skin rendered **from source**
+- [x] Identified prior installed EXE as requiring administrator elevation (`uac_admin=True`) and post-install `Verb: runas`, unlike the source session
+- [x] Switched new packaged EXE to `asInvoker`, post-install run to original user and added a fail-closed compiled-manifest audit
+- [x] Builder only packages staged unsigned copies and keeps developer's signed source files unchanged
+- [ ] Build new asInvoker installer candidate on Windows, verify compiled EXE manifest, staged host/DLL hashes, installer SHA-256 and reviewed source commit
+- [ ] **Install that new candidate**; confirm a non-default skin in Practice Tool, Swiftplay and a consecutive second match
+- [ ] Record actual installed-gameplay results, then publish GitHub pre-release using explicit truthful QA flags
+
+The old elevated installer and its documented `SetWindowsHookEx` failure remain **NO-GO**. Launch-context parity is a plausible fix, not yet proven. Do not release based solely on the source A/B pass.
+
 ## Final release decision — October 29, 2026
 
 **NO-GO for the existing v1.0.5 unsigned installer.** Installed runtime fingerprints are host `5E52DC5A30220E735599BE57308CE7BF52E21416CF2C2D9D449A8637F683C4E9` and DLL `B164A14A2D6C1F1EA6D546782C556050F6F9045DFAB686E4967E7D7CD2E87E29`. In the October 29 installed game test, overlay construction succeeded, but the LTK host failed with `hook install failed` and `SetWindowsHookEx failed: 0x00000000` at 21:11:20; selected skin was not applied.
