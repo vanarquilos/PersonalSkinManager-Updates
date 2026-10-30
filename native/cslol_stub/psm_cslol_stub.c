@@ -11,6 +11,7 @@
  * DO NOT use as a working runoverlay DLL.
  */
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef _WIN32
 #define PSM_EXPORT __declspec(dllexport)
@@ -21,6 +22,20 @@
 static const char psm_unsupported[] =
     "Personal Skin Manager: runoverlay is unsupported; use the reviewed LTK host";
 
+/*
+ * Required Windows loader export. This intentionally does not forward the
+ * message, install hooks, or interact with League/game processes.
+ * Signature matches the public upstream cslol-api.h.
+ */
+PSM_EXPORT intptr_t cslol_msg_hookproc(
+    int code, uintptr_t wparam, intptr_t lparam
+) {
+    (void)code;
+    (void)wparam;
+    (void)lparam;
+    return 0;
+}
+
 PSM_EXPORT const char* cslol_init(void) {
     return psm_unsupported;
 }
@@ -28,7 +43,7 @@ PSM_EXPORT const char* cslol_set_config(const wchar_t* prefix) {
     (void)prefix;
     return psm_unsupported;
 }
-PSM_EXPORT const char* cslol_set_flags(unsigned long long flags) {
+PSM_EXPORT const char* cslol_set_flags(unsigned int flags) {
     (void)flags;
     return psm_unsupported;
 }
