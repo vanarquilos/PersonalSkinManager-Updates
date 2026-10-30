@@ -7,6 +7,8 @@ Fast builds with Windows UI API support
 
 import sys
 import os
+import hashlib
+import json
 import subprocess
 import shutil
 import time
@@ -54,6 +56,27 @@ def verify_release_runtime_inputs():
         print("[ERROR] Explicit PSM_RELEASE_CSLOL_DIR is required for v1.0.5.")
         print("[INFO] Default builds cannot implicitly bundle the source CSLOL DLL.")
         return False
+    if not os.environ.get("PSM_RELEASE_LTK_DIR"):
+        # User-provided LTK mode can ONLY bundle a PSM-built inert stub.
+        # The older source-side CSLOL DLL is signed by a different publisher.
+        stub_dir = Path(os.environ["PSM_RELEASE_CSLOL_DIR"])
+        manifest_path = stub_dir / "psm-cslol-stub-manifest.json"
+        native_source = ROOT / "native/cslol_stub/psm_cslol_stub.c"
+        candidate = stub_dir / "cslol-dll.dll"
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if (
+                not isinstance(manifest, dict)
+                or manifest.get("schema") != 1
+                or manifest.get("purpose") != "PSM_V105_INERT_CSLOL_STUB"
+                or manifest.get("public_distribution_approved") is not False
+                or manifest.get("source_sha256") != hashlib.sha256(native_source.read_bytes()).hexdigest().upper()
+                or manifest.get("built_sha256") != hashlib.sha256(candidate.read_bytes()).hexdigest().upper()
+            ):
+                raise ValueError("PSM stand-in manifest integrity check failed")
+        except (OSError, ValueError, UnicodeError) as exc:
+            print(f"[ERROR] The Rose-style build requires a freshly compiled PSM-owned inert stub: {exc}")
+            return False
     missing = [path for path in required_runtime_files() if not path.is_file()]
     if missing:
         print("[ERROR] Required release runtime file(s) are missing:")
