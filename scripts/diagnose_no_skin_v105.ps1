@@ -30,6 +30,7 @@ $Markers = [ordered]@{
     "LTK DLL overlay initialized" = '(?i)DLL overlay initialization confirmed|DLL overlay initialization observed: True'
     "LTK lazy WAD rejection" = '(?i)lazy verification failed, not overlaying|LTK did not apply the overlay: WAD verification failed'
     "LTK host verification refused" = '(?i)host verification failed.*refusing overlay|LTK host verification refused the overlay|LTK_HOST_VERIFICATION_FAILED'
+    "Frozen host DLL lookup normalized" = '(?i)External host spawned with standard Windows DLL lookup'
     "LTK hook initialization failed" = '(?i)failed to install .* hook|LTK could not initialize a required hook|hook install failed|SetWindowsHookEx failed'
     "LTK WAD integrity scan error" = '(?i)LTK WAD integrity scan failed'
     "Patcher injected or attached" = '(?i)\bstatus\s+\S+\s+injected\b|\bdll attached\b|host\s+injected'
