@@ -46,6 +46,16 @@ class FrozenHookFailureDetailContracts(unittest.TestCase):
             with self.subTest(label=label):
                 self.assertIn(label, self.source)
 
+    def test_distinguishes_websocket_connected_from_generic_ready(self):
+        for marker in (
+            "LCU client initialized", "WebSocket waiting", "WebSocket connected",
+            "Pengu/injection setup", "LCU disconnected",
+            "WebSocket status is active, proceeding",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, self.source)
+        self.assertIn("alone do not prove the League client connection is live", self.source)
+
     def test_never_mutates_or_injects(self):
         for action in (
             "Set-Content", "Out-File", "Add-Content", "Copy-Item",
