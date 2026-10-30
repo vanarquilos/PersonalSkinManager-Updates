@@ -50,7 +50,15 @@ def notify_user_provided_ltk_missing(tools_dir: Path) -> bool:
     try:
         from config import get_config_option
         league_path = get_config_option("General", "leaguePath")
-        game_dir = Path(league_path) if league_path else None
+        game_dir = None
+        if league_path:
+            # The configured path may be the League installation root;
+            # the real game executable is commonly in its Game child.
+            base = Path(league_path)
+            for candidate in (base, base / "Game"):
+                if read_game_build(candidate) is not None:
+                    game_dir = candidate
+                    break
     except Exception:
         game_dir = None
     problem = explain_ltk_runtime_problem(tools_dir, game_dir)
