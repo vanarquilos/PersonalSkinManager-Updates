@@ -32,6 +32,20 @@ class PublicPathLocalInstallerContracts(unittest.TestCase):
         self.assertIn("PSM_RELEASE_CSLOL_DIR", self.pyinstaller)
         self.assertIn("PSM_RELEASE_LTK_DIR", self.builder)
 
+    def test_preflight_accepts_explicit_original_mod_tools_without_copying(self):
+        self.assertIn('[string]$ModToolsFile = ""', self.preflight)
+        self.assertIn('if (-not $ModToolsFile)', self.preflight)
+        self.assertIn('"mod-tools.exe" = $ModToolsFile', self.preflight)
+        self.assertNotIn("Copy-Item", self.preflight)
+        self.assertNotIn("Set-Content", self.preflight)
+
+    def test_preflight_displays_public_cslol_certificate_sha256(self):
+        self.assertIn("CSLOL certificate subject:", self.preflight)
+        self.assertIn("CSLOL public certificate SHA-256:", self.preflight)
+        self.assertIn("ComputeHash($PublicCertificate.RawData)", self.preflight)
+        self.assertIn("CSLOL timestamp certificate observed:", self.preflight)
+        self.assertIn("publisher ownership", self.preflight)
+
     def test_isolation_guards_protect_the_original_worktree(self):
         self.assertIn("Test-Path -LiteralPath $GitMarker -PathType Leaf", self.builder)
         self.assertIn("LINKED GIT WORKTREE", self.builder)
