@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import configparser
+import ssl
 from collections import deque
 import datetime as dt
 import os
@@ -96,6 +98,124 @@ def inspect_processes() -> tuple[int, int, int]:
     return clients, games, inaccessible
 
 
+
+def _known_lockfile_candidates():
+    """Use filesystem paths only; never print or upload lockfile credentials."""
+    override = os.environ.get("LCU_LOCKFILE")
+    if override:
+        yield Path(override)
+    local = os.environ.get("LOCALAPPDATA")
+    if local:
+        config_path = Path(local) / "Rose" / "config.ini"
+        if config_path.is_file():
+            try:
+                config = configparser.ConfigParser()
+                config.read(config_path, encoding="utf-8")
+                if config.has_option("General", "clientPath"):
+                    yield Path(config.get("General", "clientPath")) / "lockfile"
+            except (OSError, configparser.Error, ValueError):
+                pass
+    for root in KNOWN_CLIENT_ROOTS:
+        yield root / "lockfile"
+
+
+def inspect_live_lcu() -> list[str]:
+    """Probe the existing localhost LCU endpoint read-only, never print secrets."""
+    lockfile = next((p for p in _known_lockfile_candidates() if p.is_file()), None)
+    if lockfile is None:
+        return ["Live LCU: lockfile not located"]
+    try:
+        parts = lockfile.read_text(encoding="utf-8").strip().split(":", 4)
+        if len(parts) != 5:
+            return ["Live LCU: lockfile format invalid"]
+        _, pid_raw, port_raw, password, protocol = parts
+        pid, port = int(pid_raw), int(port_raw)
+        if protocol not in ("https", "http") or not 1 <= port <= 65535 or not password:
+            return ["Live LCU: lockfile endpoint invalid"]
+        try:
+            import psutil
+            active = psutil.pid_exists(pid)
+            pid_status = f"Live LCU: lockfile owner process exists: {active}"
+        except Exception:
+            pid_status = "Live LCU: lockfile process ownership could not be checked"
+
+        # The request is only to the already running local Riot client. Do not
+        # follow redirects or capture the returned account/gameflow data.
+        import requests
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        session = requests.Session()
+        session.trust_env = False
+        try:
+            response = session.get(
+                f"{protocol}://127.0.0.1:{port}/lol-gameflow/v1/gameflow-phase",
+                auth=("riot", password),
+                timeout=3,
+                verify=False,
+                allow_redirects=False,
+            )
+            code = response.status_code
+            state = "reachable" if code == 200 else "HTTP error or unexpected response"
+            return [pid_status, f"Live LCU API: {state} (HTTP {code})"]
+        finally:
+            session.close()
+    except (OSError, UnicodeError, ValueError):
+        return ["Live LCU: lockfile unreadable or invalid"]
+    except Exception as exc:
+        # requests exceptions may contain full URLs and environment strings.
+        # Never print their messages or anything from the lockfile.
+        return ["Live LCU API: request failed (" + type(exc).__name__ + ")"]
+
+
+def inspect_psm_process(installed_dir: Path) -> list[str]:
+    try:
+        import psutil
+        expected = (installed_dir / "PersonalSkinManager.exe").resolve()
+        found = []
+        for proc in psutil.process_iter(attrs=["name"]):
+            try:
+                if (proc.info.get("name") or "").casefold() != "personalskinmanager.exe":
+                    continue
+                try:
+                    exe = proc.exe()
+                    is_installed = bool(exe) and Path(exe).resolve() == expected
+                except (psutil.AccessDenied, psutil.NoSuchProcess, OSError):
+                    is_installed = None
+                found.append((is_installed, proc.create_time()))
+            except (psutil.Error, OSError):
+                continue
+        records = [f"PSM running processes: {len(found)}"]
+        if not found:
+            records.append("PSM installed process active: no")
+        else:
+            records.append(
+                "PSM installed process active: "
+                + ("yes" if any(x[0] is True for x in found)
+                   else "unknown" if any(x[0] is None for x in found)
+                   else "no (different executable)")
+            )
+        # Shared logs may contain earlier sessions. This merely identifies
+        # whether the newest one was written after the installed app began.
+        local = os.environ.get("LOCALAPPDATA")
+        if local and found:
+            log_dir = Path(local) / "Rose" / "logs"
+            try:
+                logs = sorted(log_dir.glob("rose_*.log*"),
+                              key=lambda f: f.stat().st_mtime, reverse=True)
+                if logs:
+                    starts = [when for is_installed, when in found if is_installed is True]
+                    if starts:
+                        records.append(
+                            "Newest PSM log updated since installed process start: "
+                            + str(logs[0].stat().st_mtime >= max(starts) - 3)
+                        )
+            except OSError:
+                pass
+        return records
+    except Exception as exc:
+        return ["PSM process visibility: unavailable (" + type(exc).__name__ + ")"]
+
+
 def inspect_log() -> list[str]:
     local_appdata = os.environ.get("LOCALAPPDATA")
     if not local_appdata:
@@ -131,6 +251,7 @@ def inspect_log() -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--report", type=Path, default=Path.home() / "Desktop" / "PSM-v1.0.5-league-connection.txt")
+    parser.add_argument("--installed-dir", type=Path, default=Path("C:/Program Files/Personal Skin Manager"))
     args = parser.parse_args()
     output = [
         "PSM v1.0.5 - read-only League connection diagnostics",
@@ -152,8 +273,10 @@ def main() -> int:
             f"game={_status(root / 'Game' / 'League of Legends.exe')}, "
             f"lockfile={_status(root / 'lockfile')}"
         )
+    output.extend(inspect_psm_process(args.installed_dir))
+    output.extend(inspect_live_lcu())
     output.extend(inspect_log())
-    output.append("NOTE: installation files alone do not establish a live LCU connection.")
+    output.append("NOTE: HTTP 200 proves local LCU reachability, not PSM WebSocket or Pengu integration.")
     args.report.write_text("\n".join(output) + "\n", encoding="utf-8")
     print("\n".join(output))
     print(f"Saved report: {args.report.name}")
