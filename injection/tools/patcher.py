@@ -70,6 +70,7 @@ def _verify_local_qa_manifest(selected: Path, manifest_path: Path) -> list[str]:
         "schema": 1,
         "purpose": "PSM_V105_PRIVATE_QA_ONLY",
         "host_protocol": LTK_CURRENT_HOST_PROTOCOL,
+        "runtime_origin": "official-bundled",
         "public_distribution_approved": False,
     }
     if any(type(info.get(key)) is not type(value) or info[key] != value
