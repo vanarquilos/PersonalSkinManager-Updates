@@ -54,6 +54,30 @@ class LiveLcuDiagnosticTests(unittest.TestCase):
             self.assertIn("lockfile endpoint invalid", "\n".join(findings))
             session.assert_not_called()
 
+    def test_websocket_handshake_succeeds_without_exposing_credentials(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            lock = Path(tmp) / "lockfile"
+            lock.write_text("LeagueClient:12345:24680:SECRET-DO-NOT-PRINT:https", encoding="utf-8")
+            websocket = Mock()
+            websocket.getsubprotocol.return_value = "wamp"
+            with patch.object(diagnostic, "_known_lockfile_candidates", return_value=iter([lock])):
+                with patch("websocket.create_connection", return_value=websocket) as connect:
+                    result = diagnostic.inspect_live_websocket()
+            self.assertEqual(result, ["Live LCU WebSocket: handshake succeeded (wamp)"])
+            self.assertNotIn("SECRET-DO-NOT-PRINT", str(result))
+            self.assertIn("Authorization: Basic ", connect.call_args.kwargs["header"][0])
+            self.assertNotIn("SECRET-DO-NOT-PRINT", connect.call_args.kwargs["header"][0])
+            websocket.close.assert_called_once()
+
+    def test_websocket_handshake_error_never_prints_secret(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            lock = Path(tmp) / "lockfile"
+            lock.write_text("LeagueClient:12345:24680:SECRET-DO-NOT-PRINT:https", encoding="utf-8")
+            with patch.object(diagnostic, "_known_lockfile_candidates", return_value=iter([lock])):
+                with patch("websocket.create_connection", side_effect=RuntimeError("SECRET-DO-NOT-PRINT")):
+                    result = diagnostic.inspect_live_websocket()
+            self.assertEqual(result, ["Live LCU WebSocket: handshake failed (RuntimeError)"])
+
     def test_no_running_psm_is_reported_explicitly(self):
         with patch("psutil.process_iter", return_value=[]):
             findings = diagnostic.inspect_psm_process(Path("C:/Program Files/Personal Skin Manager"))
