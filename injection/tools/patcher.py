@@ -31,6 +31,7 @@ GAME_EXECUTABLE_NAMES = (
 LTK_QA_RUNTIME_DIR_ENV = "PSM_LTK_QA_RUNTIME_DIR"
 LTK_QA_MANIFEST_ENV = "PSM_LTK_QA_MANIFEST"
 LTK_CURRENT_HOST_PROTOCOL = 3  # LTK Manager v1.31.1 bundled host protocol; verify candidate API separately
+LTK_USER_MANIFEST = "ltk-user-local.json"
 LTK_QA_ORIGINAL_SHA256 = {
     LTK_PATCHER_HOST: "23FA1AAEDA1A0C743DA44227F179084E1FB81C7CD262144A3C8604FFC49D3BC1",
     LTK_PATCHER_DLL: "6D419057E6667994BA752AD0FB089B363DB98267618644D7F7B6632441A21D74",
@@ -100,11 +101,57 @@ def _verify_local_qa_manifest(selected: Path, manifest_path: Path) -> list[str]:
     return []
 
 
+def _verify_user_provided_runtime(tools_dir: Path) -> list[str]:
+    """Validate locally provisioned LTK binaries without distributing them.
+
+    The manifest is placed alongside the files in the install's protected
+    tools directory by an opt-in administrator provisioning script. This only
+    establishes integrity of locally supplied bytes, not game compatibility.
+    """
+    record = tools_dir / LTK_USER_MANIFEST
+    if not record.is_file() or record.is_symlink():
+        return ["user-supplied LTK runtime manifest missing or invalid"]
+    try:
+        if record.stat().st_size > 16_384:
+            return ["user-supplied LTK manifest oversized"]
+        document = json.loads(record.read_text(encoding="utf-8-sig"))
+    except (ValueError, UnicodeError, OSError):
+        return ["user-supplied LTK manifest unreadable"]
+    if not isinstance(document, dict):
+        return ["user-supplied LTK manifest is invalid"]
+    if (
+        document.get("schema") != 1
+        or document.get("purpose") != "PSM_V105_USER_PROVIDED_LTK"
+        or type(document.get("host_protocol")) is not int
+        or document["host_protocol"] != LTK_CURRENT_HOST_PROTOCOL
+        or document.get("public_distribution_approved") is not False
+    ):
+        return ["user-supplied LTK manifest identity or host protocol invalid"]
+    expected = document.get("files_sha256")
+    if not isinstance(expected, dict) or set(expected) != {LTK_PATCHER_HOST, LTK_PATCHER_DLL}:
+        return ["user-supplied LTK manifest components invalid"]
+    for name in (LTK_PATCHER_HOST, LTK_PATCHER_DLL):
+        digest = expected[name]
+        if not isinstance(digest, str) or not re.fullmatch(r"[a-fA-F0-9]{64}", digest):
+            return ["user-supplied LTK manifest digest invalid"]
+        candidate = tools_dir / name
+        if not candidate.is_file() or candidate.is_symlink():
+            return ["user-supplied LTK runtime component missing or symlinked"]
+        try:
+            if _hash_file(candidate) != digest.upper():
+                return ["user-supplied LTK runtime file changed since provisioning"]
+        except OSError:
+            return ["user-supplied LTK runtime component unreadable"]
+    return []
+
+
 def _resolve_qa_runtime(tools_dir: Path) -> tuple[Path, list[str]]:
     supplied = os.environ.get(LTK_QA_RUNTIME_DIR_ENV)
     if not supplied:
         if os.environ.get(LTK_QA_MANIFEST_ENV):
             return tools_dir, ["local LTK QA manifest requires a runtime directory"]
+        if (tools_dir / LTK_USER_MANIFEST).exists():
+            return tools_dir, _verify_user_provided_runtime(tools_dir)
         return tools_dir, []
     selected = Path(supplied)
     if not selected.is_absolute() or not selected.is_dir():
