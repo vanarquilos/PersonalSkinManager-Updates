@@ -86,15 +86,19 @@ def _verify_local_qa_manifest(selected: Path, manifest_path: Path) -> list[str]:
     expected = info.get("files_sha256")
     if not isinstance(expected, dict) or set(expected) != {LTK_PATCHER_HOST, LTK_PATCHER_DLL}:
         return ["local LTK QA manifest must pin exactly one host and DLL"]
+    # Validate the presence of the complete pair before hashing either file.
+    # Otherwise a damaged host masks a missing DLL, confusing QA and preventing
+    # the diagnostics from reporting the more fundamental incomplete install.
+    for name in (LTK_PATCHER_HOST, LTK_PATCHER_DLL):
+        candidate = selected / name
+        if not candidate.is_file() or candidate.is_symlink():
+            return ["local LTK QA file missing or symlink rejected"]
     for name in (LTK_PATCHER_HOST, LTK_PATCHER_DLL):
         digest = expected[name]
         if not isinstance(digest, str) or re.fullmatch(r"[A-Fa-f0-9]{64}", digest) is None:
             return ["local LTK QA manifest SHA-256 format invalid"]
-        candidate = selected / name
-        if not candidate.is_file() or candidate.is_symlink():
-            return ["local LTK QA file missing or symlink rejected"]
         try:
-            if _hash_file(candidate) != digest.upper():
+            if _hash_file(selected / name) != digest.upper():
                 return ["local LTK QA component fingerprint mismatch"]
         except OSError:
             return ["local LTK QA component unreadable"]
