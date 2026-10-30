@@ -9,6 +9,15 @@ from injection.game.game_detector import GameDetector
 
 
 class LeaguePathDetectionTests(unittest.TestCase):
+    def setUp(self):
+        # A developer may have League installed at C:/Riot Games. Tests
+        # must never accidentally treat those real files as our temp fixture.
+        standard_roots = patch(
+            "injection.game.game_detector.STANDARD_LEAGUE_CLIENT_ROOTS", ()
+        )
+        standard_roots.start()
+        self.addCleanup(standard_roots.stop)
+
     def make_install(self, root: Path):
         client_dir = root / "League of Legends"
         game_dir = client_dir / "Game"
