@@ -218,6 +218,10 @@ def inspect_psm_process(installed_dir: Path) -> list[str]:
             except (psutil.Error, OSError):
                 continue
         records = [f"PSM running processes: {len(found)}"]
+        installed_starts = [when for is_installed, when in found if is_installed is True]
+        if installed_starts:
+            elapsed = max(0, int((dt.datetime.now().timestamp() - max(installed_starts)) / 60))
+            records.append(f"Installed PSM process uptime (minutes): {elapsed}")
         if not found:
             records.append("PSM installed process active: no")
         else:
@@ -236,12 +240,14 @@ def inspect_psm_process(installed_dir: Path) -> list[str]:
                 logs = sorted(log_dir.glob("rose_*.log*"),
                               key=lambda f: f.stat().st_mtime, reverse=True)
                 if logs:
-                    starts = [when for is_installed, when in found if is_installed is True]
-                    if starts:
+                    if installed_starts:
+                        is_after_launch = logs[0].stat().st_mtime >= max(installed_starts) - 3
                         records.append(
                             "Newest PSM log updated since installed process start: "
-                            + str(logs[0].stat().st_mtime >= max(starts) - 3)
+                            + str(is_after_launch)
                         )
+                        if not is_after_launch:
+                            records.append("WARNING: current installed process has no matched startup log.")
             except OSError:
                 pass
         return records
