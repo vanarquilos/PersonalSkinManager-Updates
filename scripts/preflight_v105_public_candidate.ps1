@@ -21,6 +21,10 @@ $KnownBad = @{
     "ltk_patcher_host.exe" = "5E52DC5A30220E735599BE57308CE7BF52E21416CF2C2D9D449A8637F683C4E9"
     "ltk_patcher_dll.dll" = "B164A14A2D6C1F1EA6D546782C556050F6F9045DFAB686E4967E7D7CD2E87E29"
 }
+$KnownOfficialSigned = @{
+    "ltk_patcher_host.exe" = "23FA1AAEDA1A0C743DA44227F179084E1FB81C7CD262144A3C8604FFC49D3BC1"
+    "ltk_patcher_dll.dll" = "6D419057E6667994BA752AD0FB089B363DB98267618644D7F7B6632441A21D74"
+}
 $Files = [ordered]@{
     "mod-tools.exe" = $ModToolsFile
     "cslol-dll.dll" = Join-Path $CslolDir "cslol-dll.dll"
@@ -57,8 +61,14 @@ if ($Results.Contains("ltk_patcher_host.exe") -and $Results.Contains("ltk_patche
 foreach ($Name in @("ltk_patcher_host.exe", "ltk_patcher_dll.dll")) {
     if (-not $Results.Contains($Name)) { continue }
     $Sig = $Results[$Name]
+    if ($Results[$Name].hash -eq $KnownOfficialSigned[$Name]) {
+        $Blockers.Add("Known original upstream-signed LTK file: $Name; public bundling needs written permission.")
+    }
     if ($Sig.subject -match "(?i)league\s*toolkit") {
         $Blockers.Add("Original League Toolkit publisher signature still present on $Name; cannot redistribute it in a PSM installer without written permission.")
+    }
+    if ($Sig.status -eq "Valid" -and $Sig.subject -notmatch "(?i)league\s*toolkit") {
+        $Blockers.Add("Signed LTK publisher identity needs PSM distributor certificate review before a public build: $Name.")
     }
     if ($Sig.status -notin @("NotSigned", "Valid")) {
         $Blockers.Add("LTK signature validation failed for $Name (status: $($Sig.status)).")
