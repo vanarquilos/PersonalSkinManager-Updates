@@ -73,7 +73,22 @@ if ($Recent.Count -eq 0) {
 }
 foreach ($File in $Recent) {
     $Tail = @(Get-Content -LiteralPath $File.FullName -Tail 12000 -ErrorAction SilentlyContinue)
+    # A modified rolling log can contain older game attempts. Count only
+    # timestamped lines inside THIS script's launch/exit window.
+    $Tail = @($Tail | Where-Object {
+        if ($_ -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\b') {
+            $Parsed = [datetime]::MinValue
+            $Valid = [datetime]::TryParseExact(
+                $Matches[1], "yyyy-MM-dd HH:mm:ss",
+                [Globalization.CultureInfo]::InvariantCulture,
+                [Globalization.DateTimeStyles]::None,
+                [ref]$Parsed
+            )
+            $Valid -and $Parsed -ge $Start.AddSeconds(-3) -and $Parsed -le $End.AddSeconds(3)
+        } else { $false }
+    })
     $Lines.Add("Fresh log modified at " + $File.LastWriteTime.ToString("HH:mm:ss"))
+    $Lines.Add("  Timestamped lines within run: " + $Tail.Count)
     $Patterns = [ordered]@{
         "Skin selection" = '(?i)Using skin file:|Skin selected:'
         "Scanner armed" = '(?i)Scanner armed before League launch'
