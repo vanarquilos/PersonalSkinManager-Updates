@@ -191,6 +191,51 @@ def inspect_live_lcu() -> list[str]:
         return ["Live LCU API: request failed (" + type(exc).__name__ + ")"]
 
 
+
+def inspect_live_websocket() -> list[str]:
+    """Read-only WAMP handshake to the local League client; do not log secrets."""
+    lockfile = next((p for p in _known_lockfile_candidates() if p.is_file()), None)
+    if lockfile is None:
+        return ["Live LCU WebSocket: lockfile not located"]
+    try:
+        import base64
+        import ssl
+        import websocket
+
+        parts = lockfile.read_text(encoding="utf-8").strip().split(":", 4)
+        if len(parts) != 5:
+            return ["Live LCU WebSocket: lockfile format invalid"]
+        _, _, port_text, password, protocol = parts
+        port = int(port_text)
+        if not 1 <= port <= 65535 or not password or protocol not in ("https", "http"):
+            return ["Live LCU WebSocket: invalid endpoint"]
+        scheme = "wss" if protocol == "https" else "ws"
+        auth = base64.b64encode(f"riot:{password}".encode("utf-8")).decode("ascii")
+        ws = websocket.create_connection(
+            f"{scheme}://127.0.0.1:{port}/",
+            timeout=3,
+            header=[f"Authorization: Basic {auth}"],
+            subprotocols=["wamp"],
+            origin=f"{protocol}://127.0.0.1:{port}",
+            sslopt={"cert_reqs": ssl.CERT_NONE},
+            http_proxy_host=None,
+            http_proxy_port=None,
+            http_no_proxy=["127.0.0.1"],
+        )
+        try:
+            negotiated = ws.getsubprotocol()
+            return [
+                "Live LCU WebSocket: handshake succeeded"
+                + (" (wamp)" if negotiated == "wamp" else " (subprotocol unconfirmed)")
+            ]
+        finally:
+            ws.close()
+    except Exception as exc:
+        # Errors can contain URLs/auth headers. Only report the exception class.
+        return ["Live LCU WebSocket: handshake failed (" + type(exc).__name__ + ")"]
+
+
+
 def inspect_psm_process(installed_dir: Path) -> list[str]:
     try:
         import psutil
@@ -306,8 +351,9 @@ def main() -> int:
     output.extend(inspect_psm_process(args.installed_dir))
     output.extend(inspect_psm_lockfile_discovery())
     output.extend(inspect_live_lcu())
+    output.extend(inspect_live_websocket())
     output.extend(inspect_log())
-    output.append("NOTE: HTTP 200 proves local LCU reachability, not PSM WebSocket or Pengu integration.")
+    output.append("NOTE: local LCU/WS probes do not prove PSM's own WebSocket or Pengu has connected.")
     args.report.write_text("\n".join(output) + "\n", encoding="utf-8")
     print("\n".join(output))
     print(f"Saved report: {args.report.name}")
