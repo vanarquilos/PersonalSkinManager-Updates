@@ -6,6 +6,7 @@ Builds executable with PyInstaller and creates Windows installer in one step
 """
 
 import sys
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -133,6 +134,19 @@ def build_all():
         print("3. Make sure PyInstaller is installed:")
         print("   pip install pyinstaller")
         return False
+
+    # Audited v1.0.5 release builds must inspect the PyInstaller output
+    # BEFORE Inno Setup packages it. Ordinary developer builds are unchanged.
+    if os.environ.get("PSM_RELEASE_LTK_DIR"):
+        audit_cmd = [
+            sys.executable,
+            str(ROOT / "scripts" / "audit_v105_distribution_tree.py"),
+            "--dist",
+            str(ROOT / "dist" / "PersonalSkinManager"),
+        ]
+        if subprocess.run(audit_cmd, cwd=ROOT, check=False).returncode != 0:
+            print("[ERROR] Release distribution audit rejected the built files. Installer will NOT be created.")
+            return False
 
     # Step 2: Create installer
     if not run_create_installer():
