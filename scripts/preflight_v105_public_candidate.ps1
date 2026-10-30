@@ -1,0 +1,97 @@
+# PSM v1.0.5 public-candidate readiness audit. Read-only; does not build or publish.
+# Run locally on Windows. Do not upload signer private keys or runtime binaries.
+param(
+    [string]$LtkDir = "",
+    [string]$CslolDir = ""
+)
+$ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
+$Root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
+if (-not $LtkDir) { $LtkDir = Join-Path $Root "installer\candidates\v1.0.5\release-unsigned-ltk" }
+if (-not $CslolDir) { $CslolDir = Join-Path $Root "injection\tools" }
+$OriginalTools = Join-Path $Root "injection\tools"
+$KnownBad = @{
+    "ltk_patcher_host.exe" = "5E52DC5A30220E735599BE57308CE7BF52E21416CF2C2D9D449A8637F683C4E9"
+    "ltk_patcher_dll.dll" = "B164A14A2D6C1F1EA6D546782C556050F6F9045DFAB686E4967E7D7CD2E87E29"
+}
+$Files = [ordered]@{
+    "mod-tools.exe" = Join-Path $OriginalTools "mod-tools.exe"
+    "cslol-dll.dll" = Join-Path $CslolDir "cslol-dll.dll"
+    "ltk_patcher_host.exe" = Join-Path $LtkDir "ltk_patcher_host.exe"
+    "ltk_patcher_dll.dll" = Join-Path $LtkDir "ltk_patcher_dll.dll"
+}
+$Results = [ordered]@{}
+$Blockers = New-Object System.Collections.Generic.List[string]
+$Rows = @()
+foreach ($Name in $Files.Keys) {
+    $Path = $Files[$Name]
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        $Blockers.Add("Missing staged component: $Name")
+        $Rows += [pscustomobject]@{ file = $Name; bytes = $null; signature = "MISSING"; sha256 = "" }
+        continue
+    }
+    $Item = Get-Item -LiteralPath $Path
+    $Hash = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToUpperInvariant()
+    $Sig = Get-AuthenticodeSignature -LiteralPath $Path
+    $Rows += [pscustomobject]@{ file = $Name; bytes = $Item.Length; signature = [string]$Sig.Status; sha256 = $Hash }
+    $Results[$Name] = [pscustomobject]@{
+        hash = $Hash
+        status = [string]$Sig.Status
+        subject = if ($null -ne $Sig.SignerCertificate) { [string]$Sig.SignerCertificate.Subject } else { "" }
+        timestamp_present = ($null -ne $Sig.TimeStamperCertificate)
+    }
+}
+if ($Results.Contains("ltk_patcher_host.exe") -and $Results.Contains("ltk_patcher_dll.dll")) {
+    if ($Results["ltk_patcher_host.exe"].hash -eq $KnownBad["ltk_patcher_host.exe"] -and
+        $Results["ltk_patcher_dll.dll"].hash -eq $KnownBad["ltk_patcher_dll.dll"]) {
+        $Blockers.Add("Known failing unsigned LTK pair. Previous SetWindowsHookEx test failed; do not rebuild identical files.")
+    }
+}
+foreach ($Name in @("ltk_patcher_host.exe", "ltk_patcher_dll.dll")) {
+    if (-not $Results.Contains($Name)) { continue }
+    $Sig = $Results[$Name]
+    if ($Sig.subject -match "(?i)league\s*toolkit") {
+        $Blockers.Add("Original League Toolkit publisher signature still present on $Name; cannot redistribute it in a PSM installer without written permission.")
+    }
+    if ($Sig.status -notin @("NotSigned", "Valid")) {
+        $Blockers.Add("LTK signature validation failed for $Name (status: $($Sig.status)).")
+    }
+}
+if ($Results.Contains("cslol-dll.dll")) {
+    $Cslol = $Results["cslol-dll.dll"]
+    if ($Cslol.status -ne "Valid") {
+        $Blockers.Add("CSLOL DLL requires a valid distributor-owned, publicly trusted code-signing certificate.")
+    }
+    if (-not $Cslol.timestamp_present) {
+        $Blockers.Add("CSLOL DLL trusted timestamp is missing or cannot be established by this audit.")
+    }
+    if ($Cslol.subject -match "(?i)league\s*toolkit") {
+        $Blockers.Add("CSLOL DLL still appears to bear the upstream publisher signature.")
+    }
+}
+$Trigger = Join-Path $Root "threads\handlers\injection_trigger.py"
+$ContentReview = "PENDING"
+if (Test-Path -LiteralPath $Trigger -PathType Leaf) {
+    $SourceText = Get-Content -LiteralPath $Trigger -Raw -Encoding UTF8
+    if ($SourceText.Contains("Custom mod targets unowned skin") -or
+        $SourceText.Contains("unowned selected skin is added as the Rose-style carrier")) {
+        $Blockers.Add("Launcher paid-skin/competitive-content enforcement requires independent review; unowned-skin carrier routing exists.")
+    } else {
+        $Blockers.Add("Launcher content enforcement still requires independent verification; absence of marker is not proof.")
+    }
+} else {
+    $Blockers.Add("Launcher content enforcement cannot be audited: injection_trigger.py missing.")
+}
+Write-Host "PSM v1.0.5 - staged public candidate readiness" -ForegroundColor Cyan
+Write-Host "READ ONLY. Four required components; no files changed."
+$Rows | Format-Table file, bytes, signature, sha256 -AutoSize
+Write-Host "CSLOL publisher subject and public CA chain require separate human verification." -ForegroundColor Yellow
+Write-Host "CSLOL license addendum also requires a certificate fingerprint, DLL hash disclosure, and effective content blocking."
+Write-Host "LTK file identity, compatibility and visible in-game skin rendering require separate real-game QA."
+Write-Host "Release requirements remain blocked until publisher authorization and complete gameplay evidence are recorded."
+foreach ($Problem in $Blockers) { Write-Warning $Problem }
+if ($Blockers.Count -eq 0) {
+    Write-Warning "Static evidence alone cannot authorize public distribution. Manual license and gameplay approvals remain pending."
+}
+Write-Host "PUBLICATION: NOT APPROVED; no installer was built or released." -ForegroundColor Yellow
+Write-Host "If reporting results, share only file hashes, signature statuses, and sanitized errors; never share keys or tokens."
