@@ -13,7 +13,7 @@ from state import SharedState, AppStatus
 from injection import InjectionManager
 from injection.mods.storage import ModStorageService
 from utils.core.logging import get_logger, log_success
-from utils.system.admin_utils import ensure_admin_rights
+from utils.system.admin_utils import is_admin
 from config import APP_VERSION, set_config_option
 
 log = get_logger()
@@ -28,8 +28,15 @@ def initialize_core_components(args, injection_threshold: Optional[float] = None
     """
     set_config_option("General", "installed_version", APP_VERSION)
     
-    # Check for admin rights FIRST (required for injection to work)
-    ensure_admin_rights()
+    # Do not silently relaunch PSM as Administrator. The reviewed LTK
+    # source/installed compatibility tests need a predictable launch context;
+    # separate elevated system tasks can request their own privileges.
+    # A frozen asInvoker manifest alone would NOT prevent this old runtime
+    # auto-elevation path from changing the actual process token.
+    log.info(
+        "[STARTUP] PSM launch privilege: %s (no implicit elevation)",
+        "elevated" if is_admin() else "standard",
+    )
 
     # Ensure mods directory layout exists early (and clean unknown root categories)
     try:
