@@ -37,6 +37,7 @@ except ImportError:
 
 from utils.core.logging import get_logger
 from utils.core.issue_reporter import report_issue
+from utils.system.frozen_subprocess import popen_external
 from ..tools.patcher import (
     LTK_PATCHER_DLL,
     LTK_PATCHER_HOST,
@@ -433,7 +434,10 @@ def start_ltk_patcher_host(
 
     proc = None
     try:
-        proc = subprocess.Popen(
+        # PyInstaller changes DLL search paths process-wide; an independent
+        # vendor EXE must not inherit PSM's bundled Python DLL lookup order.
+        # The helper restores the prior DLL directory immediately after spawn.
+        proc = popen_external(
             cmd,
             # The LTK DLL is loaded relative to its host binary. An isolated
             # QA pair must run from its own directory, not the source tools dir.
