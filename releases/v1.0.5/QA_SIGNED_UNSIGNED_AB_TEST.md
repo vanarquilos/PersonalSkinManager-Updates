@@ -74,3 +74,17 @@ The no-skin report was generated 08:39 with its newest log last modified 08:25 (
 **New decision test (no rebuild):** `scripts/test_v105_frozen_dev_parity.ps1 -Variant Portable` runs the currently built portable frozen EXE with `--dev --debug --logs`, matching the successful Python source's CLI flags. It captures only logs timestamped during that specific launch window, plus the frozen EXE and LTK fingerprints. Close PSM and League before launching, choose a non-default skin in Practice Tool, then exit PSM to finish reporting. If this private `--dev` run works, compare normal production startup (launcher/hash/skin sync). If it fails, investigate differences intrinsic to frozen execution and LTK host startup. The script does not change game security or any runtime binaries.
 
 Do not treat a `--dev` frozen test as release acceptance; it intentionally skips PSM's normal startup launcher. The *newly rebuilt installed production candidate* still must pass full gameplay tests before publishing.
+
+## October 30 — frozen subprocess DLL lookup difference
+
+User reports the old portable frozen EXE still shows default skin even with `--dev --debug --logs`. The tested frozen EXE was built from older commit `1c7d043`; neither recently committed core startup nor this new change is in that old binary.
+
+PyInstaller's official documentation explains that its Windows bootloader calls `SetDllDirectoryW(sys._MEIPASS)` to prefer bundled shared libraries, **and that the modified lookup can be inherited by external child processes**. Launching independent external programs should temporarily restore normal Windows DLL lookup. See: https://pyinstaller.org/en/stable/common-issues-and-pitfalls.html#launching-external-programs-from-the-frozen-application
+
+The original PSM `injection/overlay/ltk_host.py` spawned the independent LTK host directly from a frozen process without normalizing the inherited Windows DLL search order. The source Python tester has no PyInstaller-set DLL directory. This gives a concrete, documented **packaging-specific hypothesis**; it does NOT prove the Windows hook failure cause.
+
+New `utils/system/frozen_subprocess.py` preserves `GetDllDirectoryW`, resets `SetDllDirectoryW(None)` only during `subprocess.Popen` for the reviewed LTK host, then restores the previous DLL directory in a `finally` block (including failed launches). Unfrozen source execution is unchanged. Unit tests cover default/source spawn, frozen reset+restore, error restore, and missing frozen runtime metadata. No game security settings, LTK bytes, code signatures or process permissions are modified.
+
+**Required validation:** First run the Python tests on Windows; then produce one fresh, isolated unsigned local RC via `scripts/build_v105_distribution_candidate.ps1`. Inspect the resulting compiled EXE manifest and staged hash audit. Install **that candidate**, verify the logged marker `External host spawned with standard Windows DLL lookup`, then test non-default skin in Practice Tool, Swiftplay and consecutive match. Only a successful installed test justifies pre-release publishing. If hook still fails, treat the DLL-directory hypothesis as disproven or incomplete and obtain new time-correlated logs instead of repeating builds.
+
+The existing default-skin installed v1.0.5 and older `dist` binaries remain unapproved.
