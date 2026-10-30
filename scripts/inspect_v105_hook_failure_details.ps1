@@ -19,6 +19,11 @@ $Codes = [ordered]@{}
 $Counts = [ordered]@{
     "App initialization" = 0
     "Main process ready" = 0
+    "LCU client initialized" = 0
+    "WebSocket waiting" = 0
+    "WebSocket connected" = 0
+    "Pengu/injection setup" = 0
+    "LCU disconnected" = 0
     "LCU/client activity" = 0
     "Gameflow/loadout activity" = 0
     "Selected-skin/injection trigger" = 0
@@ -57,6 +62,13 @@ foreach ($Log in $Logs) {
         if ($Line -match '(?i)System ready|WebSocket status is active|App status manager initialized') {
             $Counts["Main process ready"]++
         }
+        if ($Line -match '(?i)LCU client initialized') { $Counts["LCU client initialized"]++ }
+        if ($Line -match '(?i)Waiting for WebSocket status to be active') { $Counts["WebSocket waiting"]++ }
+        if ($Line -match '(?i)WebSocket status is active, proceeding') { $Counts["WebSocket connected"]++ }
+        if ($Line -match '(?i)Setting client path in Pengu Loader|Initializing injection system now|Initializing injection system|Background initialization completed') {
+            $Counts["Pengu/injection setup"]++
+        }
+        if ($Line -match '(?i)LCU disconnected') { $Counts["LCU disconnected"]++ }
         if ($Line -match '(?i)LCU client initialized|LCU reconnected|LCU disconnected|WebSocket status|client phase|client session') {
             $Counts["LCU/client activity"]++
         }
@@ -114,6 +126,9 @@ if ($TimedLines -eq 0) {
 }
 elseif ($Counts["Selected-skin/injection trigger"] -eq 0 -and $Counts["LTK scanner startup"] -eq 0) {
     Write-Warning "Application log activity was observed, but no injection trigger or scanner startup was recorded. Check whether a Practice Tool session occurred and whether this is the correct QA process."
+    if ($Counts["WebSocket connected"] -eq 0) {
+        Write-Warning "The exact 'WebSocket status is active' readiness marker was not found. 'System ready' or 'LCU initialized' alone do not prove the League client connection is live."
+    }
 }
 Write-Host "Exact hook failure codes:"
 if ($Codes.Count -eq 0) { Write-Host "  none extracted" }
