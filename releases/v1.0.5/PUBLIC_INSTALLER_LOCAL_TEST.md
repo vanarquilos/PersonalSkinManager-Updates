@@ -106,6 +106,49 @@ The maintainer ran `build_v105_frozen_parity_private_qa.ps1` in the linked stagi
 
 Interpretation: if this frozen EXE renders a cosmetic visibly in gameplay, the PyInstaller side of the source-to-package gap is likely closed and Inno/installed runtime context becomes the priority. A successful frozen build alone does not prove runtime functionality.
 
+## Frozen EXE does not render: isolated external-process DLL search correction
+
+The first frozen EXE (SHA-256 `A7FD93BB20AFAAB387F1529386658DCE05F2A9FEA1E6AB69C6264BAE11D418C3`) **launched but did not render the selected skin** in the maintainer's local test. This is a failed frozen gameplay QA result, even though all four binary hashes matched their source counterparts.
+
+One **unconfirmed hypothesis** is that the PyInstaller bootloader's Windows `SetDllDirectoryW` configuration is inherited by subprocesses. Official PyInstaller guidance documents this issue when launching external executables from frozen applications: https://pyinstaller.org/en/stable/common-issues-and-pitfalls.html .
+
+The staging branch now uses a narrowly scoped, serialized external-process launcher. During creation of `ltk_patcher_host.exe` and the three `mod-tools.exe` subprocess call sites it temporarily restores standard Windows DLL search behavior and immediately restores PyInstaller's original path. It never changes, signs, replaces or patches the runtime binaries or any Riot/League files. Patch flags and game integrity checks are unchanged. Tests simulate frozen Windows subprocess success/failure and verify restoration of the search path.
+
+### Fresh linked worktree for the second frozen QA build
+
+Because the first linked worktree contains a verified previous build, **do not overwrite it**. The frozen QA builder permits a dedicated `qa/v105-frozen-dllsearch-*` branch in a fresh linked worktree. Obtain the newest staging changes and create an isolated test checkout:
+
+```powershell
+$Original = "C:\Users\Van Arquilos\Desktop\PersonalSkinManager-Updates"
+$New = "C:\Users\Van Arquilos\Desktop\PSM-v105-Frozen-DLLSearch-QA"
+$Branch = "qa/v105-frozen-dllsearch-rc1"
+if (Test-Path -LiteralPath $New) { throw "Test folder exists; do not overwrite it" }
+git -C $Original fetch origin release/v105-public-installer-staging
+if ($LASTEXITCODE -ne 0) { throw "Git fetch failed" }
+git -C $Original worktree add -b $Branch $New origin/release/v105-public-installer-staging
+if ($LASTEXITCODE -ne 0) { throw "Cannot create fresh linked worktree" }
+Set-Location -LiteralPath $New
+python -m unittest tests.test_v105_frozen_external_dll_search tests.test_v105_frozen_parity_private_qa_contract
+if ($LASTEXITCODE -ne 0) { throw "Focused tests failed" }
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\build_v105_frozen_parity_private_qa.ps1" 
+  -ModToolsFile (Join-Path $Original "injection\tools\mod-tools.exe") 
+  -UnsignedLtkDir (Join-Path $Original "installer\candidates\v1.0.5\release-unsigned-ltk") 
+  -CslolDir (Join-Path $Original "injection\tools")
+if ($LASTEXITCODE -ne 0) { throw "Frozen QA rebuild failed" }
+```
+
+Before starting this exact EXE, close all other PSM/League/gameplay processes and record `$TestStart = Get-Date` in PowerShell. Execute only the local `dist/PersonalSkinManager/PersonalSkinManager.exe`, test visible permitted custom-cosmetic rendering, then close it. Afterward run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\inspect_v105_frozen_session_logs.ps1" -SinceLocal $TestStart
+```
+
+The logs report sanitized event categories only. Shared `%LOCALAPPDATA%\Rose` logs do not conclusively prove process origin, so the gameplay observation and EXE SHA are separately required.
+
+If the second frozen build still fails, use the categorized log evidence to determine whether LTK process startup, hook initialization, overlay creation, WAD redirection, game version, LCU connection or a missing skin selection is the true blocker. Do not bypass signature, LTK host-integrity, anti-cheat or content protections.
+
+**PUBLIC RELEASE REMAINS NO-GO:** The local frozen QA package contains the existing third-party-signed CSLOL DLL and unreviewed launcher content restrictions. Neither existing nor rebuilt frozen QA files may be published or shared.
+
 ## First: inspect the current Windows inputs
 
 On the working repository checkout of this staging branch (or a linked worktree with this branch), run:
