@@ -55,7 +55,7 @@ foreach ($Name in $Files.Keys) {
 if ($Results.Contains("ltk_patcher_host.exe") -and $Results.Contains("ltk_patcher_dll.dll")) {
     if ($Results["ltk_patcher_host.exe"].hash -eq $KnownBad["ltk_patcher_host.exe"] -and
         $Results["ltk_patcher_dll.dll"].hash -eq $KnownBad["ltk_patcher_dll.dll"]) {
-        $Blockers.Add("Known failing unsigned LTK pair. Previous SetWindowsHookEx test failed; do not rebuild identical files.")
+        $Blockers.Add("Unsigned LTK pair rendered a skin in SOURCE QA but failed in the earlier INSTALLED candidate (SetWindowsHookEx). Installed packaging parity remains unverified; do not publish.")
     }
 }
 foreach ($Name in @("ltk_patcher_host.exe", "ltk_patcher_dll.dll")) {
