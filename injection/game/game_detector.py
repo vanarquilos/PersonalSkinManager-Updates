@@ -56,8 +56,62 @@ class GameDetector:
             self.config_manager.save_paths(str(detected_league_path), str(detected_client_path))
             return detected_league_path, detected_client_path
         
-        # No fallbacks - if we can't detect it, return None
-        log.warning("Could not detect League of Legends paths. Please ensure League Client is running or manually set the paths in config.ini")
+        # Process inspection may be denied for LeagueClient.exe on Windows,
+        # particularly when PSM runs without elevation. The League lockfile
+        # location and ordinary installation directories are less privileged
+        # ways to locate the client without opening another process.
+        filesystem_league_path, filesystem_client_path = self._detect_via_installation()
+        if filesystem_league_path and filesystem_client_path:
+            self.config_manager.save_paths(
+                str(filesystem_league_path), str(filesystem_client_path)
+            )
+            return filesystem_league_path, filesystem_client_path
+
+        log.warning(
+            "Could not detect League paths via saved configuration, client process "
+            "or installed game files. LCU connection is checked separately."
+        )
+        return None, None
+
+    def _detect_via_installation(self) -> Tuple[Optional[Path], Optional[Path]]:
+        """Locate an installed client without inspecting processes or lockfile secrets."""
+        candidates = []
+        # The LCU lockfile finder returns a path, not its credentials. It can
+        # handle non-default installations when the process EXE is inaccessible.
+        try:
+            from lcu.core.lockfile import find_lockfile
+            lockfile = find_lockfile()
+            if lockfile:
+                candidates.append(Path(lockfile).parent)
+        except (OSError, ValueError) as exc:
+            log.debug("League lockfile directory unavailable: %s", type(exc).__name__)
+
+        # A partially saved config remains useful if only one side is valid.
+        for configured in (
+            self.config_manager.load_client_path(),
+            self.config_manager.load_league_path(),
+        ):
+            if configured:
+                candidate = Path(configured)
+                if candidate.name.casefold() == "game":
+                    candidate = candidate.parent
+                candidates.append(candidate)
+
+        # Conservative known install roots. Do not crawl unrelated drives or
+        # guess a client connection merely from a Riot Client installation.
+        candidates.extend((
+            Path("C:/Riot Games/League of Legends"),
+            Path("C:/Program Files/Riot Games/League of Legends"),
+            Path("C:/Program Files (x86)/Riot Games/League of Legends"),
+        ))
+
+        for client_dir in dict.fromkeys(candidates):
+            if not (client_dir / "LeagueClient.exe").is_file():
+                continue
+            game_dir = client_dir / "Game"
+            if (game_dir / "League of Legends.exe").is_file():
+                log.info("League client and game installation located using on-disk files")
+                return game_dir, client_dir
         return None, None
     
     def detect_game_dir(self) -> Optional[Path]:
