@@ -176,9 +176,10 @@ try {
             throw "Packaged $Name still bears an upstream signature."
         }
     }
-    $Sensitive = @(Get-ChildItem -LiteralPath $Dist -Recurse -File |
-        Where-Object { $_.Name -match '^_v105_.*\.json$|\.pfx$|\.pem$' })
-    if ($Sensitive.Count -gt 0) { throw "Private runtime state or signing material was bundled." }
+    # Independent second check after building the installer. Public certifi
+    # CA trust stores are not private keys; everything else stays blocked.
+    & python (Join-Path $Root "scripts\audit_v105_distribution_tree.py") --dist $Dist
+    Check-Exit "Private runtime state or signing material was bundled."
 
     Copy-Item -LiteralPath $Installer -Destination $Rc -Force
     $Hash = (Get-FileHash -LiteralPath $Rc -Algorithm SHA256).Hash
