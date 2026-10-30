@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import deque
 import datetime as dt
 import os
 import re
@@ -26,6 +27,8 @@ LOG_MARKERS = {
     "LCU websocket disconnected": "WEBSOCKET DISCONNECTED",
     "League path discovery failed": "Could not detect League paths",
     "Pengu activation failed": "Pengu activation failed",
+    "League detected but Pengu unavailable": "League client detected, but Pengu Loader activation failed",
+    "Unknown Pengu status": "initial status is unknown",
     "Pengu loader unavailable": "Pengu Loader executable is unavailable",
     "Source privilege marker": "PSM launch privilege:",
     "Frozen host DLL lookup normalized": "External host spawned with standard Windows DLL lookup",
@@ -94,10 +97,16 @@ def inspect_processes() -> tuple[int, int, int]:
 
 
 def inspect_log() -> list[str]:
-    log_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Rose" / "logs"
+    local_appdata = os.environ.get("LOCALAPPDATA")
+    if not local_appdata:
+        return ["Local Rose logs: environment path unavailable"]
+    log_dir = Path(local_appdata) / "Rose" / "logs"
     if not log_dir.is_dir():
         return ["Local Rose logs: unavailable"]
-    logs = sorted(log_dir.glob("rose_*.log*"), key=lambda p: p.stat().st_mtime, reverse=True)
+    try:
+        logs = sorted(log_dir.glob("rose_*.log*"), key=lambda p: p.stat().st_mtime, reverse=True)
+    except OSError:
+        return ["Local Rose logs: listing unavailable"]
     if not logs:
         return ["Local Rose logs: none"]
     latest = logs[0]
@@ -105,7 +114,7 @@ def inspect_log() -> list[str]:
     result = [f"Latest shared PSM log age (minutes): {age_minutes}"]
     try:
         with latest.open("r", encoding="utf-8", errors="replace") as handle:
-            lines = handle.readlines()[-8000:]
+            lines = deque(handle, maxlen=8000)
         counts = {label: 0 for label in LOG_MARKERS}
         for line in lines:
             for label, phrase in LOG_MARKERS.items():
