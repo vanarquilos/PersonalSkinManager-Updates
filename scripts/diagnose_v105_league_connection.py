@@ -3,12 +3,21 @@
 from __future__ import annotations
 
 import argparse
+import sys
 import configparser
 from collections import deque
 import datetime as dt
 import os
 import sys
 from pathlib import Path
+
+# This script is normally executed as `python scripts/diagnose_...`.
+# In that mode sys.path[0] points at scripts/, not the repository root.
+# Add the root explicitly so the diagnostic imports the same source packages
+# as PSM instead of reporting a misleading ModuleNotFoundError.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 # Directly executing "python scripts/diagnose_v105_league_connection.py"
 # places scripts/ (not the repository root) on sys.path. The earlier
@@ -111,8 +120,11 @@ def inspect_psm_lockfile_discovery() -> list[str]:
     """Check PSM's Python discovery helper without recording credentials."""
     try:
         from lcu.core.lockfile import find_lockfile
+    except ModuleNotFoundError as exc:
+        # A missing module name is useful and doesn't disclose the LCU secret.
+        return ["PSM source LCU diagnostic import: missing module " + str(exc.name or "unknown")]
     except Exception as exc:
-        return ["PSM LCU discovery import: unavailable (" + type(exc).__name__ + ")"]
+        return ["PSM source LCU diagnostic import: unavailable (" + type(exc).__name__ + ")"]
     try:
         selected = find_lockfile()
         return ["PSM LCU lockfile finder: " + ("found" if selected else "not found")]
