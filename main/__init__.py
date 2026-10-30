@@ -127,7 +127,22 @@ def _setup_pengu_and_injection(lcu, injection_manager, activate_pengu: bool = Tr
     # Set client path in Pengu Loader and activate (skip on reconnection)
     if activate_pengu:
         log.info("Setting client path in Pengu Loader and activating...")
-        pengu_loader.activate_on_start(str(client_path))
+        if not pengu_loader.activate_on_start(str(client_path)):
+            # LCU connectivity and Pengu activation are separate prerequisites.
+            # A normal-user executable may connect to LCU but fail a privileged
+            # Pengu installation. Do not silently treat that as client success.
+            log.error(
+                "[CLIENT] League client detected, but Pengu Loader activation failed. "
+                "Check Pengu status and Windows permissions; do not modify game security."
+            )
+            from utils.core.issue_reporter import report_issue
+            report_issue(
+                "PENGU_ACTIVATION_FAILED",
+                "error",
+                "League was detected, but the client integration could not start.",
+                hint="Inspect the PSM/Pengu activation logs and installation permissions.",
+                dedupe_window_s=120.0,
+            )
 
     # Initialize injection system now (with detected paths already in config.ini)
     log.info("Initializing injection system...")
