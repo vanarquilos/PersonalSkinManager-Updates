@@ -93,6 +93,19 @@ The script hashes and verifies all four source files **before** any worktree cha
 
 Once package integrity is verified, determine whether the frozen EXE itself can perform authorized cosmetic rendering without reinstalling the application. Run only one PSM process at a time and avoid uninstalling or reconfiguring the working version, since Pengu Loader and startup state can be shared between PSM instances. If frozen QA works but installed QA fails, focus on Inno/installation context; if frozen QA fails, focus on PyInstaller/resource paths and launched process environment. A successful freeze alone is **not** a gameplay pass.
 
+## October 30 frozen-build verification (maintainer Windows result)
+
+The maintainer ran `build_v105_frozen_parity_private_qa.ps1` in the linked staging worktree. PyInstaller reported build success and the script independently verified all four bundled runtime files against the expected exact SHA-256 values. The frozen application has **not yet been launched/gameplay-tested**. Output details:
+
+- Executable: `dist/PersonalSkinManager/PersonalSkinManager.exe` relative to the disposable test worktree
+- Frozen EXE SHA-256: `A7FD93BB20AFAAB387F1529386658DCE05F2A9FEA1E6AB69C6264BAE11D418C3`
+- Reporter: four package files verified; `cslol-dll.dll` is present in frozen output, unlike the previously inspected installation
+- Next gate: run *this exact EXE* on the Windows test machine, confirm UI starts, check the permissible transformed custom cosmetic actually displays in Practice Tool, and confirm no current-session hook failure; then terminate cleanly and inspect latest sanitized log
+- Do not start the existing installed application concurrently. Frozen and installed PSM may share `%LOCALAPPDATA%\Rose`, Pengu Loader activation and other operating-system state. Avoid uninstalling or reconfiguring the working copy. Back up relevant user state before a live test if preservation is essential.
+- The frozen QA artifact still includes third-party-signed CSLOL. It is **not** legal-release approved: neither the EXE nor the folder may be uploaded or shared. Publisher CA signing and prohibited-content launcher enforcement remain unresolved.
+
+Interpretation: if this frozen EXE renders a cosmetic visibly in gameplay, the PyInstaller side of the source-to-package gap is likely closed and Inno/installed runtime context becomes the priority. A successful frozen build alone does not prove runtime functionality.
+
 ## First: inspect the current Windows inputs
 
 On the working repository checkout of this staging branch (or a linked worktree with this branch), run:
