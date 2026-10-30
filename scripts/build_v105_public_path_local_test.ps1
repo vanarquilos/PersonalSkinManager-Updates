@@ -94,7 +94,7 @@ if ($Hashes["cslol-dll.dll"] -eq $KnownThirdPartyCSLOLDllSha256) {
 }
 if ($Hashes["ltk_patcher_host.exe"] -eq $KnownBad["ltk_patcher_host.exe"] -and
     $Hashes["ltk_patcher_dll.dll"] -eq $KnownBad["ltk_patcher_dll.dll"]) {
-    throw "Known failing unsigned LTK pair: SetWindowsHookEx failed. Do not rebuild identical binaries."
+    throw "Earlier INSTALLED candidate failed SetWindowsHookEx using this pair, although isolated unsigned SOURCE QA now renders skins. Hold publication until installed packaging parity is explained; no identical public-path rebuild."
 }
 foreach ($Name in $LTKNames) {
     if ($Hashes[$Name] -eq $KnownOfficialSigned[$Name]) {
