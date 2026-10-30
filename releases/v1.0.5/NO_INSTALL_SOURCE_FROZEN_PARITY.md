@@ -2,6 +2,38 @@
 
 **Status: code-only QA prepared, gameplay not proven.** The maintainer does not need to install another LTK Manager or replace the working PSM installation to continue investigating the source-versus-PyInstaller discrepancy.
 
+## October 31 code fixes and offline LTK inventory — avoid rebuilding known-expired runtimes
+
+The screenshot's `LTK_PATCHER_EOL` is a **real build-cutoff failure**, not solely a frozen-packaging failure. Rose's latest source also compares the patcher DLL's embedded cutoff with the installed League executable's PE build timestamp. PSM cannot make this runtime compatible by copying DLLs, editing UI, changing Python, modifying signatures, or ignoring game security checks.
+
+Recent staging changes:
+- The Inno/PyInstaller output now correctly distinguishes default user-provided LTK from a PRIVATE bundled parity build; no more false "LTK bundled and no DLL setup needed" success message.
+- `ToolsManager` reports the selected LTK cutoff and game PE date and avoids generating a second generic injection failure.
+- The Troubleshooting diagnostic migrates old messages without repeatedly clearing/recreating the active error or disabling its deduplication.
+- `scripts/audit_existing_ltk_pairs_v105.py` inventories any **already-local** matching host/DLL pairs, recording exact SHA-256 and comparing `read_dll_eol` with the game executable's PE timestamp. It neither downloads nor executes a DLL, and never calls the injection host or modifies files. It never calls a pair "working": `CUTOFF_NOT_EXCEEDED` means only that one known date restriction was not exceeded.
+- New regression tests for inventory classification and stale diagnostic migration; a static builder-contract assertion was corrected to match the real private builder's label.
+
+Read-only inventory on the maintainer's PC (does not install anything):
+
+```powershell
+$Staging = "C:\Users\Van Arquilos\Desktop\PSM-v105-Public-Local-Test-Worktree"
+git -C $Staging pull --ff-only origin release/v105-public-installer-staging
+if ($LASTEXITCODE -ne 0) { throw "Staging update failed" }
+Push-Location $Staging
+try {
+    python scripts/audit_existing_ltk_pairs_v105.py `
+      --league-dir "C:\Riot Games\League of Legends" `
+      --root "C:\Users\Van Arquilos\Desktop\PersonalSkinManager-Updates\injection\tools" `
+      --root "C:\Users\Van Arquilos\Desktop\PersonalSkinManager-Updates\installer\candidates\v1.0.5" `
+      --root "C:\Users\Van Arquilos\Desktop\PSM-v105-Frozen-Fix-20261030-222824"
+    if ($LASTEXITCODE -ne 0) { throw "Local read-only inventory failed" }
+} finally { Pop-Location }
+```
+
+If the League installation uses another path, substitute its root in `--league-dir`; if the value prints `game_build_utc: null`, do not infer compatibility from the status. A truly compatible new LTK host/DLL still requires supported upstream binary provenance, publisher checks, an authorized content test and **actual visible Practice Tool rendering**. Merely finding `CUTOFF_NOT_EXCEEDED` does not approve PSM v1.0.5.
+
+The GitHub Windows workflow currently reports failure; the GitHub connector supplies no usable job steps or artifact/log payload. Windows unit tests, MSVC build, and gameplay success are therefore **not attested**. Keep PR #18 in draft and do not publish a "fully working" installer yet.
+
 ## Preferred definitive A/B: same reviewed ORIGINAL signed source pair in private frozen QA
 
 The previous `scripts/build_v105_frozen_parity_private_qa.ps1` used **unsigned v1.28.1** host/DLL hashes that failed during gameplay, so it could not establish parity against the original signed source. A new script `scripts/build_v105_signed_source_parity_private_qa.ps1` uses the original source host/DLL hashes, unchanged original CSLOL input, and original mod-tools version. It builds ONLY a local frozen QA folder and confirms exact SHA-256 matches for all four packaged components. **No new official manager installation and no binary download.**
