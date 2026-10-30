@@ -50,6 +50,10 @@ foreach ($Name in $Pair.Keys) {
     $File = Join-Path $Dir $Name
     if (-not (Test-Path -LiteralPath $File -PathType Leaf)) { throw "Missing $Name" }
     if ((Sha $File) -ne $Pair[$Name].ToUpperInvariant()) { throw "LTK fingerprint mismatch: $Name" }
+    $Signature = Get-AuthenticodeSignature -LiteralPath $File
+    if ($Signature.Status -ne "Valid" -or $null -eq $Signature.SignerCertificate) {
+        throw "Only verified signed upstream binaries are accepted for this PRIVATE integration QA."
+    }
 }
 $OldBadHost = "5E52DC5A30220E735599BE57308CE7BF52E21416CF2C2D9D449A8637F683C4E9"
 $OldBadDll = "B164A14A2D6C1F1EA6D546782C556050F6F9045DFAB686E4967E7D7CD2E87E29"
