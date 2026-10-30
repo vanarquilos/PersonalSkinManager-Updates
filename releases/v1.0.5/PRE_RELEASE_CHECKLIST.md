@@ -1,3 +1,16 @@
+## October 30 — installed candidate cannot detect League Client (open issue)
+
+The maintainer reports that the newly installed candidate does not detect League. This is a **separate prerequisite failure from LTK skin overlay rendering** and needs isolated LCU/client startup QA. Existing installed EXE does not contain new source fixes.
+
+Code inspection found three concrete weak points:
+- `GameDetector` returned no League directories when `psutil` could not retrieve `LeagueClient.exe`'s executable path, unless a fully valid path pair was already saved.
+- LCU lockfile discovery did not reuse PSM's previously saved client directory. This matters for custom-drive installations where process EXE inspection is denied.
+- `_setup_pengu_and_injection()` previously ignored the boolean result from `pengu_loader.activate_on_start()`. Thus LCU connection could succeed while client integration fails with no explicit PSM issue.
+
+Implemented a conservative on-disk fallback requiring **both** `LeagueClient.exe` and `Game/League of Legends.exe`, saved-client lockfile lookup without dumping credentials, and a PSM issue when Pengu cannot activate. These source changes are **not a verified repair** for the already installed candidate.
+
+**Do not rebuild yet:** Open the actual League client via Riot, leave it open, and run `python scripts/diagnose_v105_league_connection.py` from the checked-out branch. Its report distinguishes missing process, inaccessible process EXE, absent lockfile, LCU WebSocket failure and Pengu activation issues. It contains no lockfile contents or authentication tokens. If the report shows League/LCU connected but Pengu failed, diagnose Pengu's installation permissions separately without disabling OS/game security. Only then build a newly reviewed RC; installation and gameplay tests remain pending.
+
 ## October 30 — investigate default skin in newly installed PSM
 
 **Release remains blocked.** Signed and unsigned LTK pairs worked in source tests, but the installed application continues to show the default skin. A code review found `ensure_admin_rights()` in `main/core/initialization.py`, called by both source and packaged runs; therefore, the prior claim that the source tester necessarily ran without elevation was unsupported. The `asInvoker` packaged manifest also did not prevent this runtime relaunch. Implicit startup elevation has been removed in source, with a regression test and privilege-category log.
