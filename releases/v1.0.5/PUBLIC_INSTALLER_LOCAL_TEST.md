@@ -199,6 +199,28 @@ The staging source A/B script now explicitly refuses non-admin PowerShell, and `
 
 **Interpretation**: If a genuinely verified unsigned source match also fails, previous rendering likely came from the signed reference or another unverified runtime; pursue licensed, officially compatible distributor-signed binaries rather than attempt to defeat host/game integrity or use the old unsigned pair for release. If hash-verified unsigned source renders successfully, continue investigating verified source vs frozen parent environment and process provenance. In either case, public installer approval remains blocked by publisher signing, legal content restrictions and installed QA.
 
+## October 30 follow-up: source gameplay still no visible skin; stop using old unsigned pair as release candidate
+
+The maintainer reported **no visible skin after the elevated source QA workflow**. No complete post-test output or `Confirmed selected source runtime:` line was provided, so the exact selected source runtime in that final gameplay session is **not independently proven**. In contrast, the frozen QA gameplay test at 23:13:28 was fully instrumented and demonstrated `SetWindowsHookEx failed: 0x00000000`, no successful LTK attachment or redirection, even with the pinned unsigned v1.28.1 pair selected outside the bundle.
+
+### Fresh upstream information (verified October 30, 2026)
+
+- LTK Manager [v1.31.1](https://github.com/LeagueToolkit/ltk-manager/releases) is the newest listed release (October 28, 2026). The legacy PSM source/QA pair is from v1.28.1.
+- The [LTK Manager v1.29.1](https://github.com/LeagueToolkit/ltk-manager/releases/tag/v1.29.1) notes explicitly fixed a patcher parsing incompatibility involving League 26.21's 8-byte hashed material names in champion WADs; v1.28.1 predates the fix.
+- The upstream [LTK hook failure issue #302](https://github.com/LeagueToolkit/ltk-manager/issues/302) documents the same `SetWindowsHookEx failed: 0x00000000` signature in July 2026. A Vanguard update reportedly addressed that *historical* regression, but the cause of the user's current October failure is not confirmed by that issue.
+- The upstream [troubleshooting FAQ #255](https://github.com/LeagueToolkit/ltk-manager/issues/255) warns that running LTK Manager as Administrator can cause unexpected launcher/pipe problems. PSM's `ensure_admin_rights()` currently enforces elevation. This is a candidate interoperability difference, not a proven root cause of the current error.
+- The [LTK Patcher License](https://github.com/LeagueToolkit/ltk-manager/blob/main/LTK-PATCHER-LICENSE.md) requires removing LeagueToolkit's signature before redistribution in another launcher without explicit permission. Do not publish a copied official signed pair.
+
+### Decision gate before any new PSM executable
+
+1. Preserve all private and source builds. Do not rebuild/install/publish yet and do not repeat gameplay tests against unchanged stale unsigned v1.28.1 binaries.
+2. Close PSM and any legacy patcher hosts. On the maintainer's own system, run **the latest official unmodified LTK Manager as a separate application**, normally without Administrator elevation, and test a legitimate, non-skinhack cosmetic in Practice Tool. Do not disable security checks or run it alongside PSM.
+3. If the official manager also fails, classify as upstream/game/platform compatibility and collect a sanitized official LTK support log for the maintainer. A PSM packaging change cannot be claimed to fix it.
+4. If the official manager works but PSM fails, assess PSM elevation, runtime version, binary signing/integrity, process parentage and lifecycle against vendor documentation. Design integration for *supported permitted cosmetics* only, preserving vendor policy checks.
+5. Before a public installer, separately establish a distributor-owned code signing identity and CSLOL license addendum compliance; test clean-install and in-game rendering. Do not treat official-manager standalone success as redistribution permission.
+
+**Current release verdict: v1.0.5 public installer NO-GO.** The latest local frozen build is known not to render under the tested configuration, and no supported publicly redistributable runtime has been approved.
+
 ## First: inspect the current Windows inputs
 
 On the working repository checkout of this staging branch (or a linked worktree with this branch), run:
