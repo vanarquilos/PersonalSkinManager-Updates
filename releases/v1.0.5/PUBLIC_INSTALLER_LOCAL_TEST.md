@@ -161,6 +161,16 @@ Then, with all PSM instances closed, run the **exact existing second frozen EXE*
 
 Decision: If frozen `--dev` works, investigate launcher-related initialization/update/hash sync order without weakening validation. If frozen `--dev` fails, inspect the exact hook error code and compare executable parent/permissions with Python source, subject to vendor integrity requirements. Do not bypass game, OS or vendor hook verification to make the result pass.
 
+## October 30 22:50 frozen --dev test: hook failure persists
+
+The maintainer retried the second frozen QA executable in `--dev --debug --logs` mode and confirmed no visible skin. Timestamp-filtered sanitized log report from 22:50:18: 4 hook-failure matches, 3 numeric `SetWindowsHookEx failed: 0x00000000` entries (22:52:07), 1 uncoded summary failure, 4 overlay-preparation matches, 0 verified DLL initialization, 0 WAD redirections, 0 attached-host matches and 0 launcher-stage matches.
+
+**Conclusion:** skipping the launcher is not a fix; DLL-search restoration alone is not a fix. Do not rebuild the same configuration or interpret 0x00000000 as meaningful Windows `GetLastError`. LeagueToolkit issue #302 shows this hook error also appeared upstream in July 2026 during a Vanguard compatibility regression, but current source success prevents assigning that historical cause to this environment without more evidence.
+
+**Next controlled A/B (same EXE, no rebuild):** Keep the exact frozen QA EXE and its mod-tools component, but set the existing hash-pinned `PSM_LTK_QA_RUNTIME_DIR` process environment override to the original staged unsigned LTK directory already proven to render under Python. Run from an already **elevated PowerShell** so PSM does not relaunch through UAC and discard the environment override. Verify the LTK pair's expected SHA-256, close all PSM and League processes, set process-local override, launch frozen EXE with `--dev --debug --logs`, and immediately restore the PowerShell environment variable after process creation (the child inherits its value). Do not modify or replace the signed source copy. The launcher must not activate an application updater.
+
+If frozen EXE with external source-staged LTK pair renders, the remaining suspect is runtime location or adjacent DLL resolution in `_internal/injection/tools`. If it still fails, compare parent process elevation/environment and application-specific launch context with Python. Neither result justifies bypassing kernel, game or vendor integrity verification.
+
 ## First: inspect the current Windows inputs
 
 On the working repository checkout of this staging branch (or a linked worktree with this branch), run:
