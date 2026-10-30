@@ -48,8 +48,11 @@ jobs:
       - name: Install pinned Python test dependencies
         shell: pwsh
         run: |
-          python -m pip install -r requirements.txt
-          if ($LASTEXITCODE -ne 0) { throw "Pinned dependency installation failed" }
+          New-Item -ItemType Directory -Path "ci-diagnostics" -Force | Out-Null
+          python -m pip install -r requirements.txt *> "ci-diagnostics/pip.txt"
+          $installExit = $LASTEXITCODE
+          Get-Content "ci-diagnostics/pip.txt" -Tail 45
+          if ($installExit -ne 0) { throw "Pinned dependency installation failed" }
 
       - name: Syntax-check runtime and build scripts
         shell: pwsh
@@ -60,8 +63,10 @@ jobs:
       - name: Run source-vs-frozen and user-provided LTK regression gates
         shell: pwsh
         run: |
-          python -m unittest -v tests.test_v105_user_ltk_provisioning tests.test_v105_rose_style_build_contract tests.test_v105_current_ltk_private_manifest tests.test_v105_current_ltk_build_contract tests.test_ltk_host_protocol tests.test_release_packaging tests.test_release_skin_routing tests.test_v105_frozen_external_dll_search tests.test_ltk_qa_runtime_selector tests.test_v105_hook_failure_details_contract tests.test_v105_source_frozen_pair_parity_contract tests.test_v105_signed_source_parity_private_qa_contract tests.test_v105_ltk_expiry_troubleshooting tests.test_v105_ltk_recovery_guidance
-          if ($LASTEXITCODE -ne 0) { throw "Windows v1.0.5 regression tests failed" }
+          python -m unittest -v tests.test_v105_user_ltk_provisioning tests.test_v105_rose_style_build_contract tests.test_v105_current_ltk_private_manifest tests.test_v105_current_ltk_build_contract tests.test_ltk_host_protocol tests.test_release_packaging tests.test_release_skin_routing tests.test_v105_frozen_external_dll_search tests.test_ltk_qa_runtime_selector tests.test_v105_hook_failure_details_contract tests.test_v105_source_frozen_pair_parity_contract tests.test_v105_signed_source_parity_private_qa_contract tests.test_v105_ltk_expiry_troubleshooting tests.test_v105_ltk_recovery_guidance *> "ci-diagnostics/regressions.txt"
+          $testExit = $LASTEXITCODE
+          Get-Content "ci-diagnostics/regressions.txt" -Tail 90
+          if ($testExit -ne 0) { throw "Windows v1.0.5 regression tests failed; consult the diagnostic artifact" }
 
       - name: Compile PSM-owned inert CSLOL loader stub with MSVC
         shell: pwsh
@@ -69,9 +74,20 @@ jobs:
           $stubPath = Join-Path $env:RUNNER_TEMP "psm-v105-stub-test"
           New-Item -ItemType Directory -Path $stubPath -Force | Out-Null
           $env:PSM_LOCAL_STUB_OUTPUT_DIR = $stubPath
-          python scripts/build_psm_cslol_stub.py
-          if ($LASTEXITCODE -ne 0) { throw "PSM-owned inert CSLOL DLL stub failed compilation/export ABI check" }
+          python scripts/build_psm_cslol_stub.py *> "ci-diagnostics/msvc.txt"
+          $stubExit = $LASTEXITCODE
+          Get-Content "ci-diagnostics/msvc.txt" -Tail 80
+          if ($stubExit -ne 0) { throw "PSM-owned inert CSLOL DLL stub failed compilation/export ABI check" }
           $manifest = Get-Content (Join-Path $stubPath "psm-cslol-stub-manifest.json") -Raw | ConvertFrom-Json
           if ($manifest.public_distribution_approved -ne $false) { throw "Release gate invalid" }
           Write-Host "MSVC inert DLL ABI and hash manifest checks passed"
           Write-Warning "No official LTK binaries, no game process, no installed PSM, and no gameplay success verified"
+
+      - name: Upload sanitized Windows QA diagnostics (no binaries)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: psm-v105-ci-diagnostics
+          path: ci-diagnostics/*.txt
+          if-no-files-found: warn
+          retention-days: 7
