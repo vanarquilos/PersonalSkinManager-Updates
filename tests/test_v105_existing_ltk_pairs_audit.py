@@ -50,6 +50,15 @@ class ExistingLtkPairsAuditTests(TestCase):
             audit.find_pairs([self.root], game_build=99)
         self.assertEqual((self.folder / audit.LTK_PATCHER_HOST).read_bytes(), original)
 
+    def test_direct_python_scripts_invocation_adds_project_root(self):
+        source = Path(audit.__file__).read_text("utf-8")
+        self.assertIn("ROOT = Path(__file__).resolve().parents[1]", source)
+        self.assertIn("sys.path.insert(0, str(ROOT))", source)
+        self.assertLess(
+            source.index("sys.path.insert(0, str(ROOT))"),
+            source.index("from injection.tools.patcher import"),
+        )
+
     def test_no_external_execution_download_or_signature_override(self):
         source = Path(audit.__file__).read_text("utf-8")
         for prohibited in (
