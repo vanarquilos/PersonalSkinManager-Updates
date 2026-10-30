@@ -97,8 +97,8 @@ def main() -> int:
         }
         import re
         matched = set(re.findall(
-            r"^\\s*\\d+\\s+[0-9A-Fa-f]+\\s+[0-9A-Fa-f]+\\s+"
-            r"(cslol_[a-z_]+)\\s*$",
+            r"^\s*\d+\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+"
+            r"(cslol_[a-z_]+)\s*$",
             exported.stdout, flags=re.MULTILINE,
         ))
         if matched != expected_exports:
