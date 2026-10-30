@@ -32,7 +32,7 @@ class SourceFrozenPairParityContracts(unittest.TestCase):
         self.assertIn("SOURCE_ONLY", self.code)
         self.assertIn("DIFFERENT", self.code)
         self.assertIn("IDENTICAL", self.code)
-        self.assertIn("default Rose-style builds require separate", self.code)
+        self.assertIn("Default Rose-style builds require separate", self.code)
         self.assertIn("do NOT prove game hooking, skin rendering", self.code)
 
 
