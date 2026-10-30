@@ -14,6 +14,32 @@ The maintainer supplied one file, `cslol-dll(1).dll`. Read-only local PE inspect
 
 **Do not package the maintainer's uploaded DLL**: it belongs to a different publisher. The successful historical v1.0.0–v1.0.4 gameplay behavior, if any, cannot establish compatibility with current League's 2026 hook stack. The old frozen v1.0.5 QA failed at LTK `SetWindowsHookEx` before DLL overlay initialization. Fixing CSLOL stub loader exports prevents an independent loader error, but does not itself fix the LTK/game hook.
 
+## Screenshot investigation: PSM LTK build cutoff (October 31, 2026)
+
+The maintainer's Troubleshooting window showed two errors:
+
+1. `PSM cannot apply skins: the bundled LTK runtime does not ...`
+2. `Injection unavailable: the current runtime cannot be used ...`
+
+**Confirmed source path:** `injection/tools/tools_manager.py::check_tools_available` invokes `patcher.expired_for(game_dir)`, comparing the game's executable PE build date against the embedded LTK DLL cutoff. It emits `LTK_PATCHER_EOL` and stops initialization. `injection/core/manager.py::_ensure_initialized` previously emitted `INJECTION_RUNTIME_UNAVAILABLE` as a redundant secondary error. Rose's `injection/tools/patcher.py` has the same PE timestamp-vs-EOL predicate, and Rose `main/__init__.py::_check_dll_present` shows a startup 'Patcher Outdated' dialog. **This is not caused by PyInstaller omitting the DLL or a missing skin UI selection.**
+
+Earlier audit evidence recorded `dll_cutoff_utc=2026-10-04T07:00:00+00:00` versus `game_build_utc=2026-10-16T22:15:09+00:00`. That exact old pair **cannot support the later League executable**. The current screenshot does not display the full date; the same exception class is confirmed in code. Do not disable/rewrite the cutoff or use an unsigned host to bypass platform restrictions.
+
+### Code fixes committed
+
+- `injection/tools/tools_manager.py`: records the root failure code, reports the **selected** DLL's cutoff and League executable build date, gives actionable advice to update **both** host/DLL together, and clears prior stale messages when compatible runtime validation succeeds.
+- `injection/core/manager.py`: avoids emitting an unhelpful second generic injection error when ToolsManager already reported the specific LTK cause.
+- `utils/core/issue_reporter.py`: clears both old and new expired-runtime messages and the duplicated injection message without erasing unrelated diagnostics.
+- `utils/integration/ltk_onboarding.py`: Rose-inspired early native outdated-patcher guidance for the configured League path (including the `Game` subdirectory), without downloads, automatic DLL replacement or anti-cheat bypass.
+- Tests: `tests.test_v105_ltk_expiry_troubleshooting`, `tests.test_v105_ltk_recovery_guidance`; both included in Windows GitHub Actions. GitHub runner failure remains unresolved pending accessible logs; do not report a passing Windows build without evidence.
+- GitHub Actions now uploads **source-only test output** on a failure to enable troubleshooting without redistributing signed binaries.
+
+### Actual runtime resolution required
+
+A newer legitimate **matching host/DLL pair** whose embedded build cutoff permits the currently installed game is required. Rose does **not** ship such a pair in its public source; it instructs users to obtain it from official LTK Manager. As of 2026-10-31 the newest verified official LTK Manager release is v1.31.1 (October 28); bundled and independently delivered patcher versions can differ.
+
+A new frozen build with the SAME outdated DLL will fail the same EOL preflight. Verifying file hashes alone establishes identity, not compatibility. Do not publicly ship official LTK-signed binaries copied outside an unmodified LTK release; honor the LTK Patcher License. Preserve the old working source checkout and use new private worktrees for testing. Only release after confirmed live rendering and clean-install QA.
+
 ## Why this approach
 
 Rose (Alban1911/Rose, MIT, 2026) does not bundle the LeagueToolkit host and patcher DLL with its public installation. It asks users for the matching patcher pair, starts the host early, preserves user-supplied binaries during application updates, and compiles its own inert loader stand-in `cslol-dll.dll` for `mod-tools.exe mkoverlay`. PSM has adopted the compatible packaging, setup, and local import principles, **not** Rose's flag 4 anti-skinhack opt-out. Official LTK Manager v1.31.1 defines the existing host wire protocol and defaults to flags 0.
