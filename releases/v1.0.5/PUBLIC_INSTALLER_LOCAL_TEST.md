@@ -171,6 +171,16 @@ The maintainer retried the second frozen QA executable in `--dev --debug --logs`
 
 If frozen EXE with external source-staged LTK pair renders, the remaining suspect is runtime location or adjacent DLL resolution in `_internal/injection/tools`. If it still fails, compare parent process elevation/environment and application-specific launch context with Python. Neither result justifies bypassing kernel, game or vendor integrity verification.
 
+## October 30 23:00 external unsigned LTK directory QA: no injection evidence
+
+The maintainer launched the same frozen QA EXE from an elevated PowerShell session, using a process-local `PSM_LTK_QA_RUNTIME_DIR` override pointing at the hash-verified unsigned source-tested pair. Report start: `2026-10-30 23:00:02`; one shared Rose log was modified but the old diagnostic showed **zero** hook failures, host verification errors, LTK initialization, WAD redirection, host attachment, overlay preparation, and launcher activity.
+
+**Do not mark this as a pass.** No record shows a completed Practice Tool match, active skin selection, or even that the frozen PSM reached its injection trigger during this test. The absence of hook errors is uninterpretable without positive logged runtime activity. The tool cannot attribute shared Rose logs conclusively to this frozen process.
+
+`scripts/inspect_v105_hook_failure_details.ps1` is now extended to report timestamped lines and high-level application startup, WebSocket/LCU connection, gameflow/loadout and selected-skin injection triggers in addition to LTK/hook events. Its regression tests include the zero-activity case. Re-run it with `-SinceLocal ([datetime]'2026-10-30 23:00:02')` after pulling updated staging branch. This reads the existing logs without another game test.
+
+Before the next gameplay test, compare the actual running `Win32_Process.ExecutablePath` with the intended QA EXE *as a boolean only*; do not publish paths, raw process command lines, tokens or shared user logs. If no candidate app is running or no gameflow was recorded, reproduce a full authorized Practice Tool test with the same locally reviewed executable, selecting a non-default permitted cosmetic. If app, client and trigger activity appear but LTK is absent, investigate trigger-to-start transitions. No rebuild, publication, Windows hook changes, signature bypass or game integrity weakening should follow from zero evidence.
+
 ## First: inspect the current Windows inputs
 
 On the working repository checkout of this staging branch (or a linked worktree with this branch), run:
