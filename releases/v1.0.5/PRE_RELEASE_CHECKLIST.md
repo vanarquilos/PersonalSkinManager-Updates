@@ -1,3 +1,18 @@
+## October 30 10:45 PH — received live-client diagnostics
+
+The user supplied `PSM-v1.0.5-league-connection.txt`, generated **2026-10-30 10:45:40 +08:00**. It reports **8 League client process instances**, zero game processes (expected if not in a match), **0 inaccessible client executable paths**, and **present** `LeagueClient.exe`, game EXE, and lockfile in a standard Riot installation directory. Thus a missing client installation or OS-denied process-path inspection is **not evidenced** by this report.
+
+The newest shared PSM log was **93 minutes old**. Counts `LCU connected=6`, `WebSocket connected=4`, `WebSocket disconnected=2`, `Pengu initial status unknown=1`, and `Pengu activation failed=0` represent historical log text only; none can reliably establish the current installed-app connection state. The diagnostic did not prove PSM was running when executed, and it did not probe the live LCU endpoint.
+
+Extended `scripts/diagnose_v105_league_connection.py` with read-only and sanitized:
+- Is the **installed** PersonalSkinManager process running (count + executable identity only, no paths printed)?
+- Was the newest shared PSM log modified after that installed process started?
+- Can PSM's own Python lockfile finder import and locate its expected file?
+- Is the local LCU `/lol-gameflow/v1/gameflow-phase` endpoint reachable using credentials read **locally** from the lockfile? Only HTTP status or sanitized exception class is printed, never authentication secrets, player identity, endpoints, or response body.
+- Added unit fixtures and release/CI test wiring.
+
+**Next:** Have user open and log into full League client, launch installed PSM, leave both running, and execute the updated diagnostic. Do not rebuild or alter Pengu/anti-cheat merely from a stale historical status marker. A failed LCU probe, absent PSM process, or live LCU success with Pengu failure require different follow-up fixes. Public release remains blocked.
+
 ## October 30 — installed candidate cannot detect League Client (open issue)
 
 The maintainer reports that the newly installed candidate does not detect League. This is a **separate prerequisite failure from LTK skin overlay rendering** and needs isolated LCU/client startup QA. Existing installed EXE does not contain new source fixes.
