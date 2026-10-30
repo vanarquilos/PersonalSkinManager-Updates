@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 """LCU WebSocket startup cannot hang the main PSM UI loop."""
+import importlib.util
 import unittest
+from pathlib import Path
 
-from main.core.client_startup_gate import wait_for_client_websocket
+_GATE_PATH = Path(__file__).resolve().parents[1] / "main/core/client_startup_gate.py"
+_SPEC = importlib.util.spec_from_file_location("psm_client_startup_gate_test", _GATE_PATH)
+_GATE_MODULE = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(_GATE_MODULE)
+wait_for_client_websocket = _GATE_MODULE.wait_for_client_websocket
 
 
 class ClientStartupGateTests(unittest.TestCase):
