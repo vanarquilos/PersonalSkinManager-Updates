@@ -3,7 +3,8 @@
 param(
     [string]$LtkDir = "",
     [string]$CslolDir = "",
-    [string]$ModToolsFile = ""
+    [string]$ModToolsFile = "",
+    [string]$ExpectedDistributorCertSha256 = ""
 )
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
@@ -11,6 +12,10 @@ $Root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 if (-not $LtkDir) { $LtkDir = Join-Path $Root "installer\candidates\v1.0.5\release-unsigned-ltk" }
 if (-not $CslolDir) { $CslolDir = Join-Path $Root "injection\tools" }
 $OriginalTools = Join-Path $Root "injection\tools"
+# Observed third-party DLL and signing certificate from 2026-10-30.
+# Their Authenticode status can be Valid without meeting CSLOL section 5.
+$KnownThirdPartyCSLOLDllSha256 = "4A009619C6DEA691780B2F20CF17E08DE478A78B3F11CD72759DD71C00AD1C90"
+$KnownThirdPartyCertSha256 = "1F51EA1346FF54970541227A4A88E9B4B11FB9A0ADB6B17040DC5DB84E905CE9"
 if (-not $ModToolsFile) { $ModToolsFile = Join-Path $OriginalTools "mod-tools.exe" }
 $KnownBad = @{
     "ltk_patcher_host.exe" = "5E52DC5A30220E735599BE57308CE7BF52E21416CF2C2D9D449A8637F683C4E9"
@@ -67,8 +72,14 @@ if ($Results.Contains("cslol-dll.dll")) {
     if (-not $Cslol.timestamp_present) {
         $Blockers.Add("CSLOL DLL trusted timestamp is missing or cannot be established by this audit.")
     }
-    if ($Cslol.subject -match "(?i)league\s*toolkit") {
-        $Blockers.Add("CSLOL DLL still appears to bear the upstream publisher signature.")
+    if ($Cslol.hash -eq $KnownThirdPartyCSLOLDllSha256) {
+        $Blockers.Add("Observed CSLOL DLL is the existing third-party-signed copy; signature Valid does not grant PSM distribution rights.")
+    }
+    if ([string]::IsNullOrWhiteSpace($ExpectedDistributorCertSha256)) {
+        $Blockers.Add("No PSM distributor certificate SHA-256 supplied for identity verification; public distribution cannot be approved.")
+    }
+    if ($Cslol.subject -match "(?i)league\s*toolkit|daniel\s*langov") {
+        $Blockers.Add("CSLOL DLL bears a known non-PSM publisher signature; third-party credits do not replace distributor code signing.")
     }
 }
 $Trigger = Join-Path $Root "threads\handlers\injection_trigger.py"
@@ -100,6 +111,16 @@ if ($Results.Contains("cslol-dll.dll")) {
         }
         Write-Host ("CSLOL certificate subject: " + $PublicCertificate.Subject)
         Write-Host ("CSLOL public certificate SHA-256: " + $CertificateSha256)
+        if ($CertificateSha256 -eq $KnownThirdPartyCertSha256) {
+            $Blockers.Add("CSLOL certificate fingerprint matches the known non-PSM signing certificate.")
+        }
+        if (-not [string]::IsNullOrWhiteSpace($ExpectedDistributorCertSha256)) {
+            if ($ExpectedDistributorCertSha256.Trim().ToUpperInvariant() -notmatch "^[0-9A-F]{64}$") {
+                $Blockers.Add("Provided distributor certificate SHA-256 must be 64 hexadecimal characters.")
+            } elseif ($CertificateSha256 -ne $ExpectedDistributorCertSha256.Trim().ToUpperInvariant()) {
+                $Blockers.Add("CSLOL signer fingerprint does not match the expected PSM distributor certificate.")
+            }
+        }
         Write-Host ("CSLOL timestamp certificate observed: " +
             [string]($null -ne $CslolSignature.TimeStamperCertificate))
     } else {
