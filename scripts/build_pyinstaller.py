@@ -255,8 +255,13 @@ def main():
         print(f"\nYour application is ready!")
         print(f"\nMode: STANDALONE (folder with all dependencies)")
         print(f"  - Bundled application dependencies included")
-        print(f"  - mod-tools + current LTK patcher runtime included")
-        print(f"  - no manual DLL setup required")
+        if os.environ.get("PSM_RELEASE_LTK_DIR"):
+            print("  - PRIVATE QA: external LTK host/DLL files included")
+            print("  - Not authorized for public redistribution by this build")
+        else:
+            print("  - User-provided LTK host/DLL NOT included")
+            print("  - A trusted compatible pair must be provisioned separately")
+        print("  - Runtime compatibility and in-game rendering are NOT verified")
 
         print(f"\nProtection:")
         print(f"  - Python bytecode (not raw source)")
