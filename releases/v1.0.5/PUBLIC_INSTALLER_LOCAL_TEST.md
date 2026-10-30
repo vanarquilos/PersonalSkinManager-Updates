@@ -70,7 +70,7 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\preflig
   -ModToolsFile "C:\path\to\working-original-repo\injection\tools\mod-tools.exe"
 ```
 
-The preflight neither signs nor modifies files. A linked worktree normally does not contain the original untracked runtime files, so pass `-ModToolsFile` pointing to the existing audited source `mod-tools.exe` rather than copying it into the worktree. The preflight prints the public CSLOL certificate subject and SHA-256 fingerprint, but a `Valid` signature does not prove the certificate belongs to the PSM distributor. If it flags the known failing unsigned hashes, **stop** and diagnose the original-vs-unsigned source A/B result using `scripts/test_v105_isolated_ltk_source.ps1`. Do not recreate the same failed RC.
+The preflight neither signs nor modifies files. A linked worktree normally does not contain the original untracked runtime files, so pass `-ModToolsFile` pointing to the existing audited source `mod-tools.exe` rather than copying it into the worktree. The preflight prints the public CSLOL certificate subject and SHA-256 fingerprint, but a `Valid` signature does not prove the certificate belongs to the PSM distributor. If it flags the historically failed installed hashes, **do not assume the unsigned source is broken**: the maintainer has confirmed visible skin rendering in source QA. Compare installed paths and binaries using `scripts/inspect_v105_installed_parity.ps1`; do not recreate the same installed release candidate without an explained change.
 
 ## Only once compliant, compatible inputs are available: make an isolated test installer
 
