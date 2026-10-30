@@ -31,14 +31,18 @@ def required_runtime_files():
     # never edits source runtime files or authorizes binary redistribution.
     supplied_ltk = os.environ.get("PSM_RELEASE_LTK_DIR")
     supplied_cslol = os.environ.get("PSM_RELEASE_CSLOL_DIR")
-    ltk = Path(supplied_ltk) if supplied_ltk else ROOT / "injection/tools"
     cslol = Path(supplied_cslol) if supplied_cslol else ROOT / "injection/tools"
-    return (
+    required = [
         ROOT / "injection/tools/mod-tools.exe",
         cslol / "cslol-dll.dll",
-        ltk / "ltk_patcher_host.exe",
-        ltk / "ltk_patcher_dll.dll",
-    )
+    ]
+    # The default installer follows Rose's user-provided LTK model. Bundling
+    # a patcher is ONLY possible when a separately reviewed private QA
+    # worktree explicitly opts into an isolated directory.
+    if supplied_ltk:
+        ltk = Path(supplied_ltk)
+        required.extend((ltk / "ltk_patcher_host.exe", ltk / "ltk_patcher_dll.dll"))
+    return tuple(required)
 
 
 def verify_release_runtime_inputs():
