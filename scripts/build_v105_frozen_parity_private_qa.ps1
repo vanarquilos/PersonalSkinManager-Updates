@@ -22,8 +22,9 @@ if (-not (Test-Path -LiteralPath (Join-Path $Root ".git") -PathType Leaf)) {
 Set-Location -LiteralPath $Root
 $Branch = (& git branch --show-current).Trim()
 Check-Exit "Git branch"
-if ($Branch -ne "release/v105-public-installer-staging") {
-    throw "Run from release/v105-public-installer-staging, not $Branch"
+if ($Branch -ne "release/v105-public-installer-staging" -and
+    -not $Branch.StartsWith("qa/v105-frozen-dllsearch-")) {
+    throw "Run from release staging or a qa/v105-frozen-dllsearch-* linked worktree, not $Branch"
 }
 $Dirty = @(& git status --porcelain --untracked-files=no)
 Check-Exit "Git status"
@@ -75,7 +76,7 @@ if (-not (Get-Command "python" -ErrorAction SilentlyContinue)) {
     throw "Python 3.11 or newer is required."
 }
 Write-Host "1/4 - Validate source packaging contracts" -ForegroundColor Cyan
-& python -m unittest tests.test_v105_frozen_parity_private_qa_contract tests.test_release_packaging tests.test_ltk_qa_runtime_selector
+& python -m unittest tests.test_v105_frozen_parity_private_qa_contract tests.test_v105_frozen_external_dll_search tests.test_release_packaging tests.test_ltk_qa_runtime_selector
 Check-Exit "Focused regression tests"
 Write-Host "2/4 - Stage mod-tools only in this isolated worktree" -ForegroundColor Cyan
 New-Item -ItemType Directory -Path $Tools -Force | Out-Null
