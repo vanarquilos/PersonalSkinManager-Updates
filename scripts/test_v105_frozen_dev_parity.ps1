@@ -89,6 +89,9 @@ foreach ($File in $Recent) {
     })
     $Lines.Add("Fresh log modified at " + $File.LastWriteTime.ToString("HH:mm:ss"))
     $Lines.Add("  Timestamped lines within run: " + $Tail.Count)
+    if ($Tail.Count -eq 0) {
+        $Lines.Add("  INCONCLUSIVE: no time-matched lines; zero markers cannot indicate success.")
+    }
     $Patterns = [ordered]@{
         "Skin selection" = '(?i)Using skin file:|Skin selected:'
         "Scanner armed" = '(?i)Scanner armed before League launch'
