@@ -4,7 +4,10 @@
 param(
     [Parameter(Mandatory = $true)][string]$ModToolsFile,
     [Parameter(Mandatory = $true)][string]$LtkDir,
-    [Parameter(Mandatory = $true)][string]$CslolDir
+    [Parameter(Mandatory = $true)][string]$CslolDir,
+    [Parameter(Mandatory = $true)]
+    [ValidatePattern("^[0-9a-fA-F]{64}$")]
+    [string]$ExpectedDistributorCertSha256
 )
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
@@ -62,11 +65,29 @@ if ($CSLOL.Status -ne "Valid" -or $null -eq $CSLOL.SignerCertificate -or
     $null -eq $CSLOL.TimeStamperCertificate) {
     throw "CSLOL requires a distributor-owned publicly trusted signature and timestamp. Do not package the unsigned or original vendor DLL."
 }
-if ($CSLOL.SignerCertificate.Subject -match "(?i)league\s*toolkit") {
-    throw "Original upstream CSLOL signature cannot be republished in this third-party installer."
+# A Valid signature is not evidence that the signer owns PSM distribution.
+# Reject the exact previously examined third-party certificate and DLL.
+$KnownThirdPartyCSLOLDllSha256 = "4A009619C6DEA691780B2F20CF17E08DE478A78B3F11CD72759DD71C00AD1C90"
+$KnownThirdPartyCertSha256 = "1F51EA1346FF54970541227A4A88E9B4B11FB9A0ADB6B17040DC5DB84E905CE9"
+if ($CSLOL.SignerCertificate.Subject -match "(?i)league\s*toolkit|daniel\s*langov") {
+    throw "Existing third-party signed CSLOL cannot be republished as PSM's distributor-signed DLL."
+}
+$Hasher = [System.Security.Cryptography.SHA256]::Create()
+try {
+    $CertSha256 = [BitConverter]::ToString(
+        $Hasher.ComputeHash($CSLOL.SignerCertificate.RawData)).Replace("-", "")
+} finally {
+    $Hasher.Dispose()
+}
+if ($CertSha256 -eq $KnownThirdPartyCertSha256 -or
+    $CertSha256 -ne $ExpectedDistributorCertSha256.Trim().ToUpperInvariant()) {
+    throw "CSLOL signing certificate is not the independently specified PSM distributor certificate."
 }
 $Hashes = [ordered]@{}
 foreach ($Name in $Inputs.Keys) { $Hashes[$Name] = File-Sha $Inputs[$Name] }
+if ($Hashes["cslol-dll.dll"] -eq $KnownThirdPartyCSLOLDllSha256) {
+    throw "Known third-party-signed CSLOL input cannot be bundled into the public PSM installer."
+}
 if ($Hashes["ltk_patcher_host.exe"] -eq $KnownBad["ltk_patcher_host.exe"] -and
     $Hashes["ltk_patcher_dll.dll"] -eq $KnownBad["ltk_patcher_dll.dll"]) {
     throw "Known failing unsigned LTK pair: SetWindowsHookEx failed. Do not rebuild identical binaries."
@@ -140,6 +161,7 @@ $Record = [ordered]@{
     components_sha256 = $Hashes
     cslol_publisher_subject = [string]$CSLOL.SignerCertificate.Subject
     cslol_certificate_thumbprint = [string]$CSLOL.SignerCertificate.Thumbprint
+    cslol_certificate_sha256 = $CertSha256
     cslol_timestamp_present = $true
     provenance_and_code_signing_review = "PENDING"
     license_content_enforcement_review = "PENDING"
