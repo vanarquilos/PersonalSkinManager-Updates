@@ -41,6 +41,10 @@ from utils.core.issue_reporter import report_issue
 from ..tools.patcher import (
     LTK_PATCHER_DLL,
     LTK_PATCHER_HOST,
+    LTK_QA_RUNTIME_DIR_ENV,
+    LTK_QA_ORIGINAL_SHA256,
+    LTK_QA_UNSIGNED_SHA256,
+    _hash_file,
     check_ltk_patcher,
 )
 from config import (
@@ -74,6 +78,26 @@ def _runtime_log_level() -> int:
 LTK_PATCHER_FLAGS = 4
 
 # Backward-compatible alias for older PSM tests/imports.
+def _qa_runtime_identity(host_exe: Path, hook_dll: Path) -> str:
+    """Classify actual selected bytes, not the requested QA variant.
+
+    No file path, source contents, or unsigned vendor binaries are exposed.
+    This is a QA provenance label, never a gameplay authorization decision.
+    """
+    try:
+        digests = {
+            LTK_HOST_NAME: _hash_file(host_exe),
+            LTK_DLL_NAME: _hash_file(hook_dll),
+        }
+    except OSError:
+        return "unreadable"
+    if digests == LTK_QA_UNSIGNED_SHA256:
+        return "unsigned-qa-pair"
+    if digests == LTK_QA_ORIGINAL_SHA256:
+        return "signed-original-pair"
+    return "other-pair"
+
+
 LTK_DEFAULT_FLAGS = LTK_PATCHER_FLAGS
 LATE_JOIN_MESSAGE = "joined too late"
 END_OF_LIFE_MESSAGE = "end of life reached"
@@ -390,6 +414,17 @@ def start_ltk_patcher_host(
             dedupe_window_s=30.0,
         )
         return None
+
+    # Trace ACTUAL host/DLL identity in local --debug QA, not just the
+    # environment override requested by the testing PowerShell script.
+    # Windows UAC relaunch can lose process-local QA environment variables.
+    if "--debug" in sys.argv:
+        log.info(
+            "[INJECT][ltk-host] QA runtime identity: pair=%s, override_present=%s, parent_frozen=%s",
+            _qa_runtime_identity(host_exe, hook_dll),
+            bool(os.environ.get(LTK_QA_RUNTIME_DIR_ENV)),
+            bool(getattr(sys, "frozen", False)),
+        )
 
     if patcher.expired_for(game_dir):
         eol_text = time.strftime("%Y-%m-%d %H:%M", time.localtime(patcher.eol))
