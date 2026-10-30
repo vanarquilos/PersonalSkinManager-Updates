@@ -34,6 +34,18 @@ class FrozenHookFailureDetailContracts(unittest.TestCase):
             with self.subTest(label=label):
                 self.assertIn(label, self.source)
 
+    def test_distinguishes_no_session_activity_from_no_hook_failure(self):
+        self.assertIn("Timestamped log lines since start:", self.source)
+        self.assertIn('if ($TimedLines -eq 0)', self.source)
+        self.assertIn('no injection trigger or scanner startup was recorded', self.source)
+        for label in (
+            "App initialization", "Main process ready", "LCU/client activity",
+            "Gameflow/loadout activity", "Selected-skin/injection trigger",
+            "LTK scanner startup", "Startup/runtime errors",
+        ):
+            with self.subTest(label=label):
+                self.assertIn(label, self.source)
+
     def test_never_mutates_or_injects(self):
         for action in (
             "Set-Content", "Out-File", "Add-Content", "Copy-Item",
