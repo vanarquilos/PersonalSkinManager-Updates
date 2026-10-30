@@ -57,6 +57,22 @@ class RoseStyleBuildContracts(unittest.TestCase):
         self.assertNotIn("SetWindowsHookEx", self.stub)
         self.assertNotIn("DisableAntiCheat", self.stub)
 
+    def test_owned_stub_matches_all_eight_original_cslol_exports(self):
+        # Verified against the upload cslol-dll(1).dll (SHA-256
+        # 4A009619C6DEA691780B2F20CF17E08DE478A78B3F11CD72759DD71C00AD1C90)
+        # and LeagueToolkit/cslol-manager's public cslol-api.h.
+        for export in (
+            "cslol_find", "cslol_hook", "cslol_init", "cslol_log_pull",
+            "cslol_msg_hookproc", "cslol_set_config", "cslol_set_flags",
+            "cslol_set_log_level",
+        ):
+            with self.subTest(export=export):
+                self.assertIn(export + "(", self.stub)
+        self.assertIn("PSM_EXPORT intptr_t cslol_msg_hookproc(", self.stub)
+        self.assertIn("PSM_EXPORT const char* cslol_set_flags(unsigned int flags)", self.stub)
+        self.assertNotIn("unsigned long long flags", self.stub)
+        self.assertIn("return 0;", self.stub)
+
     def test_stub_build_stays_in_isolated_directory(self):
         self.assertIn("PSM_LOCAL_STUB_OUTPUT_DIR", self.compile)
         self.assertIn("EMPTY isolated output directory", self.compile)
