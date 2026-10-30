@@ -27,12 +27,15 @@ if sys.version_info < MIN_PYTHON:
 
 
 def required_runtime_files():
-    # Scope the release override to the two LTK binaries. The selected
-    # directory is validated by the Windows release-candidate builder.
-    supplied = os.environ.get("PSM_RELEASE_LTK_DIR")
-    ltk = Path(supplied) if supplied else ROOT / "injection/tools"
+    # Each release override is scoped to its own component; this function
+    # never edits source runtime files or authorizes binary redistribution.
+    supplied_ltk = os.environ.get("PSM_RELEASE_LTK_DIR")
+    supplied_cslol = os.environ.get("PSM_RELEASE_CSLOL_DIR")
+    ltk = Path(supplied_ltk) if supplied_ltk else ROOT / "injection/tools"
+    cslol = Path(supplied_cslol) if supplied_cslol else ROOT / "injection/tools"
     return (
         ROOT / "injection/tools/mod-tools.exe",
+        cslol / "cslol-dll.dll",
         ltk / "ltk_patcher_host.exe",
         ltk / "ltk_patcher_dll.dll",
     )
