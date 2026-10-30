@@ -43,7 +43,7 @@ class ReleaseSkinRoutingTests(unittest.TestCase):
             self.source,
         )
 
-    def test_runtime_uses_rose_compatible_patcher_flags(self):
+    def test_runtime_uses_upstream_content_enforcement_flags(self):
         ltk_source = (
             ROOT / "injection/overlay/ltk_host.py"
         ).read_text(encoding="utf-8")
