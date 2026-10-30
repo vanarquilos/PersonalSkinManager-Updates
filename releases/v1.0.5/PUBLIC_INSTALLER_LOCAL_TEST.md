@@ -181,6 +181,14 @@ The maintainer launched the same frozen QA EXE from an elevated PowerShell sessi
 
 Before the next gameplay test, compare the actual running `Win32_Process.ExecutablePath` with the intended QA EXE *as a boolean only*; do not publish paths, raw process command lines, tokens or shared user logs. If no candidate app is running or no gameflow was recorded, reproduce a full authorized Practice Tool test with the same locally reviewed executable, selecting a non-default permitted cosmetic. If app, client and trigger activity appear but LTK is absent, investigate trigger-to-start transitions. No rebuild, publication, Windows hook changes, signature bypass or game integrity weakening should follow from zero evidence.
 
+## October 30 23:00 source-location override: frozen executable confirmed, injection not observed
+
+Follow-up verified **6/6 diagnostic contract tests** and one running `PersonalSkinManager.exe` process matching the exact frozen QA EXE path; no other PSM process was running. The shared log contains 64 timestamped lines between 23:00:03 and 23:03:54, including app init (4), generic ready (2), and LCU/client mentions (2), but **zero gameflow/loadout, selected-skin injection, scanner startup, hook failure, WAD redirection or attachment**. Therefore the external unsigned LTK directory test **does not yet demonstrate a runtime pass or failure**. The process ran; no game-session injection was recorded.
+
+The updated diagnostic separates exact WebSocket-connected readiness from generic `System ready`/`LCU client initialized` markers. Pull staging before rechecking the same session; do not mistake generic LCU activity for a connected client.
+
+Next required user-visible test (no rebuild, no parallel PSM): with the **same frozen QA process that inherited the unsigned LTK-directory override**, record a fresh `$TestStart = Get-Date`, open League Practice Tool from the client, choose a permitted non-default cosmetic using PSM and actually enter the game. Run the sanitized hook-details script against that timestamp. If client connection/skin selection remains absent after a match, diagnose LCU/Pengu startup; if scanner starts and hook fails, resume hook-context analysis with the selected LTK directory and process identity. Do not modify vendor DLLs or bypass game integrity checks.
+
 ## First: inspect the current Windows inputs
 
 On the working repository checkout of this staging branch (or a linked worktree with this branch), run:
