@@ -1,3 +1,15 @@
+## October 30 — investigate default skin in newly installed PSM
+
+**Release remains blocked.** Signed and unsigned LTK pairs worked in source tests, but the installed application continues to show the default skin. A code review found `ensure_admin_rights()` in `main/core/initialization.py`, called by both source and packaged runs; therefore, the prior claim that the source tester necessarily ran without elevation was unsupported. The `asInvoker` packaged manifest also did not prevent this runtime relaunch. Implicit startup elevation has been removed in source, with a regression test and privilege-category log.
+
+Next steps:
+- [ ] Before building again, run the read-only `scripts/compare_v105_portable_and_installed.ps1` to prove the **actual** portable and installed EXE hashes and paired LTK files.
+- [ ] Manually test the **existing frozen portable EXE** from `dist/PersonalSkinManager` with a non-default skin, note any UAC prompt, and collect the latest sanitized portable-session report.
+- [ ] If portable works but installed fails, investigate install-directory resolution/permissions and leftover files; if both fail, investigate frozen startup and LTK lifecycle.
+- [ ] Rebuild after a root-cause-supported change, rerun the source tester, and independently QA the installed candidate in Practice Tool, Swiftplay, and a second match.
+
+**Do not remove/sign/replace the working LTK files or announce v1.0.5 as released before installed gameplay is verified.**
+
 ## October 30, 2026 — unsigned source passed; new asInvoker RC pending
 
 - [x] Original signed source runtime: non-default skin rendered
