@@ -16,9 +16,9 @@ class ElevatedSourcePairQaContracts(unittest.TestCase):
         self.assertTrue(RUNNER.read_bytes().isascii())
 
     def test_requires_admin_before_environment_override(self):
-        self.assertIn("[WindowsBuiltInRole]::Administrator", self.script)
+        self.assertIn("[Security.Principal.WindowsBuiltInRole]::Administrator", self.script)
         self.assertIn("Start an Administrator PowerShell FIRST", self.script)
-        self.assertLess(self.script.index("WindowsBuiltInRole]::Administrator"),
+        self.assertLess(self.script.index("Security.Principal.WindowsBuiltInRole]::Administrator"),
                         self.script.index("$env:PSM_LTK_QA_RUNTIME_DIR ="))
 
     def test_pins_original_and_unsigned_file_identity(self):
