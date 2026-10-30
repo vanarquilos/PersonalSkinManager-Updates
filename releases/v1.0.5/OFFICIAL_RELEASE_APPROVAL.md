@@ -8,7 +8,13 @@
 - Working source lineage: `fix/v1.0.5-rose-local-rollback`
 - The combined private QA builder keeps upstream-signed original LTK v1.28.1 host/DLL, a matching `mod-tools.exe` and its `cslol-dll.dll` companions; it stages a private, separate-identity Inno installer.
 - Maintainer reported the *installed combined private installer* working, with custom skins rendering, October 30, 2026.
-- **The exact built installer has not been supplied to GitHub or this release preparation branch**, so its actual SHA-256, byte size and manifest source commit are still **unknown**. Do not infer them from the builder's source checksum or other installed builds.
+- **Working private installer identity (maintainer-supplied read-only Windows SHA-256 output, October 30, 2026):**
+  - Filename: `PersonalSkinManager_v1.0.5_Combined_PrivateQA_PSMv105Combined-20261030-192151-d6ef3007.exe`
+  - Size: **28,210,688 bytes**
+  - SHA-256: `49661E6419F1A0B0691DADBC6FC4D9F5193B997B2B55C1649200180DEF5AEF69`
+  - SHA-256 was reported directly from the user's machine; **the installer bytes have not been provided to this repository or independently inspected here**.
+  - `source_commit` from its private QA manifest: **pending**. The `d6ef3007` filename suffix is not proof of a full Git commit SHA; do not infer provenance from a filename.
+- The checksum above identifies the **private test installer only**. It is not a digest for a distributable/public installer and must not be used as a release-asset verification value unless that very same file independently meets redistribution requirements.
 - A working private installation is **not automatically a public-distribution license**.
 
 ## Mandatory before a public GitHub release
@@ -32,10 +38,14 @@
 
 | Field | Required |
 |---|---|
-| Final filename | Pending |
-| SHA-256 checksum | Pending |
-| File size in bytes | Pending |
-| Source commit SHA | Pending |
+| Private tested filename | `PersonalSkinManager_v1.0.5_Combined_PrivateQA_PSMv105Combined-20261030-192151-d6ef3007.exe` (maintainer reported) |
+| Private tested SHA-256 | `49661E6419F1A0B0691DADBC6FC4D9F5193B997B2B55C1649200180DEF5AEF69` (not independently verified here) |
+| Private tested size | 28,210,688 bytes (maintainer reported) |
+| Private tested source commit SHA | Pending private QA manifest inspection |
+| Final public filename | Pending, must be a separately approved asset |
+| Final public SHA-256 checksum | Pending |
+| Final public size in bytes | Pending |
+| Final public source commit SHA | Pending |
 | Host/DLL signatures or written distribution permission | Pending |
 | CSLOL/Pengu license review | Pending |
 | Windows version and League patch actually tested | Pending |
