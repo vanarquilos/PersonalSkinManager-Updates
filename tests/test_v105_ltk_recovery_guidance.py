@@ -38,6 +38,34 @@ class LtkRecoveryGuidanceTests(TestCase):
         with mock.patch.object(ltk_onboarding, "check_ltk_patcher", return_value=status):
             self.assertIsNone(ltk_onboarding.explain_ltk_runtime_problem(Path("fake")))
 
+    def test_legacy_migration_keeps_current_message_and_dedupe(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "rose_diagnostics.txt"
+            path.write_text(
+                "Oct 31 03:38 | PSM cannot apply skins: the bundled LTK runtime does not support this League build.\\n"
+                "Fix: old instructions\\n"
+                "Oct 31 03:39 | LTK patcher outdated: this League build is newer than the selected DLL.\\n"
+                "Fix: current instructions\\n",
+                encoding="utf-8",
+            )
+            key = (
+                "LTK_PATCHER_EOL|LTK patcher outdated: "
+                "this League build is newer than the selected DLL."
+            )
+            with (
+                mock.patch.object(issue_reporter, "_issues_path", return_value=path),
+                mock.patch.dict(issue_reporter._LAST, {key: 123.0}, clear=True),
+            ):
+                self.assertTrue(
+                    issue_reporter.clear_issue("LTK_PATCHER_EOL", legacy_only=True)
+                )
+                self.assertEqual(issue_reporter._LAST[key], 123.0)
+            content = path.read_text("utf-8")
+            self.assertNotIn("bundled LTK runtime", content)
+            self.assertNotIn("old instructions", content)
+            self.assertIn("LTK patcher outdated", content)
+            self.assertIn("current instructions", content)
+
     def test_expiry_cleanup_removes_both_legacy_and_new_messages(self):
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "rose_diagnostics.txt"
