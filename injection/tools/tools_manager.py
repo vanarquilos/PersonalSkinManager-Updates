@@ -11,7 +11,7 @@ from typing import Dict, Optional
 import time
 
 from utils.core.logging import get_logger
-from utils.core.issue_reporter import report_issue
+from utils.core.issue_reporter import clear_issue, report_issue
 from .patcher import (
     LTK_PATCHER_DLL,
     LTK_PATCHER_HOST,
@@ -65,6 +65,9 @@ class ToolsManager:
 
         if patcher.expired_for(game_dir):
             self.last_failure_code = "LTK_PATCHER_EOL"
+            # Remove the previous generic secondary error before recording
+            # one actionable expired-runtime message for this new attempt.
+            clear_issue("INJECTION_RUNTIME_UNAVAILABLE")
             # Align with Rose's patcher EOL interpretation: this is the
             # COMPATIBILITY boundary enforced by the DLL, not a packaging
             # warning or a condition that can be solved by retrying injection.
@@ -98,6 +101,11 @@ class ToolsManager:
             )
             return False
 
+        # On a verified newer runtime, clear obsolete EOL and generic
+        # troubleshooting entries from earlier sessions. This does not prove
+        # a custom skin will render in-game.
+        clear_issue("LTK_PATCHER_EOL")
+        clear_issue("INJECTION_RUNTIME_UNAVAILABLE")
         # This check establishes file presence and that no known cutoff was
         # exceeded. It CANNOT prove overlay/material compatibility.
         log.info("[INJECT] Runtime files present; no known League-build cutoff exceeded")
