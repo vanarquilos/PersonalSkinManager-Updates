@@ -58,7 +58,7 @@ class CurrentLtkPrivateBuildContracts(unittest.TestCase):
         self.assertIn("Get-AuthenticodeSignature", self.prepare)
         self.assertIn("Get-FileHash", self.prepare)
         self.assertIn("Get-FileHash", self.freeze)
-        self.assertIn("private frozen", self.freeze.lower())
+        self.assertIn("frozen private qa build complete", self.freeze.lower())
 
 
 if __name__ == "__main__":
