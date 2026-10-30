@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import argparse
 import configparser
-import ssl
 from collections import deque
 import datetime as dt
 import os
-import re
 from pathlib import Path
 
 KNOWN_CLIENT_ROOTS = (
@@ -97,6 +95,20 @@ def inspect_processes() -> tuple[int, int, int]:
             continue
     return clients, games, inaccessible
 
+
+
+
+def inspect_psm_lockfile_discovery() -> list[str]:
+    """Check PSM's Python discovery helper without recording credentials."""
+    try:
+        from lcu.core.lockfile import find_lockfile
+    except Exception as exc:
+        return ["PSM LCU discovery import: unavailable (" + type(exc).__name__ + ")"]
+    try:
+        selected = find_lockfile()
+        return ["PSM LCU lockfile finder: " + ("found" if selected else "not found")]
+    except Exception as exc:
+        return ["PSM LCU lockfile finder: unavailable (" + type(exc).__name__ + ")"]
 
 
 def _known_lockfile_candidates():
@@ -274,6 +286,7 @@ def main() -> int:
             f"lockfile={_status(root / 'lockfile')}"
         )
     output.extend(inspect_psm_process(args.installed_dir))
+    output.extend(inspect_psm_lockfile_discovery())
     output.extend(inspect_live_lcu())
     output.extend(inspect_log())
     output.append("NOTE: HTTP 200 proves local LCU reachability, not PSM WebSocket or Pengu integration.")
