@@ -36,6 +36,7 @@ except ImportError:
     psutil = None
 
 from utils.core.logging import get_logger
+from utils.core.external_process import popen_external
 from utils.core.issue_reporter import report_issue
 from ..tools.patcher import (
     LTK_PATCHER_DLL,
@@ -433,7 +434,7 @@ def start_ltk_patcher_host(
 
     proc = None
     try:
-        proc = subprocess.Popen(
+        proc = popen_external(
             cmd,
             # The LTK DLL is loaded relative to its host binary. An isolated
             # QA pair must run from its own directory, not the source tools dir.
