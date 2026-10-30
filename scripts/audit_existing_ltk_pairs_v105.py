@@ -10,6 +10,13 @@ import argparse
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import sys
+
+# Python invoked as "python scripts/..." starts with scripts/ on sys.path,
+# not necessarily the repository root needed for imports from injection/.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from injection.tools.patcher import (
     LTK_PATCHER_DLL,
