@@ -3,21 +3,12 @@
 from __future__ import annotations
 
 import argparse
-import sys
 import configparser
 from collections import deque
 import datetime as dt
 import os
 import sys
 from pathlib import Path
-
-# This script is normally executed as `python scripts/diagnose_...`.
-# In that mode sys.path[0] points at scripts/, not the repository root.
-# Add the root explicitly so the diagnostic imports the same source packages
-# as PSM instead of reporting a misleading ModuleNotFoundError.
-_REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
 
 # Directly executing "python scripts/diagnose_v105_league_connection.py"
 # places scripts/ (not the repository root) on sys.path. The earlier
