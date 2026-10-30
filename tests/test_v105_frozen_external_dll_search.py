@@ -77,7 +77,7 @@ class ExternalProcessDllSearchTests(TestCase):
         self.assertIn("from utils.core.external_process import popen_external", host)
         self.assertIn("proc = popen_external(", host)
         self.assertIn("cwd=str(host_exe.parent)", host)
-        self.assertIn("LTK_PATCHER_FLAGS = 4", host)
+        self.assertIn("LTK_PATCHER_FLAGS = 0", host)
         self.assertIn("from utils.core.external_process import popen_external", manager)
         self.assertEqual(manager.count("popen_external(cmd,"), 3)
         self.assertNotIn("subprocess.Popen(cmd,", manager)
