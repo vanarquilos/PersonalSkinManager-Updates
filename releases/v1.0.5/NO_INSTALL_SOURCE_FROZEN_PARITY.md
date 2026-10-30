@@ -2,6 +2,37 @@
 
 **Status: code-only QA prepared, gameplay not proven.** The maintainer does not need to install another LTK Manager or replace the working PSM installation to continue investigating the source-versus-PyInstaller discrepancy.
 
+## Preferred definitive A/B: same reviewed ORIGINAL signed source pair in private frozen QA
+
+The previous `scripts/build_v105_frozen_parity_private_qa.ps1` used **unsigned v1.28.1** host/DLL hashes that failed during gameplay, so it could not establish parity against the original signed source. A new script `scripts/build_v105_signed_source_parity_private_qa.ps1` uses the original source host/DLL hashes, unchanged original CSLOL input, and original mod-tools version. It builds ONLY a local frozen QA folder and confirms exact SHA-256 matches for all four packaged components. **No new official manager installation and no binary download.**
+
+Copy/run the complete block in Windows PowerShell with PSM and League closed. It creates a unique NEW linked worktree; the working original checkout is untouched:
+
+```powershell
+$ErrorActionPreference = "Stop"
+$Original = "C:\Users\Van Arquilos\Desktop\PersonalSkinManager-Updates"
+$Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$Branch = "qa/v105-signed-parity-$Stamp"
+$QA = "C:\Users\Van Arquilos\Desktop\PSM-v105-Signed-Parity-$Stamp"
+
+git -C $Original fetch origin release/v105-public-installer-staging
+if ($LASTEXITCODE -ne 0) { throw "Git fetch failed" }
+git -C $Original worktree add -b $Branch $QA origin/release/v105-public-installer-staging
+if ($LASTEXITCODE -ne 0) { throw "QA worktree creation failed" }
+
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File (Join-Path $QA "scripts\build_v105_signed_source_parity_private_qa.ps1") -OriginalSourceRepo $Original
+if ($LASTEXITCODE -ne 0) { throw "Source-parity QA frozen build failed" }
+Write-Host "Private EXE: $(Join-Path $QA 'dist\PersonalSkinManager\PersonalSkinManager.exe')"
+```
+
+Next, conduct a permitted Practice Tool test in the frozen QA build and inspect `scripts/inspect_v105_hook_failure_details.ps1`. Compare with a current Python source run **using the same exact pair**.
+
+- Source renders, identical frozen doesn't: investigate PyInstaller DLL search, process elevation, host launch context, environment, game-suspension timing, and sidecar file placement.
+- Both source and identical frozen fail: latest League build/upstream patcher compatibility problem, not demonstrated PyInstaller regression. Do not bypass security checks.
+- Both render: private runtime parity passes, but public redistribution and clean-install/Swiftplay verification remain separate release gates.
+
+**Never publish this private EXE/folder:** it contains upstream/third-party signed binaries and carries `public_distribution_approved=false`. A local hash match is not permission to distribute it. Keep draft PR #18 unmerged.
+
 ## What we know
 
 - A previous Python-source workflow reportedly rendered a cosmetic. Exact active LTK host/DLL identity during that historical run was **not independently recorded**; source UAC relaunch could have dropped an unsigned QA override.
