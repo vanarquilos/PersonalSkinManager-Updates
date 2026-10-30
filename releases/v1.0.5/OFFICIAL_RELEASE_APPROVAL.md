@@ -19,6 +19,14 @@
 - The checksum above identifies the **private test installer only**. It is not a digest for a distributable/public installer and must not be used as a release-asset verification value unless that very same file independently meets redistribution requirements.
 - A working private installation is **not automatically a public-distribution license**.
 
+## Distribution decision — October 30, 2026 (no contact route)
+
+The maintainer chose to proceed **without requesting a special written exception** from LeagueToolkit. The publicly posted [LTK Patcher License](https://github.com/LeagueToolkit/ltk-manager/blob/main/LTK-PATCHER-LICENSE.md) expressly permits redistribution **subject to Section 2**: if the host/DLL are bundled in PSM, the original LeagueToolkit Authenticode signatures **must be removed from both distributed copies**, and any new signatures must belong to PSM. Open-source availability does not waive this condition.
+
+**Build decision:** preserve the successful signed private QA installer byte-for-byte as the reference (SHA-256 `49661E6419F1A0B0691DADBC6FC4D9F5193B997B2B55C1649200180DEF5AEF69`); prepare a separately staged compliant distribution copy without changing active source files. A previously built unsigned RC failed in-game on this machine, so signature removal is **not** proof of compatibility and the public release remains blocked until the **new exact unsigned installed artifact** successfully renders a non-default skin. Do not upload the successful signed private installer or re-label an untested unsigned artifact as working.
+
+**Immediate Windows build/test sequence:** use a separate source snapshot at `b06fa4bde67bf226b371ff75f993c3434dfc8f9f`; include the matching `mod-tools.exe` + `cslol-dll.dll` companion set; stage unsigned LTK host/DLL copies in a different directory while leaving the working originals unchanged; inspect the bundled files' Authenticode statuses; then install, test in Practice Tool, Swiftplay and a second match. On any failure, keep the private working installer and public v1.0.4 intact, record the new logs and do not publish.
+
 ## Mandatory before a public GitHub release
 
 1. **Identify and preserve the exact tested installer.** Retain the byte-for-byte artifact and its `private-qa-manifest.json` outside the repository. Record SHA-256, size, and `source_commit`. Never rename an untested installer to claim it was tested.
