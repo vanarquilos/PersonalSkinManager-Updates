@@ -68,6 +68,9 @@ class ToolsManager:
             # Remove the previous generic secondary error before recording
             # one actionable expired-runtime message for this new attempt.
             clear_issue("INJECTION_RUNTIME_UNAVAILABLE")
+            # Remove the stale bundled-runtime wording before adding the
+            # more precise message with the actual build/cutoff dates.
+            clear_issue("LTK_PATCHER_EOL")
             # Align with Rose's patcher EOL interpretation: this is the
             # COMPATIBILITY boundary enforced by the DLL, not a packaging
             # warning or a condition that can be solved by retrying injection.
