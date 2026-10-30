@@ -89,6 +89,16 @@ class UserProvidedLtkTests(unittest.TestCase):
         self.assertIn("PSM_V105_USER_PROVIDED_LTK", source)
         self.assertNotIn("signtool remove", source)
 
+    def test_installed_app_explains_user_supplied_runtime(self):
+        source = (ROOT / "main/__init__.py").read_text("utf-8")
+        guide = (ROOT / "utils/integration/ltk_onboarding.py").read_text("utf-8")
+        self.assertIn("notify_user_provided_ltk_missing(_get_tools_dir())", source)
+        self.assertIn('not getattr(args, "dev", False)', source)
+        self.assertIn("import_user_ltk_v105.ps1", guide)
+        self.assertIn("check_ltk_patcher(tools_dir)", guide)
+        self.assertNotIn("urllib", guide)
+        self.assertNotIn("requests.get", guide)
+
     def test_tools_manager_enforces_patcher_manifest_errors(self):
         source = (ROOT / "injection/tools/tools_manager.py").read_text("utf-8")
         self.assertIn("missing = list(patcher.missing)", source)
