@@ -56,3 +56,11 @@ The original installer had two packaged-only elevation differences:
 These are now changed for a new release candidate to `uac_admin=False` (embedded `asInvoker` manifest) and `runasoriginaluser`. The Windows build script verifies the compiled EXE's actual embedded manifest and preserves the signed source tester.
 
 **This is a plausible launch-context correction, not yet demonstrated in the newly installed app.** The old installed candidate remains failed. Only the new candidate and its exact SHA-256 may be considered for release after clean installation, Practice Tool, Swiftplay and second-match tests; old published releases are untouched.
+
+## October 30 correction: core startup auto-elevation discovered
+
+Code review identified `main/core/initialization.py` calling `ensure_admin_rights()` before setting up the LTK runtime. This call also executes in the **source tester**, so the earlier assumption "the source tester ran non-elevated and the installed EXE did not" was not justified by the available evidence. The `asInvoker` PyInstaller manifest cannot prevent subsequent explicit `runas` elevation performed by application Python code.
+
+The source now removes implicit elevation from core initialization, logs the actual privilege category (`standard` or `elevated`), and leaves administrative controls to separately authorized features. This is a consistency/security fix, **not proof it resolves the custom-skin failure**. Re-test it separately before assuming compatibility.
+
+To narrow down the remaining packaged-only failure, the first next step is **not rebuilding**. Preserve the existing `dist/PersonalSkinManager` folder and compare it read-only to `Program Files/Personal Skin Manager` using `scripts/compare_v105_portable_and_installed.ps1`, then manually test the old frozen EXE from `dist` in Practice Tool. This differentiates portable PyInstaller behavior from installed-directory/installer effects. Record whether a UAC prompt appears, whether custom skin renders, and the matching diagnostic markers; do not claim an app works merely because LTK binaries exist.
