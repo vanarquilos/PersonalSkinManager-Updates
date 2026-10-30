@@ -76,7 +76,7 @@ def _verify_local_qa_manifest(selected: Path, manifest_path: Path) -> list[str]:
            for key, value in required.items()):
         return ["local LTK QA manifest schema, purpose, protocol or distribution gate invalid"]
     if not isinstance(info.get("source_manager_release"), str) or not re.fullmatch(
-        r"v\\d+\\.\\d+\\.\\d+", info["source_manager_release"]
+        r"v\d+\.\d+\.\d+", info["source_manager_release"]
     ):
         return ["local LTK QA manifest manager release label invalid"]
     # The manager release is provenance metadata; it is NOT the delivered
