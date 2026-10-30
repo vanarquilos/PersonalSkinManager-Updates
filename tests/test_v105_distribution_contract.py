@@ -62,6 +62,16 @@ class DistributionCandidateContracts(unittest.TestCase):
         self.assertIn("Private test state exists, but the active", self.build)
         self.assertIn("release-unsigned-ltk", self.build)
         self.assertIn("Private runtime state or signing material was bundled", self.build)
+        self.assertIn("audit_v105_distribution_tree.py", self.build)
+        self.assertIn("Check-Exit", self.build)
+        self.assertNotIn("Where-Object { $_.Name -match '^_v105_", self.build)
+        build_all = (ROOT / "scripts/build_all.py").read_text(encoding="utf-8")
+        self.assertIn("audit_v105_distribution_tree.py", build_all)
+        self.assertLess(
+            build_all.index('audit_v105_distribution_tree.py'),
+            build_all.index('if not run_create_installer():'),
+        )
+
         self.assertNotIn("Restore the active historical runtime", self.build)
 
 
