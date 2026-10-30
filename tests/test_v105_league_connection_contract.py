@@ -28,12 +28,14 @@ class LeagueConnectionContractTests(unittest.TestCase):
         self.assertIn("PROJECT_ROOT = Path(__file__).resolve().parents[1]", self.diagnostic)
         self.assertIn('sys.path.insert(0, str(PROJECT_ROOT))', self.diagnostic)
 
-    def test_blocked_websocket_startup_is_explicit_not_silent(self):
+    def test_blocked_websocket_startup_is_visible_and_nonblocking(self):
         self.assertIn("LCU WebSocket still disconnected", self.main)
         self.assertIn("WebSocket worker alive=", self.main)
         self.assertIn('"LCU_WEBSOCKET_WAIT"', self.main)
-        self.assertIn("and not state.stop:", self.main)
+        self.assertIn("should_stop=lambda: bool(state.stop)", self.main)
         self.assertIn("Stopped while waiting for LCU WebSocket", self.main)
+        self.assertIn("client_startup_thread.start()", self.main)
+        self.assertNotIn("while not t_ws.connection.is_connected", self.main)
 
     def test_issue_reporter_accepts_client_integration_failures(self):
         issue_reporter = (ROOT / "utils/core/issue_reporter.py").read_text("utf-8")
