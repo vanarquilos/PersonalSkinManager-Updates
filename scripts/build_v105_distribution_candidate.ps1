@@ -102,6 +102,7 @@ $Tests = @(
     "tests.test_frozen_subprocess",
     "tests.test_v105_league_path_detection",
     "tests.test_v105_league_connection_contract",
+    "tests.test_v105_live_lcu_diagnostic",
     "tests.test_v105_lcu_lockfile_saved_path",
     "tests.test_v105_exe_manifest",
     "tests.test_v105_publish_contract",
