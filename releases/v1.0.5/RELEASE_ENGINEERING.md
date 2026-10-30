@@ -35,6 +35,20 @@ This launches the Python source app against the original tested LTK files. **An 
 
 **Important October 30 correction:** The previous compiled EXE forced administrator elevation even though the successful isolated source test ran without forced elevation. The new spec sets `uac_admin=False` and the installer launches the original user without `Verb: runas`. The build audits the **embedded PE manifest** using `scripts/audit_v105_exe_manifest.py`; only `asInvoker` is accepted. This is a newly testable candidate, **not** the previous failing installed executable. PyInstaller's `pefile` dependency is required for the manifest audit.
 
+## Packaging security audit (October 30)
+
+The initial asInvoker EXE built and passed its embedded-manifest audit, but the RC build stopped with "Private runtime state or signing material was bundled." The former release-tree scan treated **every** PEM file as signing material, even the public `certifi/cacert.pem` TLS CA bundle PyInstaller may include. This is not sufficient evidence that a private key was embedded.
+
+The new `scripts/audit_v105_distribution_tree.py` permits only `certifi/cacert.pem` or `_internal/certifi/cacert.pem` when its PEM objects are exclusively public `CERTIFICATE` blocks. PSM private state (`_v105_*.json`), every other PEM, PFX, P12, KEY, JKS, and keystore remains forbidden. Its failure output names the offending **relative paths only**, never file contents. It runs before Inno Setup creates an installer, with an additional check in the RC builder.
+
+To inspect the existing built distribution without modifying any files:
+
+```powershell
+python .\scripts\audit_v105_distribution_tree.py --dist ".\dist\PersonalSkinManager"
+```
+
+If this reports anything beyond the explicitly allowed certifi CA trust store, stop and review its relative path. Do not delete, rename, or bypass a sensitive file just to make the build pass. The preliminary `installer/PersonalSkinManager_Setup.exe` emitted by the previously failed build is **not an approved release candidate**.
+
 ## 2. Build the **separate unsigned** release candidate
 
 ```powershell
