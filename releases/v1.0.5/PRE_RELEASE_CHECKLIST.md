@@ -1,3 +1,22 @@
+## October 30, 11:07 PH — installed client running, live LCU REST succeeds; startup finalization
+
+The user supplied a second read-only diagnostic generated **2026-10-30 11:07:53 +08:00**:
+- League client processes: **8**; League game processes: **0** (no gameplay active).
+- Installed PersonalSkinManager process active: **yes**.
+- Standard League installation, game executable, and LCU lockfile: **present**.
+- Live local LCU REST API returned **HTTP 200** using the existing local lockfile (no credentials exposed).
+- The diagnostic's `PSM LCU discovery import: unavailable (ModuleNotFoundError)` occurred in **external Python diagnostic**, not inside the frozen PSM; direct-script execution did not reliably put the repository root on Python's import path.
+- The most recent shared PSM log was **115 minutes old**. Earlier LCU/WebSocket/Pengu counts cannot be attributed to the new installed session. A process being active or having a shared log file with an older mtime does not establish a current WebSocket connection.
+
+**Engineering finalization of this stage (source only, awaiting Windows QA):**
+1. Standalone diagnostic now adds repository root to `sys.path`, reports the actual missing module name if imports still fail, and differentiates source-import availability from frozen-app status.
+2. Diagnostic can probe an authenticated local LCU WebSocket handshake without sending game commands, and reports only handshake success/failure category, never tokens, passwords, account data or raw paths. LCU REST HTTP 200 remains separate evidence.
+3. `main/__init__.py` no longer blocks its main UI indefinitely on `while not t_ws.connection.is_connected`. A daemon worker uses `main/core/client_startup_gate.py` to wait for the **actual** WebSocket before starting Pengu/injection setup, emitting a warning/diagnostic on prolonged waits; shutdown is respected, and an exited WebSocket worker is explicitly reported.
+4. Added isolated unit tests for WebSocket readiness/delayed connection, shutdown, worker death, runtime gating and diagnostic imports; wired these to local release builder and CI source checks.
+5. LTK source tester remains untouched, and previously failed installed/PyInstaller candidate is not approved. **No newly rebuilt v1.0.5 Windows package was tested or released** as part of these source changes.
+
+**Final release gates:** Run updated source unit tests and diagnostic with the full League client active. A successful standalone WebSocket handshake does not prove PSM integration. Build a fresh asInvoker Windows RC only after tests pass; validate that exact installed candidate detects League, activates supported Pengu integration, renders a non-default skin in Practice Tool and Swiftplay, and works in a consecutive match. Keep v1.0.5 as draft until all are verified.
+
 ## October 30 10:45 PH — received live-client diagnostics
 
 The user supplied `PSM-v1.0.5-league-connection.txt`, generated **2026-10-30 10:45:40 +08:00**. It reports **8 League client process instances**, zero game processes (expected if not in a match), **0 inaccessible client executable paths**, and **present** `LeagueClient.exe`, game EXE, and lockfile in a standard Riot installation directory. Thus a missing client installation or OS-denied process-path inspection is **not evidenced** by this report.
