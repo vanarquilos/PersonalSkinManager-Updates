@@ -2,6 +2,12 @@
 
 **Status: staging implementation available for Windows QA, but no tested public installer exists yet.** This work does not alter the working private QA installer, original source host/DLL, public v1.0.4 release, or stable signed updater.
 
+## Rose-style preferred integration update (2026-10-30)
+
+**The preferred v1.0.5 private QA approach now follows Rose's user-supplied patcher distribution model; see [ROSE_STYLE_USER_LTK.md](ROSE_STYLE_USER_LTK.md).** Default PyInstaller builds no longer bundle LTK binaries. The PSM-owned inert CSLOL stub is compiled in a new linked worktree; the user explicitly supplies an official, hash-verified LTK pair after freezing. A local manifest detects tampering. The installer excludes these user-provided files on in-place updates. Earlier four-component frozen parity scripts in this document are **historical private diagnostics**, not the recommended public release method.
+
+**Still NO-GO for public release:** neither the PSM-owned stub nor a current unmodified LTK host/DLL pair has passed local gameplay and clean-install QA. Full uninstall still removes installation-local user-provided binaries, so back them up before uninstalling. No signing, host-verification, content policy, or security gate is bypassed.
+
 ## Current-LTK v1.0.5 integration — authoritative update (2026-10-30)
 
 **New current protocol-3 private QA integration is staged; see [CURRENT_LTK_INTEGRATION.md](CURRENT_LTK_INTEGRATION.md).** The October 30 frozen gameplay test reached WebSocket, loadout, overlay creation and scanner startup but ended with `SetWindowsHookEx failed: 0x00000000` and **no visible skin**. The historical v1.28.1 unsigned-source success claim in older notes below was not reliably attributed to that exact selected pair after UAC relaunch, and a later elevated source gameplay test did not display a skin. It is not proof that the v1.28.1 unsigned pair works.
