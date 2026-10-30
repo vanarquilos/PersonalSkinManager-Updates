@@ -18,6 +18,27 @@
 - `Get-AuthenticodeSignature` reporting `Valid` alone does not prove the issuing CA meets all upstream requirements; trusted publisher identity/chain must be reviewed before publication.
 - Preserve the original working signed private QA installer and original LTK binaries; do not upload or overwrite them.
 
+## October 30 preflight evidence and corrected certificate gate
+
+The maintainer's installed-preparation preflight passed 8/8 packaging contract tests and found all four components. Observed values:
+
+| Component | SHA-256 | Signature |
+| --- | --- | --- |
+| `mod-tools.exe` | `25FA57EB81ED308DCF8E3E2ABA1E3981E1697C99752F879E84746D1D90B4CB44` | Valid |
+| `cslol-dll.dll` | `4A009619C6DEA691780B2F20CF17E08DE478A78B3F11CD72759DD71C00AD1C90` | Valid; third-party certificate |
+| `ltk_patcher_host.exe` | `5E52DC5A30220E735599BE57308CE7BF52E21416CF2C2D9D449A8637F683C4E9` | NotSigned; previously failed hook |
+| `ltk_patcher_dll.dll` | `B164A14A2D6C1F1EA6D546782C556050F6F9045DFAB686E4967E7D7CD2E87E29` | NotSigned; previously failed hook |
+
+The CSLOL certificate was observed with subject `CN=Daniel Langov, O=Daniel Langov, L=Burgas, S=Burgas, C=BG`, public certificate SHA-256 `1F51EA1346FF54970541227A4A88E9B4B11FB9A0ADB6B17040DC5DB84E905CE9`, and a timestamp. **This is not a PSM publisher-issued signing identity.** The initial builder only detected signers mentioning "League Toolkit" and could have mistaken this `Valid` third-party signature for PSM-owned signing authority.
+
+The corrected local-only builder rejects this exact CSLOL DLL/certificate pair and requires `-ExpectedDistributorCertSha256`, an independently verified **PSM-owned CA-issued signing certificate SHA-256**. A matching fingerprint is necessary, **not** sufficient: verify its public CA trust chain, responsible distributor identity, timestamp, notices, and prohibited-content enforcement separately. The two original upstream-signed LTK fingerprints are also now expressly rejected, as well as the known failed unsigned pair.
+
+**Do not** set the expected distributor certificate hash to the Daniel Langov certificate fingerprint to force a pass. A code-signing certificate isn't a payment/subscription feature, but acquiring a publicly trusted publisher signing certificate generally involves identity verification and possible cost. Free, public software is compatible with a third-party code-signing requirement, though the project cannot claim a fully no-cost *build process* without an alternative rights agreement or authorized backend.
+
+### Before a new builder run
+
+Run the existing source-only signed/unsigned A/B helper from the working original checkout. It validates the working source host/DLL hashes before opening a local QA session and does not replace them. This test is needed because the staged unsigned host/DLL exactly match a known failing installed candidate. If unsigned source fails too, no new installer should be built from those bytes. If unsigned source works, compare installed-only process context and sanitized current-session logs. Either way, do not reproduce the failed public-path candidate.
+
 ## First: inspect the current Windows inputs
 
 On the working repository checkout of this staging branch (or a linked worktree with this branch), run:
@@ -27,6 +48,7 @@ python -m unittest tests.test_v105_public_installer_staging_contract
 powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\preflight_v105_public_candidate.ps1" `
   -LtkDir "C:\path\to\separately-staged-LTK" `
   -CslolDir "C:\path\to\distributor-signed-CSLOL" `
+  -ExpectedDistributorCertSha256 "64_CHARACTER_PSM_PUBLISHER_CERTIFICATE_SHA256" `
   -ModToolsFile "C:\path\to\working-original-repo\injection\tools\mod-tools.exe"
 ```
 
@@ -59,7 +81,8 @@ $Original = "C:\Users\Van Arquilos\Desktop\PersonalSkinManager-Updates"
 powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\build_v105_public_path_local_test.ps1" `
   -ModToolsFile (Join-Path $Original "injection\tools\mod-tools.exe") `
   -LtkDir "C:\path\to\separately-staged-LTK" `
-  -CslolDir "C:\path\to\distributor-signed-CSLOL"
+  -CslolDir "C:\path\to\distributor-signed-CSLOL" `
+  -ExpectedDistributorCertSha256 "64_CHARACTER_PSM_PUBLISHER_CERTIFICATE_SHA256"
 ```
 
 The builder rejects missing inputs, the known failed LTK pair, unsigned/non-timestamped CSLOL and upstream-signed patcher/CSLOL, plus reused worktree outputs. It tests source packaging, builds PyInstaller/Inno only in the linked worktree, checks all four bundled-file SHA-256 values, and records a local provenance manifest. The output is:
