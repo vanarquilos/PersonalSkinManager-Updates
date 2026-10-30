@@ -32,9 +32,10 @@ else:
 # into the one-click installer. They are intentionally not tracked in source.
 import os
 
-# Release candidates can supply separately staged, license-compliant unsigned
-# host/DLL copies. Never mutate the developer's original signed runtime.
-# This override is effective only for the two patcher binaries.
+# Release candidates can supply separately staged host/DLL and CSLOL inputs.
+# Each override is confined to its specific component. Never alter the
+# developer's working originals. Public-distribution licensing and signing
+# must be verified BEFORE invoking this packaging specification.
 release_ltk_dir = os.environ.get('PSM_RELEASE_LTK_DIR')
 if release_ltk_dir:
     release_ltk_root = Path(release_ltk_dir).resolve(strict=True)
@@ -44,8 +45,18 @@ if release_ltk_dir:
 else:
     release_ltk_root = Path('injection/tools')
 
+release_cslol_dir = os.environ.get('PSM_RELEASE_CSLOL_DIR')
+if release_cslol_dir:
+    release_cslol_root = Path(release_cslol_dir).resolve(strict=True)
+    if not release_cslol_root.is_dir():
+        raise RuntimeError('PSM_RELEASE_CSLOL_DIR is not a directory')
+    print('[INFO] Using isolated CSLOL companion directory')
+else:
+    release_cslol_root = Path('injection/tools')
+
 injection_binaries = [
     ('injection/tools/mod-tools.exe', 'injection/tools'),
+    (str(release_cslol_root / 'cslol-dll.dll'), 'injection/tools'),
     (str(release_ltk_root / 'ltk_patcher_host.exe'), 'injection/tools'),
     (str(release_ltk_root / 'ltk_patcher_dll.dll'), 'injection/tools'),
 ]
