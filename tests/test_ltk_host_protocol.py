@@ -17,7 +17,7 @@ from injection.overlay.ltk_host import (
 
 
 class LtkHostProtocolTests(unittest.TestCase):
-    def test_runtime_matches_rose_patcher_configuration(self):
+    def test_runtime_matches_upstream_vendor_enforced_configuration(self):
         self.assertEqual(LTK_PATCHER_FLAGS, 0)
         self.assertEqual(LTK_DEFAULT_FLAGS, 0)
         self.assertEqual(LTK_PATCHER_LOG_LEVEL, 0x10)
