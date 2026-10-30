@@ -42,6 +42,7 @@ from ..tools.patcher import (
     LTK_PATCHER_DLL,
     LTK_PATCHER_HOST,
     LTK_QA_RUNTIME_DIR_ENV,
+    LTK_QA_MANIFEST_ENV,
     LTK_QA_ORIGINAL_SHA256,
     LTK_QA_UNSIGNED_SHA256,
     _hash_file,
@@ -76,6 +77,7 @@ def _runtime_log_level() -> int:
         return LTK_PATCHER_DEBUG_LOG_LEVEL
     return LTK_PATCHER_LOG_LEVEL
 LTK_PATCHER_FLAGS = 4
+LTK_MODERN_QA_FLAGS = 0  # Do not request disabling vendor content enforcement
 
 # Backward-compatible alias for older PSM tests/imports.
 def _qa_runtime_identity(host_exe: Path, hook_dll: Path) -> str:
@@ -461,11 +463,18 @@ def start_ltk_patcher_host(
         "[INJECT] Starting LTK patcher-host scanner before game launch"
         + (" with elevation" if "--elevate" in cmd else " in normal mode")
     )
-    log.info(
-        "[INJECT] Rose-compatible LTK patcher configuration active "
-        "(flags=%d, anti-skinhack base-skin enforcement disabled)",
-        LTK_PATCHER_FLAGS,
-    )
+    # A modern manifest-pinned LTK candidate must not inherit the historical
+    # Rose flag that opts out of upstream anti-skinhack enforcement.
+    modern_qa = bool(os.environ.get(LTK_QA_MANIFEST_ENV))
+    selected_flags = LTK_MODERN_QA_FLAGS if modern_qa else LTK_PATCHER_FLAGS
+    if modern_qa:
+        log.info("[INJECT] Current LTK private QA selected: enforcing vendor default flags=%d", selected_flags)
+    else:
+        log.info(
+            "[INJECT] Legacy compatibility LTK configuration active "
+            "(flags=%d; NOT suitable for public distribution)",
+            selected_flags,
+        )
 
     proc = None
     try:
@@ -509,7 +518,7 @@ def start_ltk_patcher_host(
             "DEBUG (local source QA)" if selected_log_level == LTK_PATCHER_DEBUG_LOG_LEVEL else "INFO",
         )
         _send_line(proc, f"config loglevel {selected_log_level}")
-        _send_line(proc, f"config flags {LTK_PATCHER_FLAGS}")
+        _send_line(proc, f"config flags {selected_flags}")
         _send_line(proc, f"config prefix {overlay_prefix}")
         _send_line(proc, "start scan")
 
