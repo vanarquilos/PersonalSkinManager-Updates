@@ -38,7 +38,8 @@ class ToolsManager:
             LTK_PATCHER_HOST: ltk_host,
             LTK_PATCHER_DLL: ltk_dll,
         }
-        missing = [name for name, path in required.items() if not path.is_file()]
+        missing = list(patcher.missing)
+        missing.extend(name for name, path in required.items() if not path.is_file() and name not in missing)
 
         if missing:
             log.error(f"[INJECT] Missing required runtime files: {missing}")
@@ -47,7 +48,10 @@ class ToolsManager:
                 "LTK_PATCHER_MISSING",
                 "error",
                 "PSM cannot apply skins: its required runtime files are missing.",
-                hint="Use a complete, trusted PSM installer; do not download random DLLs.",
+                hint=(
+                    "Provide a verified official LTK host/DLL pair using the optional "
+                    "local provisioning workflow; avoid unofficial downloads."
+                ),
                 dedupe_window_s=120.0,
             )
             return False
