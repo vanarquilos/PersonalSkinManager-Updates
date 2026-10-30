@@ -25,12 +25,18 @@ The maintainer chose to proceed **without requesting a special written exception
 
 **Build decision:** preserve the successful signed private QA installer byte-for-byte as the reference (SHA-256 `49661E6419F1A0B0691DADBC6FC4D9F5193B997B2B55C1649200180DEF5AEF69`); prepare a separately staged compliant distribution copy without changing active source files. A previously built unsigned RC failed in-game on this machine, so signature removal is **not** proof of compatibility and the public release remains blocked until the **new exact unsigned installed artifact** successfully renders a non-default skin. Do not upload the successful signed private installer or re-label an untested unsigned artifact as working.
 
-**Immediate Windows build/test sequence:** use a separate source snapshot at `b06fa4bde67bf226b371ff75f993c3434dfc8f9f`; include the matching `mod-tools.exe` + `cslol-dll.dll` companion set; stage unsigned LTK host/DLL copies in a different directory while leaving the working originals unchanged; inspect the bundled files' Authenticode statuses; then install, test in Practice Tool, Swiftplay and a second match. On any failure, keep the private working installer and public v1.0.4 intact, record the new logs and do not publish.
+**Sequencing correction after the CSLOL license check:** first demonstrate compliance with CSLOL §§5–8 (own publicly trusted signing certificate, DLL signature and published fingerprint/hash, effective prohibited-content enforcement, no DLL tampering). **Only then** stage a separate distribution copy of the complete CSLOL toolset and unsigned LTK host/DLL, verify licenses, build, and install/test the exact candidate in Practice Tool, Swiftplay and a second match. On any failure, leave the private working installer and v1.0.4 untouched and do not publish.
+
+## Newly verified distribution blocker — CSLOL DLL Addendum v1.1 (2026-10-30)
+
+**NO-GO for public binary release under the current configuration.** The previous checklist considered the LTK patcher's signature requirement but was incomplete: PSM's combined installer also bundles `cslol-dll.dll`, which is **not covered by the LTK Patcher License**. Its upstream [CSLOL DLL License Addendum](https://github.com/LeagueToolkit/cslol-manager/blob/master/LICENSE-CSLOL.md) mandates distributor-owned **public CA code signing with a trusted timestamp** (§5), disclosure of the certificate identity and DLL hash (§5.5), and launcher-level technical blocking of prohibited paid-skin replication and gameplay-advantage content (§§6–7). DLL modification or control circumvention is prohibited (§8). The PSM working source has explicit unowned-skin carrier routing, so those enforcement requirements must be reviewed and demonstrably met before publishing an installer. See [CSLOL_DISTRIBUTION_GATE.md](CSLOL_DISTRIBUTION_GATE.md) for upstream terms, source evidence, and non-destructive release paths.
+
+**Do not build/publish a "license-compliant unsigned distribution candidate" solely by stripping the LTK signatures.** Without the CSLOL obligations being met, that label would be misleading and publication would contravene the published addendum. No public CA signing certificate or mandatory anti-skinhacking enforcement has been verified for PSM. Preserve the private working installer and v1.0.4 release unchanged.
 
 ## Mandatory before a public GitHub release
 
 1. **Identify and preserve the exact tested installer.** Retain the byte-for-byte artifact and its `private-qa-manifest.json` outside the repository. Record SHA-256, size, and `source_commit`. Never rename an untested installer to claim it was tested.
-2. **Third-party legal review.** `licenses/LTK-PATCHER-LICENSE.md` requires removing LeagueToolkit's official Authenticode signatures from both bundled patcher binaries for redistribution, unless explicit written permission authorizes distribution bearing those original signatures. Confirm applicable CSLOL/Pengu permissions and required notices as well. Do not publish upstream-signed LTK binaries absent permission.
+2. **Third-party legal review.** `licenses/LTK-PATCHER-LICENSE.md` requires removing LeagueToolkit's official Authenticode signatures from both bundled patcher binaries for redistribution, unless explicit written permission authorizes distribution bearing those original signatures. **Separately, the CSLOL DLL Addendum requires publicly trusted distributor code signing and effective paid-content/competitive-advantage blocking (§§5–8); neither requirement has been verified for PSM.** Confirm applicable Pengu and other notices. Do not publish an incomplete runtime package.
 3. **Produce a legally distributable candidate.** If the host/DLL must be altered to remove official signatures, construct a separate distribution artifact from reviewed, provenance-pinned copies. Keep the working private installer untouched. Do not bypass game security, tamper with a signature to defeat integrity validation, or silently reuse the prior unsigned installer that displayed default skins.
 4. **Test that exact changed candidate on Windows** after clean installation:
    - League Client detected and active LCU session verified
@@ -57,6 +63,8 @@ The maintainer chose to proceed **without requesting a special written exception
 | Final public size in bytes | Pending |
 | Final public source commit SHA | Pending |
 | Host/DLL signatures or written distribution permission | Pending |
+| CSLOL DLL distributor public-CA signing and timestamp | **BLOCKED — not evidenced** |
+| CSLOL launcher content restrictions §§6–7 | **BLOCKED — not evidenced; unowned-skin routing present** |
 | CSLOL/Pengu license review | Pending |
 | Windows version and League patch actually tested | Pending |
 | League detection + WebSocket + Pengu | Pending for *distributable* candidate |
