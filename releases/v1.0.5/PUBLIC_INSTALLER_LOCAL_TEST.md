@@ -2,6 +2,12 @@
 
 **Status: staging implementation available for Windows QA, but no tested public installer exists yet.** This work does not alter the working private QA installer, original source host/DLL, public v1.0.4 release, or stable signed updater.
 
+## Current-LTK v1.0.5 integration — authoritative update (2026-10-30)
+
+**New current protocol-3 private QA integration is staged; see [CURRENT_LTK_INTEGRATION.md](CURRENT_LTK_INTEGRATION.md).** The October 30 frozen gameplay test reached WebSocket, loadout, overlay creation and scanner startup but ended with `SetWindowsHookEx failed: 0x00000000` and **no visible skin**. The historical v1.28.1 unsigned-source success claim in older notes below was not reliably attributed to that exact selected pair after UAC relaunch, and a later elevated source gameplay test did not display a skin. It is not proof that the v1.28.1 unsigned pair works.
+
+The new integration uses host protocol 3 from upstream LTK Manager v1.31.1 and restores vendor `config flags 0` without anti-skinhack opt-out. **A newer manager label does not authenticate a newer patcher DLL**; an official bundled host/DLL pair must be obtained and independently hash-verified for local QA. Public distribution is still prohibited under the current gates. Do not build a public installer from the upstream-signed pair or the third-party-signed CSLOL DLL.
+
 ## What changed in this staging branch
 
 1. The PyInstaller spec explicitly bundles all four co-dependent runtime files: `mod-tools.exe`, `cslol-dll.dll`, `ltk_patcher_host.exe`, and `ltk_patcher_dll.dll`. The earlier spec enumerated only three.
