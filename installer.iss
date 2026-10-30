@@ -51,8 +51,10 @@ Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescrip
 
 [Files]
 ; Main application files
-; hashes.game.txt is user-managed and must be preserved across installations.
-Source: "dist\PersonalSkinManager\*"; DestDir: "{app}"; Excludes: "hashes.game.txt"; Flags: ignoreversion recursesubdirs createallsubdirs
+; hashes.game.txt and LTK patcher files are user-managed and excluded from
+; installer payloads. In-place upgrades must not replace provisioned binaries.
+; Fresh installs use scripts/import_user_ltk_v105.ps1 after explicit user action.
+Source: "dist\PersonalSkinManager\*"; DestDir: "{app}"; Excludes: "hashes.game.txt,ltk_patcher_host.exe,ltk_patcher_dll.dll,ltk-user-local.json"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "licenses\LeagueToolkit-GPL-3.0.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
