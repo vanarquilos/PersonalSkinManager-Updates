@@ -46,7 +46,14 @@ def required_runtime_files():
 
 
 def verify_release_runtime_inputs():
-    """Fail closed unless all required local runtime components are present."""
+    """Fail closed unless all required local runtime components are reviewed."""
+    # A missing CSLOL override could accidentally repackage a third-party
+    # signed developer DLL from injection/tools. Require an explicit QA
+    # provenance directory (e.g. the freshly compiled PSM-owned inert stub).
+    if not os.environ.get("PSM_RELEASE_CSLOL_DIR"):
+        print("[ERROR] Explicit PSM_RELEASE_CSLOL_DIR is required for v1.0.5.")
+        print("[INFO] Default builds cannot implicitly bundle the source CSLOL DLL.")
+        return False
     missing = [path for path in required_runtime_files() if not path.is_file()]
     if missing:
         print("[ERROR] Required release runtime file(s) are missing:")
