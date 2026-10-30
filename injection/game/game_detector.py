@@ -21,6 +21,12 @@ from ..config.config_manager import ConfigManager
 
 log = get_logger()
 
+STANDARD_LEAGUE_CLIENT_ROOTS = (
+    Path("C:/Riot Games/League of Legends"),
+    Path("C:/Program Files/Riot Games/League of Legends"),
+    Path("C:/Program Files (x86)/Riot Games/League of Legends"),
+)
+
 
 class GameDetector:
     """Detects League of Legends game and client directories"""
@@ -99,11 +105,7 @@ class GameDetector:
 
         # Conservative known install roots. Do not crawl unrelated drives or
         # guess a client connection merely from a Riot Client installation.
-        candidates.extend((
-            Path("C:/Riot Games/League of Legends"),
-            Path("C:/Program Files/Riot Games/League of Legends"),
-            Path("C:/Program Files (x86)/Riot Games/League of Legends"),
-        ))
+        candidates.extend(STANDARD_LEAGUE_CLIENT_ROOTS)
 
         for client_dir in dict.fromkeys(candidates):
             if not (client_dir / "LeagueClient.exe").is_file():
