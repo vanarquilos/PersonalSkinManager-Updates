@@ -18,6 +18,9 @@ on:
       - "config.py"
       - "requirements.txt"
       - "tests/**"
+  pull_request:
+    branches:
+      - audit/v105-four-component-build-readiness
   workflow_dispatch:
 
 permissions:
