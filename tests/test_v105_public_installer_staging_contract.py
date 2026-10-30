@@ -46,6 +46,29 @@ class PublicPathLocalInstallerContracts(unittest.TestCase):
         self.assertIn("CSLOL timestamp certificate observed:", self.preflight)
         self.assertIn("publisher ownership", self.preflight)
 
+    def test_known_third_party_cslol_signature_is_rejected(self):
+        # This was previously admitted because its valid certificate subject
+        # did not literally include the words "League Toolkit".
+        known_cert = "1F51EA1346FF54970541227A4A88E9B4B11FB9A0ADB6B17040DC5DB84E905CE9"
+        known_dll = "4A009619C6DEA691780B2F20CF17E08DE478A78B3F11CD72759DD71C00AD1C90"
+        for content in (self.builder, self.preflight):
+            self.assertIn(known_cert, content)
+            self.assertIn(known_dll, content)
+            self.assertIn("daniel", content.lower())
+            self.assertIn("ExpectedDistributorCertSha256", content)
+        self.assertIn('ValidatePattern("^[0-9a-fA-F]{64}$")', self.builder)
+        self.assertIn("CSLOL signing certificate is not the independently specified", self.builder)
+        self.assertIn("No PSM distributor certificate SHA-256 supplied", self.preflight)
+
+    def test_known_upstream_signed_ltk_origins_are_rejected(self):
+        signed_host = "23FA1AAEDA1A0C743DA44227F179084E1FB81C7CD262144A3C8604FFC49D3BC1"
+        signed_dll = "6D419057E6667994BA752AD0FB089B363DB98267618644D7F7B6632441A21D74"
+        for content in (self.builder, self.preflight):
+            self.assertIn(signed_host, content)
+            self.assertIn(signed_dll, content)
+        self.assertIn("Known upstream-signed LTK original must not be packaged", self.builder)
+        self.assertIn("LTK bears a third-party signature", self.builder)
+
     def test_isolation_guards_protect_the_original_worktree(self):
         self.assertIn("Test-Path -LiteralPath $GitMarker -PathType Leaf", self.builder)
         self.assertIn("LINKED GIT WORKTREE", self.builder)
