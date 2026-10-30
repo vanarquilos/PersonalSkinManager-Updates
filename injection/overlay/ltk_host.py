@@ -452,6 +452,11 @@ def start_ltk_patcher_host(
             creationflags=creationflags,
         )
 
+        if sys.platform == "win32" and getattr(sys, "frozen", False):
+            log.info(
+                "[INJECT][ltk-host] External host spawned with standard Windows DLL lookup"
+            )
+
         if process_manager is not None:
             process_manager.current_overlay_process = proc
 
