@@ -39,6 +39,24 @@ The corrected local-only builder rejects this exact CSLOL DLL/certificate pair a
 
 Run the existing source-only signed/unsigned A/B helper from the working original checkout. It validates the working source host/DLL hashes before opening a local QA session and does not replace them. This test is needed because the staged unsigned host/DLL exactly match a known failing installed candidate. If unsigned source fails too, no new installer should be built from those bytes. If unsigned source works, compare installed-only process context and sanitized current-session logs. Either way, do not reproduce the failed public-path candidate.
 
+## October 30 unsigned-source QA result and installed-binary parity follow-up
+
+The maintainer subsequently confirmed **visible non-default skin rendering from the isolated unsigned LTK source tester**, which uses the exact SHA-256-identified unsigned v1.28.1 host and DLL above. This **supersedes the hypothesis that the unsigned pair is universally nonfunctional**. It does not erase the earlier installed candidate's failed hook or prove that a newly packaged installer works.
+
+The previous unsigned-installed failure and working unsigned-source result can coexist. Investigate runtime layout, bundled-component identity and launch context. The historical hash guard in the public-path builder remains a conservative **installed-artifact failure gate**, not proof those bytes fail everywhere.
+
+**Read-only next test:** inspect the currently installed PSM without modifying binaries:
+
+```powershell
+$Original = "C:\Users\Van Arquilos\Desktop\PersonalSkinManager-Updates"
+$Repo = "C:\Users\Van Arquilos\Desktop\PSM-v105-Public-Local-Test-Worktree"
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File (Join-Path $Repo "scripts\inspect_v105_installed_parity.ps1") -SourceToolsDir (Join-Path $Original "injection\tools") -UnsignedLtkDir (Join-Path $Original "installer\candidates\v1.0.5\release-unsigned-ltk") -InstalledDir "C:\Program Files\Personal Skin Manager" -InstalledIdentity Unknown
+```
+
+Set `-InstalledIdentity HistoricalUnsignedFailed` **only if that exact failed installation is still present and independently identified**. If it was replaced by the working private version, leave identity `Unknown` or use `WorkingPrivate`; current fingerprints cannot prove anything about the old failed installation.
+
+The parity report prints hashes, signature status, relative layouts, missing/duplicate components and newest shared-log age only. It does not start League, read raw confidential logs, run patcher binaries or write files. For installed-only failure, examine new-session evidence and Windows launch context without disabling integrity checks.
+
 ## First: inspect the current Windows inputs
 
 On the working repository checkout of this staging branch (or a linked worktree with this branch), run:
