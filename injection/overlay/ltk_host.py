@@ -59,9 +59,9 @@ log = get_logger()
 LTK_HOST_NAME = LTK_PATCHER_HOST
 LTK_DLL_NAME = LTK_PATCHER_DLL
 
-# Match Rose 1.3.1 / latest main patcher-host configuration.
-# Info=0x10. Flag 4 = CSLOL_HOOK_OPT_OUT_AH_V1, which disables the
-# base-skin anti-skinhack enforcement that rejects Rose's generic skin0 carrier.
+# Use upstream host protocol with vendor content enforcement intact.
+# Flag 4 opts out of upstream anti-skinhack controls and must not be used
+# in the v1.0.5 integration. Flag 0 matches the official manager default.
 LTK_PATCHER_LOG_LEVEL = 0x10
 LTK_PATCHER_DEBUG_LOG_LEVEL = 0x20
 
@@ -76,7 +76,7 @@ def _runtime_log_level() -> int:
     if not getattr(sys, "frozen", False) and "--debug" in sys.argv:
         return LTK_PATCHER_DEBUG_LOG_LEVEL
     return LTK_PATCHER_LOG_LEVEL
-LTK_PATCHER_FLAGS = 4
+LTK_PATCHER_FLAGS = 0
 LTK_MODERN_QA_FLAGS = 0  # Do not request disabling vendor content enforcement
 
 # Backward-compatible alias for older PSM tests/imports.
@@ -471,8 +471,8 @@ def start_ltk_patcher_host(
         log.info("[INJECT] Current LTK private QA selected: enforcing vendor default flags=%d", selected_flags)
     else:
         log.info(
-            "[INJECT] Legacy compatibility LTK configuration active "
-            "(flags=%d; NOT suitable for public distribution)",
+            "[INJECT] LTK default vendor content-enforcement flags active "
+            "(flags=%d; publication remains separately gated)",
             selected_flags,
         )
 
