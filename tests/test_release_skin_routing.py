@@ -47,7 +47,7 @@ class ReleaseSkinRoutingTests(unittest.TestCase):
         ltk_source = (
             ROOT / "injection/overlay/ltk_host.py"
         ).read_text(encoding="utf-8")
-        self.assertIn("LTK_PATCHER_FLAGS = 4", ltk_source)
+        self.assertIn("LTK_PATCHER_FLAGS = 0", ltk_source)
         self.assertIn("LTK_PATCHER_LOG_LEVEL = 0x10", ltk_source)
 
 
