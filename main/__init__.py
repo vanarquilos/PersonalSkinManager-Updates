@@ -259,11 +259,38 @@ def run_league_unlock(args: Optional[argparse.Namespace] = None,
         lcu, state, args, injection_manager, skin_scraper, app_status, on_lcu_disconnected, on_lcu_reconnected
     )
     
-    # Wait for WebSocket status to be active before activating Pengu Loader
+    # Waiting for the LCU WebSocket is a real prerequisite for Pengu and
+    # injection setup. Previously a failure could leave PSM silently waiting
+    # forever, looking like "League not detected" even when its local REST
+    # endpoint was reachable. Keep retrying, but report the blocked stage.
     log.info("Waiting for WebSocket status to be active before activating Pengu Loader...")
-    while not t_ws.connection.is_connected:
+    ws_wait_started = time.monotonic()
+    ws_wait_warned_at = -30.0
+    while not t_ws.connection.is_connected and not state.stop:
+        elapsed = time.monotonic() - ws_wait_started
+        if elapsed >= 15.0 and elapsed - ws_wait_warned_at >= 30.0:
+            log.warning(
+                "[STARTUP] LCU WebSocket still disconnected after %.0fs "
+                "(LCU lockfile ready=%s; WebSocket worker alive=%s). "
+                "Pengu/injection initialization is waiting.",
+                elapsed, bool(lcu.ok), bool(t_ws.is_alive()),
+            )
+            if ws_wait_warned_at < 0:
+                from utils.core.issue_reporter import report_issue
+                report_issue(
+                    "LCU_WEBSOCKET_WAIT",
+                    "warning",
+                    "League is present, but PSM has not connected to its live client events.",
+                    hint="Check the PSM WebSocket and Pengu diagnostic before testing skins.",
+                    dedupe_window_s=120.0,
+                )
+            ws_wait_warned_at = elapsed
         time.sleep(0.1)
-    
+    if state.stop:
+        log.info("[STARTUP] Stopped while waiting for LCU WebSocket; cleaning up")
+        perform_cleanup(state, thread_manager, tray_manager, injection_manager)
+        return
+
     log.info("WebSocket status is active, proceeding with Pengu Loader and injection system setup")
     
     # Setup Pengu Loader and injection system (LCU is already connected when WebSocket is active)
