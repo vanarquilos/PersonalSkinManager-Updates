@@ -32,7 +32,6 @@ class FrozenParityContractTests(unittest.TestCase):
         self.assertIn("$Parsed -le $End", self.text)
         self.assertIn("SetWindowsHookEx failed", self.text)
         self.assertIn("WAD redirection observed", self.text)
-        self.assertIn("No files", self.text.replace("no files", "No files")) if False else None
 
 
 if __name__ == "__main__":
