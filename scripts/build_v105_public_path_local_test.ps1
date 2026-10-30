@@ -46,6 +46,10 @@ $KnownBad = @{
     "ltk_patcher_host.exe" = "5E52DC5A30220E735599BE57308CE7BF52E21416CF2C2D9D449A8637F683C4E9"
     "ltk_patcher_dll.dll" = "B164A14A2D6C1F1EA6D546782C556050F6F9045DFAB686E4967E7D7CD2E87E29"
 }
+$KnownOfficialSigned = @{
+    "ltk_patcher_host.exe" = "23FA1AAEDA1A0C743DA44227F179084E1FB81C7CD262144A3C8604FFC49D3BC1"
+    "ltk_patcher_dll.dll" = "6D419057E6667994BA752AD0FB089B363DB98267618644D7F7B6632441A21D74"
+}
 $Inputs = [ordered]@{
     "mod-tools.exe" = $ModToolsFile
     "cslol-dll.dll" = (Join-Path $CslolDir "cslol-dll.dll")
@@ -93,13 +97,27 @@ if ($Hashes["ltk_patcher_host.exe"] -eq $KnownBad["ltk_patcher_host.exe"] -and
     throw "Known failing unsigned LTK pair: SetWindowsHookEx failed. Do not rebuild identical binaries."
 }
 foreach ($Name in $LTKNames) {
+    if ($Hashes[$Name] -eq $KnownOfficialSigned[$Name]) {
+        throw "Known upstream-signed LTK original must not be packaged without written upstream redistribution permission: $Name"
+    }
     $Sig = Get-AuthenticodeSignature -LiteralPath $Inputs[$Name]
     if ($Sig.Status -notin @("NotSigned", "Valid")) {
         throw "LTK patcher file has an invalid Authenticode status: $Name"
     }
-    if ($null -ne $Sig.SignerCertificate -and
-        $Sig.SignerCertificate.Subject -match "(?i)league\s*toolkit") {
-        throw "LTK original vendor signature still present on $Name; written permission is required to redistribute it."
+    if ($Sig.Status -eq "Valid") {
+        if ($null -eq $Sig.SignerCertificate) {
+            throw "LTK file reports Valid without a signer certificate: $Name"
+        }
+        $LTKHasher = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $LTKCertSha256 = [BitConverter]::ToString(
+                $LTKHasher.ComputeHash($Sig.SignerCertificate.RawData)).Replace("-", "")
+        } finally {
+            $LTKHasher.Dispose()
+        }
+        if ($LTKCertSha256 -ne $ExpectedDistributorCertSha256.Trim().ToUpperInvariant()) {
+            throw "LTK bears a third-party signature, not the verified PSM distributor certificate: $Name"
+        }
     }
 }
 $Running = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
