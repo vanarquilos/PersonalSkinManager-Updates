@@ -90,7 +90,8 @@ print("Source QA override inherited: True")
         $env:PSM_EXPECTED_SOURCE_QA_VARIANT = if ($Variant -eq "Unsigned") {
             "unsigned-qa-pair"
         } else { "signed-original-pair" }
-        & python -c $Probe
+        # Pipe source via stdin to avoid Windows PowerShell 5.1 native quote handling.
+        $Probe | & python -
         if ($LASTEXITCODE -ne 0) { throw "Selected LTK provenance verification failed." }
     }
     finally {
