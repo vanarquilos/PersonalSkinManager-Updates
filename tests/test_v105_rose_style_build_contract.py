@@ -73,6 +73,14 @@ class RoseStyleBuildContracts(unittest.TestCase):
         self.assertNotIn("unsigned long long flags", self.stub)
         self.assertIn("return 0;", self.stub)
 
+    def test_stub_compilation_checks_real_pe_export_table(self):
+        self.assertIn("dumpbin /nologo /exports", self.compile)
+        self.assertIn("MSVC dumpbin export validation did not run", self.compile)
+        self.assertIn("PSM stub ABI mismatch", self.compile)
+        self.assertIn("cslol_msg_hookproc", self.compile)
+        self.assertIn('r"^\\s*\\d+\\s+', self.compile)
+        self.assertNotIn('r"^\\\\s*', self.compile)
+
     def test_stub_build_stays_in_isolated_directory(self):
         self.assertIn("PSM_LOCAL_STUB_OUTPUT_DIR", self.compile)
         self.assertIn("EMPTY isolated output directory", self.compile)
