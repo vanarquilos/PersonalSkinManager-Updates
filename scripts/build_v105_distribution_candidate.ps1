@@ -98,6 +98,7 @@ $Tests = @(
     "tests.test_v105_distribution_contract",
     "tests.test_v105_distribution_tree_audit",
     "tests.test_v105_launch_privilege_contract",
+    "tests.test_v105_frozen_parity_contract",
     "tests.test_v105_exe_manifest",
     "tests.test_v105_publish_contract",
     "tests.test_v105_diagnostic_contract",
