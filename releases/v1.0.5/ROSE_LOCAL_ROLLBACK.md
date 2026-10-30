@@ -1,3 +1,22 @@
+## October 30 — working skins, old troubleshooting warning
+
+The maintainer confirmed this rollback **renders non-default skins** in local source QA. The screenshot's sole warning is timestamped **October 30 11:46 AM**, from the previously failed installed v1.0.5 client's `PENGU_ACTIVATION_FAILED` report. The current Rose rollback source (`utils/core/issue_reporter.py`) does **not** emit that code; the troubleshooting panel reads persistent `%LOCALAPPDATA%/Rose/rose_diagnostics.txt` across branches. Therefore an old error may remain visible even while the current source session works. The historical warning alone does not prove current Pengu integration failed.
+
+A new narrow cleanup `scripts/resolve_stale_pengu_warning.py` is **preview-only by default**. To remove *only* the exact legacy record `Oct 30 11:46 | League was detected, but the client integration could not start.` and its adjacent `Fix:` hint, first run:
+
+```powershell
+python -m unittest tests.test_v105_resolve_pengu_warning
+python .\scripts\resolve_stale_pengu_warning.py
+```
+
+After confirming the preview identifies that one old warning, **close the running source/installed PSM and LTK patcher host**. Then:
+
+```powershell
+python .\scripts\resolve_stale_pengu_warning.py --apply
+```
+
+The script refuses to run while PSM is active, creates an exclusive full-byte backup named `rose_diagnostics.backup-<timestamp>.txt` in the same folder, atomically rewrites only the diagnostics file, preserves other entries and hints, and is idempotent. It never modifies the signed LTK pair, game, Pengu activation, installer or project settings. Reopen PSM's Troubleshooting panel to refresh. If a newly timestamped activation warning appears, investigate that *new* error rather than automatically suppressing it. Do not distribute the original upstream-signed LTK runtime.
+
 # PSM v1.0.5 — temporary Rose-style local rollback
 
 **Status:** private source QA only. No public v1.0.5 installer, signature modification, new vendor integration, or game-security changes are approved by this rollback.
