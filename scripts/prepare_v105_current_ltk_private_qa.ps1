@@ -66,6 +66,7 @@ $Manifest = [ordered]@{
     purpose = "PSM_V105_PRIVATE_QA_ONLY"
     source_manager_release = $SourceManagerRelease
     host_protocol = 3
+    runtime_origin = "official-bundled"
     public_distribution_approved = $false
     files_sha256 = [ordered]@{
         "ltk_patcher_host.exe" = $Expected["ltk_patcher_host.exe"]
