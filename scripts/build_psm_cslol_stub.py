@@ -77,6 +77,36 @@ def main() -> int:
         result = subprocess.run(["cmd", "/d", "/c", statement], cwd=temp, check=False)
         if result.returncode != 0:
             raise RuntimeError(f"MSVC stub build failed ({result.returncode}).")
+        # Prove the compiled DLL exports what the actual upstream import-table
+        # consumer expects. Do not assume source-level declarations are enough.
+        export_cmd = (
+            f'call "{vcvars}" >nul && '
+            f'dumpbin /nologo /exports "{output}"'
+        )
+        exported = subprocess.run(
+            ["cmd", "/d", "/c", export_cmd],
+            cwd=temp, capture_output=True, text=True, errors="replace",
+            check=False,
+        )
+        if exported.returncode != 0:
+            raise RuntimeError("MSVC dumpbin export validation did not run.")
+        expected_exports = {
+            "cslol_find", "cslol_hook", "cslol_init", "cslol_log_pull",
+            "cslol_msg_hookproc", "cslol_set_config", "cslol_set_flags",
+            "cslol_set_log_level",
+        }
+        import re
+        matched = set(re.findall(
+            r"^\\s*\\d+\\s+[0-9A-Fa-f]+\\s+[0-9A-Fa-f]+\\s+"
+            r"(cslol_[a-z_]+)\\s*$",
+            exported.stdout, flags=re.MULTILINE,
+        ))
+        if matched != expected_exports:
+            raise RuntimeError(
+                "PSM stub ABI mismatch: missing="
+                + ",".join(sorted(expected_exports - matched))
+                + "; unexpected=" + ",".join(sorted(matched - expected_exports))
+            )
     if not output.is_file():
         raise RuntimeError("Expected cslol-dll.dll was not created.")
     # No third-party CSLOL binary is copied or embedded; a signature check
