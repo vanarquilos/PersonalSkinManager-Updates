@@ -26,6 +26,18 @@ class V105LaunchPrivilegeContractTests(unittest.TestCase):
         self.assertNotIn("Verb: runas", self.inno)
         self.assertIn("LTK_ELEVATE_INJECTOR = False", self.config)
 
+    def test_package_parity_inspector_is_read_only(self):
+        inspector = (ROOT / "scripts/compare_v105_portable_and_installed.ps1").read_text(encoding="utf-8")
+        self.assertIn("release-unsigned-ltk", inspector)
+        self.assertIn("portable frozen", inspector)
+        self.assertIn("installed PSM", inspector)
+        self.assertIn("Get-FileHash", inspector)
+        self.assertIn("Get-AuthenticodeSignature", inspector)
+        self.assertNotIn("Copy-Item", inspector)
+        self.assertNotIn("Remove-Item", inspector)
+        self.assertNotIn("signtool", inspector)
+        self.assertTrue(inspector.isascii())
+
     def test_installer_may_still_require_admin_for_installation_only(self):
         self.assertIn("PrivilegesRequired=admin", self.inno)
         self.assertNotIn("uac_admin=True", self.spec)
