@@ -2,6 +2,10 @@
 
 **State (2026-10-30): source implementation staged, static inspection complete, Windows tests and gameplay pending. Public installer remains NO-GO.**
 
+## Recommended packaging path (supersedes earlier four-file QA builds)
+
+For Rose-compatible user-supplied LTK integration, follow [ROSE_STYLE_USER_LTK.md](ROSE_STYLE_USER_LTK.md). The original documented bundled-host QA remains a PRIVATE comparison tool only; LTK is not packaged in the default frozen build. The new QA builder ships PSM's inert CSLOL loader stub and requires the user to explicitly import a verified official LTK host/DLL pair afterward. Public release and real gameplay compatibility remain unverified.
+
 ## Upstream facts verified from LeagueToolkit v1.31.1
 
 - [LTK Manager v1.31.1](https://github.com/LeagueToolkit/ltk-manager/releases/tag/v1.31.1) was released 2026-10-28.
