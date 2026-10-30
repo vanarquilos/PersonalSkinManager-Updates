@@ -57,6 +57,42 @@ Set `-InstalledIdentity HistoricalUnsignedFailed` **only if that exact failed in
 
 The parity report prints hashes, signature status, relative layouts, missing/duplicate components and newest shared-log age only. It does not start League, read raw confidential logs, run patcher binaries or write files. For installed-only failure, examine new-session evidence and Windows launch context without disabling integrity checks.
 
+## October 30 installed binary findings and isolated frozen QA
+
+The latest maintainer Windows parity run passed 18/18 source-level contract tests and found:
+
+- `mod-tools.exe`: source and installed SHA-256 identical (`25FA57EB81ED308DCF8E3E2ABA1E3981E1697C99752F879E84746D1D90B4CB44`)
+- `ltk_patcher_host.exe` and `ltk_patcher_dll.dll`: installed copies match the **working source-tested unsigned** QA pair byte-for-byte; they live at `_internal/injection/tools`
+- `cslol-dll.dll`: **present in source, missing from installed**
+- Installed PSM EXE SHA-256: `ACA442296881CDDA5B94633EE25EBB11F122B627FAF41CAA19ADC0FC8C88A12E` (installer/build provenance unknown)
+- Shared Rose log age: 11 minutes; cannot attribute it to an installed process without stronger session identity
+
+The absence of `cslol-dll.dll` is a **confirmed package completeness defect** that the new PyInstaller spec has already addressed. Do not claim it caused the earlier `SetWindowsHookEx` failure: the current LTK `ToolsManager` requires `mod-tools.exe` and the LTK host/DLL, not the CSLOL DLL. This leaves the frozen-versus-source launch context unresolved.
+
+### Local-only intermediate test: PyInstaller freeze without Inno Setup
+
+The next diagnostic artifact is **not** the public installer. It is a frozen PSM directory produced only in the already created **linked test worktree**, using the exact locally reviewed source-tested unsigned LTK pair and existing third-party-signed CSLOL solely for private, on-device debugging. The script does not run the app, install anything into Program Files, register an updater, publish artifacts, sign DLLs, or overwrite the original source runtime.
+
+```powershell
+$Original = "C:\Users\Van Arquilos\Desktop\PersonalSkinManager-Updates"
+$Test = "C:\Users\Van Arquilos\Desktop\PSM-v105-Public-Local-Test-Worktree"
+git -C $Test pull --ff-only origin release/v105-public-installer-staging
+if ($LASTEXITCODE -ne 0) { throw "Git update failed" }
+Set-Location -LiteralPath $Test
+python -m unittest tests.test_v105_frozen_parity_private_qa_contract
+if ($LASTEXITCODE -ne 0) { throw "Frozen QA contract test failed" }
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\build_v105_frozen_parity_private_qa.ps1" 
+  -ModToolsFile (Join-Path $Original "injection\tools\mod-tools.exe") 
+  -UnsignedLtkDir (Join-Path $Original "installer\candidates\v1.0.5\release-unsigned-ltk") 
+  -CslolDir (Join-Path $Original "injection\tools")
+```
+
+The script hashes and verifies all four source files **before** any worktree changes, runs targeted source unit tests, builds only PyInstaller (not Inno Setup), then verifies exactly one packaged copy of each binary and saves `installer/candidates/v1.0.5/frozen-parity-private-qa.json` inside the test worktree. The output is `dist/PersonalSkinManager/PersonalSkinManager.exe` **in the worktree only**. An existing `dist` directory or installer makes the script refuse to run rather than overwrite it.
+
+**Strictly local QA:** the generated folder contains a third-party-signed CSLOL DLL. Do **not** upload the frozen folder or EXE, share it with anyone, or use it as a public v1.0.5 release. The public builder's distributor-signing and content restrictions are unchanged.
+
+Once package integrity is verified, determine whether the frozen EXE itself can perform authorized cosmetic rendering without reinstalling the application. Run only one PSM process at a time and avoid uninstalling or reconfiguring the working version, since Pengu Loader and startup state can be shared between PSM instances. If frozen QA works but installed QA fails, focus on Inno/installation context; if frozen QA fails, focus on PyInstaller/resource paths and launched process environment. A successful freeze alone is **not** a gameplay pass.
+
 ## First: inspect the current Windows inputs
 
 On the working repository checkout of this staging branch (or a linked worktree with this branch), run:
