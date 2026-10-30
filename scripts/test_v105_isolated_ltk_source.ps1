@@ -7,6 +7,14 @@ param(
 )
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+# A UAC relaunch from non-admin Python can drop PSM_LTK_QA_RUNTIME_DIR.
+# That would silently select the signed source pair and invalidate the A/B result.
+if ($env:OS -ne "Windows_NT") { throw "Windows required for local LTK source QA." }
+$Who = [Security.Principal.WindowsIdentity]::GetCurrent()
+$Priv = [Security.Principal.WindowsPrincipal]::new($Who)
+if (-not $Priv.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    throw "Source A/B QA requires an already elevated PowerShell. Reopen PowerShell as Administrator; do not rely on PSM UAC relaunch."
+}
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $Source = Join-Path $Root "injection\tools"
 $Original = Join-Path $Root "installer\candidates\v1.0.5\audit-only-ltk-v1.28.1"
@@ -62,7 +70,9 @@ $Prior = [Environment]::GetEnvironmentVariable("PSM_LTK_QA_RUNTIME_DIR")
 Set-Location -LiteralPath $Root
 try {
     $env:PSM_LTK_QA_RUNTIME_DIR = $Selected
-    & python -m unittest tests.test_ltk_qa_runtime_selector tests.test_ltk_host_protocol
+    Write-Host ("Elevated private source QA selected: " + $Variant) -ForegroundColor Cyan
+    Write-Host "Actual LTK pair identity will appear in the source --debug log on scanner startup." -ForegroundColor Cyan
+    & python -m unittest tests.test_ltk_qa_runtime_selector tests.test_ltk_host_protocol tests.test_v105_source_runtime_provenance
     if ($LASTEXITCODE -ne 0) { throw "Focused source tests failed." }
     & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File ".\scripts\run_live_qa.ps1" -SkipTests
     if ($LASTEXITCODE -ne 0) { throw "Source app exited with a test failure." }
