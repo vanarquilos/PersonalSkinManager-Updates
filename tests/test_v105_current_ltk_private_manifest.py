@@ -36,6 +36,7 @@ class CurrentLtkPrivateQaManifestTests(unittest.TestCase):
             "purpose": "PSM_V105_PRIVATE_QA_ONLY",
             "source_manager_release": "v1.31.1",
             "host_protocol": LTK_CURRENT_HOST_PROTOCOL,
+            "runtime_origin": "official-bundled",
             "public_distribution_approved": False,
             "files_sha256": {
                 k: hashlib.sha256(v).hexdigest().upper() for k, v in self.blobs.items()
@@ -74,6 +75,7 @@ class CurrentLtkPrivateQaManifestTests(unittest.TestCase):
             ("purpose", "PUBLIC_RELEASE"),
             ("host_protocol", 2),
             ("host_protocol", True),
+            ("runtime_origin", "delivered"),
             ("public_distribution_approved", True),
             ("schema", 2),
         ):
