@@ -6,6 +6,7 @@ Handles finding and parsing League Client lockfile
 """
 
 import os
+import configparser
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -52,6 +53,23 @@ def find_lockfile(explicit: Optional[str] = None) -> Optional[str]:
         if env_path.is_file():
             return str(env_path)
     
+    # If League is installed on a nonstandard drive and process EXE access
+    # is denied, use the client directory previously saved by PSM. Only check
+    # the lockfile's existence; its credentials are not read or logged here.
+    try:
+        from config import get_config_file_path
+        saved_config = get_config_file_path()
+        if saved_config.is_file():
+            cfg = configparser.ConfigParser()
+            cfg.read(saved_config, encoding="utf-8")
+            if cfg.has_option("General", "clientPath"):
+                saved_client = Path(cfg.get("General", "clientPath"))
+                saved_lockfile = saved_client / "lockfile"
+                if saved_lockfile.is_file():
+                    return str(saved_lockfile)
+    except (OSError, ValueError, configparser.Error) as exc:
+        log.debug("Could not inspect saved League client path: %s", type(exc).__name__)
+
     # Check common installation paths
     if os.name == "nt":
         common_paths = [
