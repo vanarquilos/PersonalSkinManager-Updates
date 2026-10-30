@@ -60,7 +60,7 @@ jobs:
       - name: Run source-vs-frozen and user-provided LTK regression gates
         shell: pwsh
         run: |
-          python -m unittest -v tests.test_v105_user_ltk_provisioning tests.test_v105_rose_style_build_contract tests.test_v105_current_ltk_private_manifest tests.test_v105_current_ltk_build_contract tests.test_ltk_host_protocol tests.test_release_packaging tests.test_release_skin_routing tests.test_v105_frozen_external_dll_search tests.test_ltk_qa_runtime_selector tests.test_v105_hook_failure_details_contract
+          python -m unittest -v tests.test_v105_user_ltk_provisioning tests.test_v105_rose_style_build_contract tests.test_v105_current_ltk_private_manifest tests.test_v105_current_ltk_build_contract tests.test_ltk_host_protocol tests.test_release_packaging tests.test_release_skin_routing tests.test_v105_frozen_external_dll_search tests.test_ltk_qa_runtime_selector tests.test_v105_hook_failure_details_contract tests.test_v105_source_frozen_pair_parity_contract
           if ($LASTEXITCODE -ne 0) { throw "Windows v1.0.5 regression tests failed" }
 
       - name: Compile PSM-owned inert CSLOL loader stub with MSVC
