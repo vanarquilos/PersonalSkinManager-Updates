@@ -7,7 +7,16 @@ import configparser
 from collections import deque
 import datetime as dt
 import os
+import sys
 from pathlib import Path
+
+# Directly executing "python scripts/diagnose_v105_league_connection.py"
+# places scripts/ (not the repository root) on sys.path. The earlier
+# ModuleNotFoundError was caused by this diagnostic environment and cannot
+# be attributed to the installed PSM executable.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 KNOWN_CLIENT_ROOTS = (
     Path("C:/Riot Games/League of Legends"),
