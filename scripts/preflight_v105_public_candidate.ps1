@@ -2,7 +2,8 @@
 # Run locally on Windows. Do not upload signer private keys or runtime binaries.
 param(
     [string]$LtkDir = "",
-    [string]$CslolDir = ""
+    [string]$CslolDir = "",
+    [string]$ModToolsFile = ""
 )
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
@@ -10,12 +11,13 @@ $Root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 if (-not $LtkDir) { $LtkDir = Join-Path $Root "installer\candidates\v1.0.5\release-unsigned-ltk" }
 if (-not $CslolDir) { $CslolDir = Join-Path $Root "injection\tools" }
 $OriginalTools = Join-Path $Root "injection\tools"
+if (-not $ModToolsFile) { $ModToolsFile = Join-Path $OriginalTools "mod-tools.exe" }
 $KnownBad = @{
     "ltk_patcher_host.exe" = "5E52DC5A30220E735599BE57308CE7BF52E21416CF2C2D9D449A8637F683C4E9"
     "ltk_patcher_dll.dll" = "B164A14A2D6C1F1EA6D546782C556050F6F9045DFAB686E4967E7D7CD2E87E29"
 }
 $Files = [ordered]@{
-    "mod-tools.exe" = Join-Path $OriginalTools "mod-tools.exe"
+    "mod-tools.exe" = $ModToolsFile
     "cslol-dll.dll" = Join-Path $CslolDir "cslol-dll.dll"
     "ltk_patcher_host.exe" = Join-Path $LtkDir "ltk_patcher_host.exe"
     "ltk_patcher_dll.dll" = Join-Path $LtkDir "ltk_patcher_dll.dll"
@@ -85,7 +87,26 @@ if (Test-Path -LiteralPath $Trigger -PathType Leaf) {
 Write-Host "PSM v1.0.5 - staged public candidate readiness" -ForegroundColor Cyan
 Write-Host "READ ONLY. Four required components; no files changed."
 $Rows | Format-Table file, bytes, signature, sha256 -AutoSize
-Write-Host "CSLOL publisher subject and public CA chain require separate human verification." -ForegroundColor Yellow
+if ($Results.Contains("cslol-dll.dll")) {
+    $CslolSignature = Get-AuthenticodeSignature -LiteralPath $Files["cslol-dll.dll"]
+    if ($null -ne $CslolSignature.SignerCertificate) {
+        $PublicCertificate = $CslolSignature.SignerCertificate
+        $Hasher = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $CertificateSha256 = [BitConverter]::ToString(
+                $Hasher.ComputeHash($PublicCertificate.RawData)).Replace("-", "")
+        } finally {
+            $Hasher.Dispose()
+        }
+        Write-Host ("CSLOL certificate subject: " + $PublicCertificate.Subject)
+        Write-Host ("CSLOL public certificate SHA-256: " + $CertificateSha256)
+        Write-Host ("CSLOL timestamp certificate observed: " +
+            [string]($null -ne $CslolSignature.TimeStamperCertificate))
+    } else {
+        Write-Warning "CSLOL signer certificate could not be inspected."
+    }
+}
+Write-Host "Certificate identity, public CA chain, publisher ownership and content rules still require independent verification." -ForegroundColor Yellow
 Write-Host "CSLOL license addendum also requires a certificate fingerprint, DLL hash disclosure, and effective content blocking."
 Write-Host "LTK file identity, compatibility and visible in-game skin rendering require separate real-game QA."
 Write-Host "Release requirements remain blocked until publisher authorization and complete gameplay evidence are recorded."
