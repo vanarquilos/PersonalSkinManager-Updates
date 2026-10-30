@@ -137,6 +137,14 @@ def clear_issue(code: str) -> bool:
                     "Skin/mod was not applied because current League Toolkit verification rejected the overlay.",
                     "Selected unowned League skin cannot be applied with the current supported patcher.",
                 ),
+                "LTK_PATCHER_EOL": (
+                    "PSM cannot apply skins: the bundled LTK runtime does not support this League build.",
+                    "LTK patcher outdated: this League build is newer than the selected DLL.",
+                ),
+                "INJECTION_RUNTIME_UNAVAILABLE": (
+                    "Injection unavailable: the current runtime cannot be used with this League build.",
+                    "Injection unavailable: runtime verification failed.",
+                ),
             }
             markers = _CODE_MARKERS.get(code)
             if not markers:
