@@ -32,6 +32,8 @@ _ALLOWED_CODES = {
     'LTK_PATCHER_EOL',       # The current DLL is older than the installed League build
     'LTK_PATCHER_MISSING',   # Required host or DLL files are not present
     'INJECTION_RUNTIME_UNAVAILABLE',  # Startup refused an incompatible runtime
+    'PENGU_ACTIVATION_FAILED',  # Client detected, but Pengu initialization failed
+    'LCU_WEBSOCKET_WAIT',  # Local LCU client is not establishing live WebSocket
 }
 
 
