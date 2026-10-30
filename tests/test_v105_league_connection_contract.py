@@ -24,6 +24,26 @@ class LeagueConnectionContractTests(unittest.TestCase):
         self.assertIn("if not pengu_loader.activate_on_start", self.main)
         self.assertIn('"PENGU_ACTIVATION_FAILED"', self.main)
 
+    def test_direct_script_execution_can_import_repository_modules(self):
+        self.assertIn("PROJECT_ROOT = Path(__file__).resolve().parents[1]", self.diagnostic)
+        self.assertIn('sys.path.insert(0, str(PROJECT_ROOT))', self.diagnostic)
+
+    def test_blocked_websocket_startup_is_explicit_not_silent(self):
+        self.assertIn("LCU WebSocket still disconnected", self.main)
+        self.assertIn("WebSocket worker alive=", self.main)
+        self.assertIn('"LCU_WEBSOCKET_WAIT"', self.main)
+        self.assertIn("and not state.stop:", self.main)
+        self.assertIn("Stopped while waiting for LCU WebSocket", self.main)
+
+    def test_issue_reporter_accepts_client_integration_failures(self):
+        issue_reporter = (ROOT / "utils/core/issue_reporter.py").read_text("utf-8")
+        self.assertIn("'PENGU_ACTIVATION_FAILED'", issue_reporter)
+        self.assertIn("'LCU_WEBSOCKET_WAIT'", issue_reporter)
+
+    def test_process_diagnostic_distinguishes_stale_running_instances(self):
+        self.assertIn("Installed PSM process uptime (minutes)", self.diagnostic)
+        self.assertIn("no matched startup log", self.diagnostic)
+
     def test_report_does_not_dump_sensitive_lcu_data(self):
         self.assertIn("No passwords, lockfile contents, tokens", self.diagnostic)
         self.assertIn("Latest shared PSM log age", self.diagnostic)
