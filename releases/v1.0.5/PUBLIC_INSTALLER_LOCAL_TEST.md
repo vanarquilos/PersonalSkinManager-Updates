@@ -149,6 +149,18 @@ If the second frozen build still fails, use the categorized log evidence to dete
 
 **PUBLIC RELEASE REMAINS NO-GO:** The local frozen QA package contains the existing third-party-signed CSLOL DLL and unreviewed launcher content restrictions. Neither existing nor rebuilt frozen QA files may be published or shared.
 
+## October 30 frozen DLL-search patch still fails: isolate launcher versus frozen behavior
+
+The second maintainer-built frozen QA application also **did not render a skin**. Sanitized post-test report since `2026-10-30 22:31:48` showed: LTK startup 2, hook failure 4, overlay ready 4, and no reported host attachment, WAD verification, or redirection. The DLL-search inheritance patch was therefore **not a demonstrated functional fix**.
+
+Important new A/B distinction: the successful source command is `python main.py --dev --debug --logs`, while the two unsuccessful frozen EXEs were launched without `--dev`. In `main/__init__.py`, `--dev` **skips PSM's native launcher**, including its update/hash/skin-sync stage; both paths still call the main application. This could affect launch timing or contents, but is **not** yet an established cause of the hook error.
+
+**Do not rebuild now.** First run the new read-only `scripts/inspect_v105_hook_failure_details.ps1` on the latest failure with `-SinceLocal ([datetime]'2026-10-30 22:31:48')` to extract numeric `SetWindowsHookEx` codes and timestamp-filtered counters without outputting paths, raw logs or mod names.
+
+Then, with all PSM instances closed, run the **exact existing second frozen EXE** in local QA using `--dev --debug --logs`, matching the successful source arguments. Record a fresh `$TestStart = Get-Date` immediately before launch. This must remain local-only; `--dev` skips application launch checks and **must not become the public default**. Test visible non-default custom cosmetic; close app; run `inspect_v105_hook_failure_details.ps1 -SinceLocal $TestStart`.
+
+Decision: If frozen `--dev` works, investigate launcher-related initialization/update/hash sync order without weakening validation. If frozen `--dev` fails, inspect the exact hook error code and compare executable parent/permissions with Python source, subject to vendor integrity requirements. Do not bypass game, OS or vendor hook verification to make the result pass.
+
 ## First: inspect the current Windows inputs
 
 On the working repository checkout of this staging branch (or a linked worktree with this branch), run:
