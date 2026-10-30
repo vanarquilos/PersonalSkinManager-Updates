@@ -13,7 +13,9 @@
   - Size: **28,210,688 bytes**
   - SHA-256: `49661E6419F1A0B0691DADBC6FC4D9F5193B997B2B55C1649200180DEF5AEF69`
   - SHA-256 was reported directly from the user's machine; **the installer bytes have not been provided to this repository or independently inspected here**.
-  - `source_commit` from its private QA manifest: **pending**. The `d6ef3007` filename suffix is not proof of a full Git commit SHA; do not infer provenance from a filename.
+  - `source_commit` reported by **two** `private-qa-manifest.json` files on the maintainer's Windows computer: `b06fa4bde67bf226b371ff75f993c3434dfc8f9f`.
+  - GitHub independently confirms that commit exists on the working Rose rollback source lineage; its latest commit message is `docs(rollback): resolve only stale 11:46 Pengu warning after skins work`.
+  - Both manifest records report the **same revision**; that does not establish they are distinct tested builds or prove which manifest accompanies the exact installer without checking each manifest's associated output path and installer hash. The `d6ef3007` filename suffix is **not** a Git commit SHA and must not be substituted for provenance.
 - The checksum above identifies the **private test installer only**. It is not a digest for a distributable/public installer and must not be used as a release-asset verification value unless that very same file independently meets redistribution requirements.
 - A working private installation is **not automatically a public-distribution license**.
 
@@ -41,7 +43,7 @@
 | Private tested filename | `PersonalSkinManager_v1.0.5_Combined_PrivateQA_PSMv105Combined-20261030-192151-d6ef3007.exe` (maintainer reported) |
 | Private tested SHA-256 | `49661E6419F1A0B0691DADBC6FC4D9F5193B997B2B55C1649200180DEF5AEF69` (not independently verified here) |
 | Private tested size | 28,210,688 bytes (maintainer reported) |
-| Private tested source commit SHA | Pending private QA manifest inspection |
+| Private tested source commit SHA | `b06fa4bde67bf226b371ff75f993c3434dfc8f9f` (two local manifest reports; exact manifest-to-installer association not independently inspected) |
 | Final public filename | Pending, must be a separately approved asset |
 | Final public SHA-256 checksum | Pending |
 | Final public size in bytes | Pending |
