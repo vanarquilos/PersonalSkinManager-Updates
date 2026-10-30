@@ -2,6 +2,18 @@
 
 **Implementation status:** Staged in draft PR #18; no validated release/installer and no verified visible-skin outcome. Windows unit tests and MSVC compilation are pending on the maintainer's PC.
 
+## Uploaded legacy CSLOL binary audit — October 31, 2026
+
+The maintainer supplied one file, `cslol-dll(1).dll`. Read-only local PE inspection (not execution) established:
+
+- SHA-256: `4A009619C6DEA691780B2F20CF17E08DE478A78B3F11CD72759DD71C00AD1C90`; this **exactly matches** the previously recorded third-party-signed CSLOL QA component. It is not a new LeagueToolkit patcher release.
+- PE32+ Windows x64 DLL, 257,040 bytes, COFF linker timestamp 2025-08-21.
+- Embedded Authenticode PKCS#7 includes code-signing certificate for **Daniel Langov**, SHA-256 certificate fingerprint `1F51EA1346FF54970541227A4A88E9B4B11FB9A0ADB6B17040DC5DB84E905CE9`. Certificate validity range 2025-02-08 to 2026-02-08; presence of this certificate does **not** establish a currently valid Windows Authenticode verdict without checking a trusted signing timestamp and certificate chain on Windows.
+- Exact eight PE exports: `cslol_find`, `cslol_hook`, `cslol_init`, `cslol_log_pull`, `cslol_msg_hookproc`, `cslol_set_config`, `cslol_set_flags`, `cslol_set_log_level`.
+- This revealed **one genuine bug** in the PSM-authored inert loader stub: missing `cslol_msg_hookproc` export and wrong `cslol_set_flags` parameter width. Corrected the stub to implement a do-nothing message callback and match the public upstream `cslol-api.h` signatures. Added source contract regression and `dumpbin /exports` validation to the isolated MSVC build. Sample export-table parser tested locally; MSVC compilation of the actual stub is still pending on Windows.
+
+**Do not package the maintainer's uploaded DLL**: it belongs to a different publisher. The successful historical v1.0.0–v1.0.4 gameplay behavior, if any, cannot establish compatibility with current League's 2026 hook stack. The old frozen v1.0.5 QA failed at LTK `SetWindowsHookEx` before DLL overlay initialization. Fixing CSLOL stub loader exports prevents an independent loader error, but does not itself fix the LTK/game hook.
+
 ## Why this approach
 
 Rose (Alban1911/Rose, MIT, 2026) does not bundle the LeagueToolkit host and patcher DLL with its public installation. It asks users for the matching patcher pair, starts the host early, preserves user-supplied binaries during application updates, and compiles its own inert loader stand-in `cslol-dll.dll` for `mod-tools.exe mkoverlay`. PSM has adopted the compatible packaging, setup, and local import principles, **not** Rose's flag 4 anti-skinhack opt-out. Official LTK Manager v1.31.1 defines the existing host wire protocol and defaults to flags 0.
