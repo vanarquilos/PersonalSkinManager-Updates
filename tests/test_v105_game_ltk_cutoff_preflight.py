@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Fail-closed private build preflight against actual installed League timestamp."""
+from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase, mock
@@ -17,9 +18,11 @@ class GameLtkCutoffPreflightTests(TestCase):
 
     def test_all_local_runtime_cutoffs_older_than_current_league_are_rejected(self):
         # Actual latest observed local pair: Oct 28 cutoff; Oct 30 game build.
+        game_build = int(datetime(2026, 10, 30, 19, 7, 32, tzinfo=timezone.utc).timestamp())
+        cutoff = int(datetime(2026, 10, 28, 23, 6, 41, tzinfo=timezone.utc).timestamp())
         with (
-            mock.patch.object(audit, "read_game_build", return_value=1793406452),
-            mock.patch.object(audit, "read_dll_eol", return_value=1793228801),
+            mock.patch.object(audit, "read_game_build", return_value=game_build),
+            mock.patch.object(audit, "read_dll_eol", return_value=cutoff),
         ):
             ok, explanation = audit.compare_game_and_patch(self.dir, self.dir)
         self.assertFalse(ok)
