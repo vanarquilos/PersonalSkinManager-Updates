@@ -76,16 +76,21 @@ def notify_user_provided_ltk_missing(tools_dir: Path) -> bool:
             problem
             + "\n\nPSM does not distribute LTK's signed patcher. "
               "Obtain the current official pair from LTK Manager, verify "
-              "its signature and SHA-256, then use "
-              "scripts/import_user_ltk_v105.ps1.\n\n"
-              "Open PSM's runtime tools folder? No files will be changed."
+              "its signature and SHA-256, then use the included "
+              "tools\\import_user_ltk_v105.ps1. See docs\\USER_LTK_SETUP.md.\n\n"
+              "Open the local PSM setup-tools folder? No files will be changed."
         )
         answer = ctypes.windll.user32.MessageBoxW(
             None, detail, "Personal Skin Manager - LTK runtime incompatible",
             MB_YESNO | MB_ICONWARNING,
         )
-        if answer == IDYES and tools_dir.is_dir():
-            os.startfile(str(tools_dir))
+        if answer == IDYES:
+            # Open the shipped provisioning scripts, not an unrelated Rose
+            # folder or a protected binary directory that lacks the script.
+            script_dir = Path(sys.executable).resolve().parent / "tools"
+            destination = script_dir if script_dir.is_dir() else tools_dir
+            if destination.is_dir():
+                os.startfile(str(destination))
     except (AttributeError, OSError):
         pass
     return False

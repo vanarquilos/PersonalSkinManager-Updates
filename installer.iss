@@ -59,6 +59,9 @@ Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "licenses\LeagueToolkit-GPL-3.0.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
 Source: "licenses\LTK-PATCHER-LICENSE.md"; DestDir: "{app}\licenses"; Flags: ignoreversion
+; Ship the provisioning SCRIPT, never the official upstream host or DLL.
+Source: "scripts\import_user_ltk_v105.ps1"; DestDir: "{app}\tools"; Flags: ignoreversion
+Source: "releases\v1.0.5\USER_LTK_SETUP.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
@@ -71,20 +74,15 @@ Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\{#MyAppName}"; Fil
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}} (as Administrator)"; Flags: nowait postinstall skipifsilent shellexec; Verb: runas
 
 [UninstallRun]
-; Uninstall Pengu Loader (removes its IFEO activation and disables the native hook)
-Filename: "{localappdata}\Rose\Pengu Loader\Pengu Loader.exe"; Parameters: "--uninstall --silent"; Flags: runhidden waituntilterminated skipifdoesntexist
-; Always remove the Rose auto-start scheduled task (created via schtasks /TN "Rose")
+; PSM owns only its own scheduled task. Never delete an unrelated Rose task
+; or run Rose's Pengu Loader uninstaller on behalf of PSM.
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN PersonalSkinManager /F"; Flags: runhidden
-; Legacy cleanup from the upstream Rose baseline
-Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN Rose /F"; Flags: runhidden
 
-[UninstallDelete]
-Type: filesandordirs; Name: "{app}\_internal"
-Type: filesandordirs; Name: "{app}\injection\overlay"
-Type: filesandordirs; Name: "{app}\injection\mods"
-; Preserve compatibility/user data under %LOCALAPPDATA%\Rose.
-; This contains cached skins/Fantome files and must not be removed by PSM uninstall.
-; Note: State files are now stored in user data directory, not in app directory
+; Inno Setup removes only installed, tracked files automatically.
+; Do not recursively delete {app} or _internal: they can contain the user's
+; locally provisioned LTK host/DLL and manifest, independent of PSM binaries.
+; User data under LOCALAPPDATA is preserved as well.
+
 
 [Code]
 function _IsLeagueRunning(): Boolean;
@@ -228,8 +226,7 @@ begin
   if CurUninstallStep = usPostUninstall then
   begin
     _CleanupLegacyPsmUninstallRegistry();
-    { Remove the entire Personal Skin Manager install directory in case
-      runtime-generated files (logs, caches, etc.) were left behind. }
-    DelTree(ExpandConstant('{app}'), True, True, True);
+    { Keep any user-provided files left under {app}; Inno removes PSM-owned
+      files recorded in the uninstaller log. Do not delete whole directories. }
   end;
 end;
