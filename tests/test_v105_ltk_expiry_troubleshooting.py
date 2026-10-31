@@ -72,6 +72,19 @@ class LtkExpiryTroubleshootingTests(TestCase):
             self.assertTrue(self.manager.check_tools_available(self.folder))
         self.assertIsNone(self.manager.last_failure_code)
 
+    def test_legacy_double_error_strings_are_not_emitted_by_current_branch(self):
+        tools_source = (ROOT / "injection/tools/tools_manager.py").read_text("utf-8")
+        manager_source = (ROOT / "injection/core/manager.py").read_text("utf-8")
+        self.assertNotIn(
+            "PSM cannot apply skins: the bundled LTK runtime does not support this League build.",
+            tools_source,
+        )
+        self.assertNotIn(
+            "Injection unavailable: the current runtime cannot be used with this League build.",
+            manager_source,
+        )
+        self.assertIn("LTK patcher outdated:", tools_source)
+
     def test_injection_manager_does_not_duplicate_root_error(self):
         content = (ROOT / "injection/core/manager.py").read_text("utf-8")
         self.assertIn('"last_failure_code", None', content)
