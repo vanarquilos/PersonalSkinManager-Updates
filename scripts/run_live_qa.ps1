@@ -28,6 +28,24 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "Python: $pythonVersion"
 
+$LegacyState = Join-Path $Root "injection\tools\_v105_rose_legacy_local_state.json"
+if (Test-Path -LiteralPath $LegacyState -PathType Leaf) {
+    Write-Host "PRIVATE SOURCE QA: verifying selected LTK v1.28.1 host/DLL pair." -ForegroundColor Cyan
+    $Pinned = Join-Path $Root "installer\candidates\v1.0.5\audit-only-ltk-v1.28.1"
+    foreach ($Name in @("ltk_patcher_host.exe", "ltk_patcher_dll.dll")) {
+        $ActiveFile = Join-Path $Root ("injection\tools\" + $Name)
+        $PinnedFile = Join-Path $Pinned $Name
+        if (-not (Test-Path -LiteralPath $ActiveFile -PathType Leaf) -or
+            -not (Test-Path -LiteralPath $PinnedFile -PathType Leaf) -or
+            (Get-FileHash -LiteralPath $ActiveFile -Algorithm SHA256).Hash -ne
+            (Get-FileHash -LiteralPath $PinnedFile -Algorithm SHA256).Hash) {
+            throw "Active $Name differs from the Rose-reported tested pair. Close PSM/League and run use_rose_legacy_runtime_local.ps1 -Action Status."
+        }
+        Write-Host "Verified active original LTK v1.28.1 file: $Name" -ForegroundColor Green
+    }
+    Write-Warning "Keep this source test pair if it works. The separate release installer uses independently staged unsigned copies."
+}
+
 $requiredRuntime = @(
     "injection\tools\mod-tools.exe",
     "injection\tools\ltk_patcher_host.exe",
@@ -62,7 +80,7 @@ if ($running) {
 if (-not $SkipTests) {
     Write-Host ""
     Write-Host "Running focused source checks..." -ForegroundColor Cyan
-    & python -m unittest tests.test_release_skin_routing tests.test_ltk_host_protocol tests.test_ltk_countdown_prearm tests.test_overlay_cleanup tests.test_patch_2619_wad_headers tests.test_psm_ui_polish_release tests.test_release_packaging
+    & python -m unittest tests.test_release_skin_routing tests.test_ltk_host_protocol tests.test_ltk_qa_runtime_selector tests.test_v105_skin_wad_inspection tests.test_v105_diagnostic_contract tests.test_ltk_v1281_compatibility_audit tests.test_rose_legacy_review_contract tests.test_rose_legacy_local_runtime_contract tests.test_v105_distribution_contract tests.test_v105_distribution_tree_audit tests.test_v105_launch_privilege_contract tests.test_v105_frozen_parity_contract tests.test_frozen_subprocess tests.test_v105_league_path_detection tests.test_v105_league_connection_contract tests.test_v105_live_lcu_diagnostic tests.test_v105_client_startup_gate tests.test_v105_lcu_lockfile_saved_path tests.test_v105_exe_manifest tests.test_v105_publish_contract tests.test_ltk_countdown_prearm tests.test_overlay_cleanup tests.test_lcu_put_reconnect tests.test_game_monitor_vanishing_process tests.test_runtime_failure_reporting tests.test_runtime_audit_v105 tests.test_patcher_eol tests.test_swiftplay_runtime tests.test_patch_2619_wad_headers tests.test_psm_ui_polish_release tests.test_release_packaging
 
     if ($LASTEXITCODE -ne 0) {
         throw "Focused source checks failed. Fix them before live League QA."

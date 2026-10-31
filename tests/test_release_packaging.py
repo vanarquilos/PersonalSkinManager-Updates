@@ -21,14 +21,56 @@ class ReleasePackagingTests(unittest.TestCase):
         self.assertIsNotNone(setup)
         self.assertEqual(app.group(1), setup.group(1))
 
+    def test_v105_is_local_test_candidate_only(self):
+        config = (ROOT / "config.py").read_text(encoding="utf-8")
+        installer = (ROOT / "installer.iss").read_text(encoding="utf-8-sig")
+        script = (ROOT / "scripts/prepare_v1_0_5_test.ps1").read_text(encoding="utf-8")
+        audit = (ROOT / "scripts/audit_runtime_v105.py").read_text(encoding="utf-8")
+
+        self.assertIn('APP_VERSION = "1.0.5"', config)
+        self.assertIn('#define MyAppVersion "1.0.5"', installer)
+        self.assertIn('#define MyAppVersionInfo "1.0.5.0"', installer)
+        self.assertIn("PersonalSkinManager_Setup_v1.0.5-TEST.exe", script)
+        self.assertIn("candidate-manifest.json", script)
+        self.assertIn("scripts\\audit_runtime_v105.py", script.replace("/", "\\"))
+        self.assertNotIn("gh release create", script.lower())
+        self.assertNotIn("stable/manifest.json", script)
+        self.assertIn("sha256", audit)
+        self.assertIn("read_game_build", audit)
+
+    def test_v105_runtime_source_is_pinned_and_licensed(self):
+        staged = (ROOT / "scripts/stage_ltk_v105_test.ps1").read_text(encoding="utf-8")
+        license_file = ROOT / "licenses/LTK-PATCHER-LICENSE.md"
+        installer = (ROOT / "installer.iss").read_text(encoding="utf-8-sig")
+        self.assertIn("044e6b5fc2dfe78d92dc5a5ada3e0f57f32860f6", staged)
+        self.assertIn("1636152586db31d40f4331dba07e752c7a929b90", staged)
+        self.assertIn("ca984e99e5cfe1217cc706c1584b543ab7321d59", staged)
+        self.assertIn("git hash-object", staged)
+        self.assertIn("scripts\\audit_runtime_v105.py", staged.replace("/", "\\"))
+        self.assertIn("PRIVATE TEST", staged)
+        self.assertIn("Remove League Toolkit's code signature", license_file.read_text(encoding="utf-8"))
+        self.assertIn("licenses\\LTK-PATCHER-LICENSE.md", installer)
+
+    def test_windows_powershell_51_candidate_scripts_are_ascii(self):
+        # Windows PowerShell 5.1 reads UTF-8 without a BOM using the local
+        # Windows ANSI codepage. Characters such as em dashes can corrupt
+        # quoted strings and make the entire script fail to parse.
+        for relative in (
+            "scripts/diagnose_no_skin_v105.ps1",
+            "scripts/prepare_v1_0_5_test.ps1",
+            "scripts/stage_ltk_v105_test.ps1",
+        ):
+            with self.subTest(script=relative):
+                raw = (ROOT / relative).read_bytes()
+                self.assertTrue(raw.isascii(), f"{relative} must be ASCII-only")
+
     def test_spec_bundles_current_runtime(self):
         spec = (ROOT / "PersonalSkinManager.spec").read_text(encoding="utf-8")
-        for path in (
-            "injection/tools/mod-tools.exe",
-            "injection/tools/ltk_patcher_host.exe",
-            "injection/tools/ltk_patcher_dll.dll",
-        ):
-            self.assertIn(path, spec)
+        self.assertIn("injection/tools/mod-tools.exe", spec)
+        self.assertIn("PSM_RELEASE_LTK_DIR", spec)
+        self.assertIn("ltk_patcher_host.exe", spec)
+        self.assertIn("ltk_patcher_dll.dll", spec)
+        self.assertIn("release_ltk_root", spec)
         self.assertIn("'injection.overlay.ltk_host'", spec)
 
     def test_legacy_cslol_startup_dependency_is_retired(self):

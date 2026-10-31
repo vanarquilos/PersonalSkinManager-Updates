@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.0.5] - Unreleased (local test candidate)
+
+### Fixed
+- Refreshes the League Client API target before retrying a failed PUT request after an LCU reconnection, preventing retries to an old local port.
+- Keeps the game-process monitor searching when a candidate process exits between detection and suspension rather than treating the vanished process as a terminal monitoring error.
+
+### Testing and release hardening
+- Adds focused regression tests for League Client reconnects and disappearing game processes.
+- Adds read-only, local runtime provenance and League build-cutoff audit tooling.
+- Prepares an isolated v1.0.5 test installer workflow with SHA-256 and byte-size recording; no automatic publication.
+- Preserves v1.0.4 early-scanner and overlay-directory fixes.
+- Does not claim League 26.21 LTK patcher compatibility without checking the locally bundled host/DLL and an in-game test.
+
+### Outstanding release gates
+- Verify trusted compatible local LTK host/DLL and mod-tools against League 26.21, including current 8-byte material hashes.
+- Verify Practice Tool and Swiftplay **in-game** skin application, reconnect handling, and installer behavior on Windows.
+- Keep v1.0.4 public until the v1.0.5 candidate is validated and a new published installer is independently hashed.
+
 ## [1.0.4] - Unreleased
 
 ### Fixed

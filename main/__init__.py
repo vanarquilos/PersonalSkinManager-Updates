@@ -57,6 +57,7 @@ from .setup.arguments import setup_arguments
 from .setup.initialization import setup_logging_and_cleanup, initialize_tray_manager
 from .core.lockfile import check_single_instance
 from .core.initialization import initialize_core_components
+from .core.client_startup_gate import wait_for_client_websocket
 from .core.threads import initialize_threads
 from .core.lcu_handler import create_lcu_disconnection_handler
 from .core.cleanup import perform_cleanup
@@ -127,7 +128,22 @@ def _setup_pengu_and_injection(lcu, injection_manager, activate_pengu: bool = Tr
     # Set client path in Pengu Loader and activate (skip on reconnection)
     if activate_pengu:
         log.info("Setting client path in Pengu Loader and activating...")
-        pengu_loader.activate_on_start(str(client_path))
+        if not pengu_loader.activate_on_start(str(client_path)):
+            # LCU connectivity and Pengu activation are separate prerequisites.
+            # A normal-user executable may connect to LCU but fail a privileged
+            # Pengu installation. Do not silently treat that as client success.
+            log.error(
+                "[CLIENT] League client detected, but Pengu Loader activation failed. "
+                "Check Pengu status and Windows permissions; do not modify game security."
+            )
+            from utils.core.issue_reporter import report_issue
+            report_issue(
+                "PENGU_ACTIVATION_FAILED",
+                "error",
+                "League was detected, but the client integration could not start.",
+                hint="Inspect the PSM/Pengu activation logs and installation permissions.",
+                dedupe_window_s=120.0,
+            )
 
     # Initialize injection system now (with detected paths already in config.ini)
     log.info("Initializing injection system...")
@@ -244,16 +260,64 @@ def run_league_unlock(args: Optional[argparse.Namespace] = None,
         lcu, state, args, injection_manager, skin_scraper, app_status, on_lcu_disconnected, on_lcu_reconnected
     )
     
-    # Wait for WebSocket status to be active before activating Pengu Loader
-    log.info("Waiting for WebSocket status to be active before activating Pengu Loader...")
-    while not t_ws.connection.is_connected:
-        time.sleep(0.1)
-    
-    log.info("WebSocket status is active, proceeding with Pengu Loader and injection system setup")
-    
-    # Setup Pengu Loader and injection system (LCU is already connected when WebSocket is active)
-    _setup_pengu_and_injection(lcu, injection_manager)
-    
+    # League's local REST API and WebSocket have distinct readiness states.
+    # Keep the UI/main loop alive while LCU WebSocket reconnects. Never enable
+    # Pengu or injection until a real client-event WebSocket is connected.
+    log.info("[CLIENT] Waiting for LCU WebSocket; main UI remains responsive")
+
+    def _start_client_after_websocket() -> None:
+        reported_wait = False
+
+        def _on_ready() -> None:
+            log.info("[CLIENT] LCU WebSocket connected; starting Pengu/injection setup")
+            _setup_pengu_and_injection(lcu, injection_manager)
+            log.info("[CLIENT] WebSocket-ready setup attempt finished")
+
+        def _on_waiting() -> None:
+            nonlocal reported_wait
+            log.warning(
+                "[STARTUP] LCU WebSocket still disconnected "
+                "(LCU lockfile ready=%s; WebSocket worker alive=%s). "
+                "Pengu/injection initialization is waiting.",
+                bool(lcu.ok), bool(t_ws.is_alive()),
+            )
+            if not reported_wait:
+                from utils.core.issue_reporter import report_issue
+                report_issue(
+                    "LCU_WEBSOCKET_WAIT",
+                    "warning",
+                    "League is present, but PSM has not connected to its live client events.",
+                    hint="Check the PSM WebSocket and Pengu diagnostic before testing skins.",
+                    dedupe_window_s=120.0,
+                )
+                reported_wait = True
+
+        def _on_thread_exit() -> None:
+            log.error("[CLIENT] LCU WebSocket worker exited without a connection")
+
+        try:
+            wait_for_client_websocket(
+                is_connected=lambda: t_ws.connection.is_connected,
+                is_thread_alive=t_ws.is_alive,
+                should_stop=lambda: bool(state.stop),
+                on_ready=_on_ready,
+                on_waiting=_on_waiting,
+                on_thread_exit=_on_thread_exit,
+            )
+            if state.stop:
+                log.info("[STARTUP] Stopped while waiting for LCU WebSocket")
+        except Exception as exc:  # noqa: BLE001
+            # Do not log any lockfile tokens, auth headers or user account data.
+            log.error(
+                "[CLIENT] LCU-connected initialization raised %s",
+                type(exc).__name__,
+            )
+
+    client_startup_thread = create_daemon_thread(
+        target=_start_client_after_websocket, name="LCUClientStartup"
+    )
+    client_startup_thread.start()
+
     # Run main loop
     try:
         run_main_loop(state, skin_scraper)
