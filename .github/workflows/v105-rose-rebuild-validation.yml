@@ -1,0 +1,81 @@
+name: PSM v1.0.5 Rose-style rebuild validation
+
+on:
+  push:
+    branches:
+      - rebuild/v1.0.5-rose-compatible
+    paths:
+      - ".github/workflows/v105-rose-rebuild-validation.yml"
+      - "scripts/create_v105_rose_rebuild_worktree.ps1"
+      - "scripts/build_psm_cslol_stub.py"
+      - "scripts/build_v105_rose_style_frozen_private_qa.ps1"
+      - "native/cslol_stub/**"
+      - "injection/tools/patcher.py"
+      - "tests/**"
+      - "installer.iss"
+      - "PersonalSkinManager.spec"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-contracts:
+    name: Windows source and installer contracts (no patcher)
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - name: Checkout rebuild branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Python syntax verification
+        shell: pwsh
+        run: |
+          python -m compileall -q injection scripts tests
+          if ($LASTEXITCODE -ne 0) { throw "Python compilation failed" }
+
+      - name: Run dependency-free Rose rebuild contract tests
+        shell: pwsh
+        run: |
+          python -m unittest -v tests.test_v105_rose_rebuild_installer_safety tests.test_v105_rose_rebuild_worktree_contract tests.test_v105_rose_style_build_contract tests.test_v105_user_ltk_provisioning tests.test_v105_game_ltk_cutoff_preflight
+          if ($LASTEXITCODE -ne 0) { throw "Source contract regression failed" }
+
+      - name: Verify no external LTK files in checkout
+        shell: pwsh
+        run: |
+          git ls-files | Select-String -Pattern '(^|/)(ltk_patcher_host\.exe|ltk_patcher_dll\.dll)$' | ForEach-Object { throw "Unexpected tracked LTK vendor binary: $_" }
+          Write-Host "No tracked LTK vendor host/DLL."
+
+  compiled-owned-stub:
+    name: Build PSM-owned inert CSLOL with MSVC (not runtime)
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - name: Checkout rebuild branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile and check exact PE exports
+        shell: pwsh
+        run: |
+          $folder = Join-Path $env:RUNNER_TEMP "psm-owned-cslol-stub"
+          New-Item -ItemType Directory -Force -Path $folder | Out-Null
+          $env:PSM_LOCAL_STUB_OUTPUT_DIR = $folder
+          python scripts/build_psm_cslol_stub.py
+          if ($LASTEXITCODE -ne 0) { throw "MSVC or export ABI verification failed" }
+          $manifest = Get-Content -LiteralPath (Join-Path $folder "psm-cslol-stub-manifest.json") -Raw | ConvertFrom-Json
+          if ($manifest.public_distribution_approved -ne $false -or
+              $manifest.purpose -ne "PSM_V105_INERT_CSLOL_STUB") {
+            throw "Private QA manifest contract violation"
+          }
+          Write-Host "Compiled PSM-owned compatibility DLL with verified eight exports."
+          Write-Warning "This does not render skins, validate official LTK runtime, or authorize public release."
