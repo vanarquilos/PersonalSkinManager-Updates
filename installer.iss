@@ -61,6 +61,7 @@ Source: "licenses\LeagueToolkit-GPL-3.0.txt"; DestDir: "{app}\licenses"; Flags: 
 Source: "licenses\LTK-PATCHER-LICENSE.md"; DestDir: "{app}\licenses"; Flags: ignoreversion
 ; Ship the provisioning SCRIPT, never the official upstream host or DLL.
 Source: "scripts\import_user_ltk_v105.ps1"; DestDir: "{app}\tools"; Flags: ignoreversion
+Source: "releases\v1.0.5\USER_LTK_SETUP.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
