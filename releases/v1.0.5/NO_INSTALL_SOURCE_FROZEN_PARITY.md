@@ -2,6 +2,23 @@
 
 **Status: code-only QA prepared, gameplay not proven.** The maintainer does not need to install another LTK Manager or replace the working PSM installation to continue investigating the source-versus-PyInstaller discrepancy.
 
+## October 31 maintainer inventory: all seven available LTK pairs expired
+
+The maintainer ran the read-only inventory against the current League install. It returned **7 detected host/DLL directories**, each with `status=EXPIRED_FOR_INSTALLED_GAME`; duplicates represent copies of the same reviewed pair, not seven distinct releases. Data intentionally omits local Windows username, personal path names and user-specific installation metadata.
+
+- Detected League PE build: **2026-10-30 19:07:32 UTC**.
+- Historical backup pair cutoff: **2026-10-04 07:00:00 UTC**.
+- Original signed v1.28.1 and unsigned v1.28.1 QA copies cutoff: **2026-10-18 07:00:00 UTC**.
+- Newest local pair (present in two runtime backup directories): **2026-10-28 23:06:41 UTC**, approximately **44 hours** older than the installed League executable.
+
+**Decision: all locally inventoried PSM host/DLL pairs are unsuitable for a new v1.0.5 gameplay test against this League build.** This is a hard runtime incompatibility, regardless of build or packaging improvements. Do not re-run an outdated frozen QA or claim v1.0.5 fixed.
+
+### New pre-build cutoff gate
+
+`scripts/verify_v105_game_ltk_cutoff.py` reads the local League PE timestamp and selected LTK DLL embedded EOL **without executing either**, exiting nonzero for an expired, unknown, incomplete or symlinked pair. Both `scripts/build_v105_signed_source_parity_private_qa.ps1` and `scripts/build_v105_current_ltk_frozen_private_qa.ps1` now call the gate **before any binary copies or PyInstaller builds**; the default game location can be overridden with `-GameDir`. Tests are in `tests.test_v105_game_ltk_cutoff_preflight` and CI includes them. Passing the date gate does *not* establish trusted provenance, acceptable permissions, valid protocol, working skin, or ability to redistribute binaries.
+
+LeagueToolkit's newer manager releases deliver independently updated patcher DLLs through **signed release manifests** and select them based on verified release metadata and privilege. They are not in the Rose source tree and must not be guessed, forged, or copied from untrusted mirrors. If no official compatible local cached pair exists, obtain one through LeagueToolkit's supported update mechanism; then perform a private authorized Practice Tool test, publisher/legal review, and only then a public v1.0.5 release.
+
 ## October 31 code fixes and offline LTK inventory — avoid rebuilding known-expired runtimes
 
 The screenshot's `LTK_PATCHER_EOL` is a **real build-cutoff failure**, not solely a frozen-packaging failure. Rose's latest source also compares the patcher DLL's embedded cutoff with the installed League executable's PE build timestamp. PSM cannot make this runtime compatible by copying DLLs, editing UI, changing Python, modifying signatures, or ignoring game security checks.
