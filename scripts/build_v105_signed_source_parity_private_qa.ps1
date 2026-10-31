@@ -1,6 +1,9 @@
 # PSM 1.0.5 - signed-source parity PRIVATE frozen build.
 # No installation, signature modification, or publication.
-param([Parameter(Mandatory=$true)][string]$OriginalSourceRepo)
+param(
+    [Parameter(Mandatory=$true)][string]$OriginalSourceRepo,
+    [string]$GameDir = "C:\Riot Games\League of Legends\Game"
+)
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 function Check([string]$Stage) {
@@ -61,6 +64,12 @@ try {
         $_.ProcessName -in @("PersonalSkinManager", "ltk_patcher_host", "League of Legends", "League of Legends (TM) Client")
     })
     if ($Busy.Count -gt 0) { throw "Close PSM, LTK host and League gameplay first." }
+    # Fail BEFORE copying, compiling or bundling an already-expired LTK DLL.
+    # Hash matches alone cannot establish League build compatibility.
+    & python (Join-Path $Root "scripts\verify_v105_game_ltk_cutoff.py") `
+        --game-dir $GameDir --ltk-dir $SourceTools
+    Check "League-vs-LTK cutoff preflight"
+
     Write-Host "1/4 - Run focused QA regression tests" -ForegroundColor Cyan
     & python -m unittest tests.test_v105_signed_source_parity_private_qa_contract tests.test_v105_frozen_external_dll_search tests.test_ltk_qa_runtime_selector tests.test_release_packaging
     Check "Private parity unit tests"
