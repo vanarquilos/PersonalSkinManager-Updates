@@ -22,6 +22,21 @@ class RoseRebuildInstallerSafety(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertIn(name, self.source)
 
+    def test_installer_ships_nonbinary_ltk_setup_and_documentation(self):
+        self.assertIn(
+            'Source: "scripts\\import_user_ltk_v105.ps1"; DestDir: "{app}\\tools"',
+            self.source,
+        )
+        self.assertIn(
+            'Source: "releases\\v1.0.5\\USER_LTK_SETUP.md"; DestDir: "{app}\\docs"',
+            self.source,
+        )
+        root = Path(__file__).resolve().parents[1]
+        setup = (root / "utils/integration/ltk_onboarding.py").read_text("utf-8")
+        self.assertIn("tools\\\\import_user_ltk_v105.ps1", setup)
+        self.assertIn("docs\\\\USER_LTK_SETUP.md", setup)
+        self.assertIn('Path(sys.executable).resolve().parent / "tools"', setup)
+
     def test_uninstaller_does_not_delete_user_ltk_folder(self):
         self.assertNotIn("[UninstallDelete]", self.source)
         self.assertNotIn("DelTree(ExpandConstant('{app}')", self.source)
