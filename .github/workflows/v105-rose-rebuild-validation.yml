@@ -14,6 +14,9 @@ on:
       - "tests/**"
       - "installer.iss"
       - "PersonalSkinManager.spec"
+  pull_request:
+    branches:
+      - release/v105-public-installer-staging
   workflow_dispatch:
 
 permissions:
