@@ -30,7 +30,7 @@ if (Test-Path -LiteralPath $Qa) {
     throw "Refusing to reuse an existing QA directory: $Qa"
 }
 # Git fetch updates Git metadata only; no checkout of existing source files.
-& git -C $Original fetch origin $TargetRef
+& git -C $Original fetch origin ("+refs/heads/" + $TargetRef + ":refs/remotes/origin/" + $TargetRef)
 CheckExit "Fetch Rose-style PSM rebuild branch"
 & git -C $Original worktree add -b $QaBranch $Qa ("origin/" + $TargetRef)
 CheckExit "Create isolated QA worktree"
