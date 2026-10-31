@@ -28,27 +28,40 @@ else:
 
 # Icons have been moved to assets folder, no separate icons directory needed
 
-# Injection/runtime tools - supplied locally to the release build and bundled
-# into the one-click installer. They are intentionally not tracked in source.
+# Rose-style packaging: user-provided LTK patcher binaries are excluded
+# from default distributions. Explicit PSM_RELEASE_LTK_DIR is reserved for
+# isolated, audited PRIVATE QA builds. Do not redistribute upstream-signed
+# patcher binaries in a public installer.
 import os
 
-# Release candidates can supply separately staged, license-compliant unsigned
-# host/DLL copies. Never mutate the developer's original signed runtime.
-# This override is effective only for the two patcher binaries.
 release_ltk_dir = os.environ.get('PSM_RELEASE_LTK_DIR')
 if release_ltk_dir:
     release_ltk_root = Path(release_ltk_dir).resolve(strict=True)
     if not release_ltk_root.is_dir():
         raise RuntimeError('PSM_RELEASE_LTK_DIR is not a directory')
-    print('[INFO] Using isolated release patcher directory')
+    print('[WARNING] Private LTK QA bundle selected: public redistribution is prohibited')
 else:
-    release_ltk_root = Path('injection/tools')
+    release_ltk_root = None
+    print('[INFO] Rose-style user-provided LTK: not bundled in default build')
+
+release_cslol_dir = os.environ.get('PSM_RELEASE_CSLOL_DIR')
+if release_cslol_dir:
+    release_cslol_root = Path(release_cslol_dir).resolve(strict=True)
+    if not release_cslol_root.is_dir():
+        raise RuntimeError('PSM_RELEASE_CSLOL_DIR is not a directory')
+    print('[INFO] Using isolated CSLOL companion directory')
+else:
+    release_cslol_root = Path('injection/tools')
 
 injection_binaries = [
     ('injection/tools/mod-tools.exe', 'injection/tools'),
-    (str(release_ltk_root / 'ltk_patcher_host.exe'), 'injection/tools'),
-    (str(release_ltk_root / 'ltk_patcher_dll.dll'), 'injection/tools'),
+    (str(release_cslol_root / 'cslol-dll.dll'), 'injection/tools'),
 ]
+if release_ltk_root is not None:
+    injection_binaries.extend([
+        (str(release_ltk_root / 'ltk_patcher_host.exe'), 'injection/tools'),
+        (str(release_ltk_root / 'ltk_patcher_dll.dll'), 'injection/tools'),
+    ])
 # Data files (text files, etc.)
 injection_data_files = [
     'injection/tools/hashes.game.txt',

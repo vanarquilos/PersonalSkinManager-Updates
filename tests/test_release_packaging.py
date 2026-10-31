@@ -83,11 +83,11 @@ class ReleasePackagingTests(unittest.TestCase):
         overlay = (ROOT / "injection/overlay/overlay_manager.py").read_text(encoding="utf-8")
         self.assertNotIn("falling back to legacy CSLOL runoverlay", overlay)
 
-    def test_release_runtime_matches_rose_1_3_1_patcher_mode(self):
+    def test_release_runtime_preserves_upstream_ltk_content_enforcement(self):
         config = (ROOT / "config.py").read_text(encoding="utf-8")
         ltk = (ROOT / "injection/overlay/ltk_host.py").read_text(encoding="utf-8")
-        self.assertIn("LTK_ENFORCE_SKINHACK_SCAN = False", config)
-        self.assertIn("LTK_PATCHER_FLAGS = 4", ltk)
+        self.assertIn("LTK_ENFORCE_SKINHACK_SCAN = True", config)
+        self.assertIn("LTK_PATCHER_FLAGS = 0", ltk)
         self.assertIn("LTK_PATCHER_LOG_LEVEL = 0x10", ltk)
 
     def test_ltk_eol_is_checked_against_the_installed_game_build(self):

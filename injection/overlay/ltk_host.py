@@ -36,10 +36,16 @@ except ImportError:
     psutil = None
 
 from utils.core.logging import get_logger
+from utils.core.external_process import popen_external
 from utils.core.issue_reporter import report_issue
 from ..tools.patcher import (
     LTK_PATCHER_DLL,
     LTK_PATCHER_HOST,
+    LTK_QA_RUNTIME_DIR_ENV,
+    LTK_QA_MANIFEST_ENV,
+    LTK_QA_ORIGINAL_SHA256,
+    LTK_QA_UNSIGNED_SHA256,
+    _hash_file,
     check_ltk_patcher,
 )
 from config import (
@@ -53,9 +59,9 @@ log = get_logger()
 LTK_HOST_NAME = LTK_PATCHER_HOST
 LTK_DLL_NAME = LTK_PATCHER_DLL
 
-# Match Rose 1.3.1 / latest main patcher-host configuration.
-# Info=0x10. Flag 4 = CSLOL_HOOK_OPT_OUT_AH_V1, which disables the
-# base-skin anti-skinhack enforcement that rejects Rose's generic skin0 carrier.
+# Use upstream host protocol with vendor content enforcement intact.
+# Flag 4 opts out of upstream anti-skinhack controls and must not be used
+# in the v1.0.5 integration. Flag 0 matches the official manager default.
 LTK_PATCHER_LOG_LEVEL = 0x10
 LTK_PATCHER_DEBUG_LOG_LEVEL = 0x20
 
@@ -70,9 +76,30 @@ def _runtime_log_level() -> int:
     if not getattr(sys, "frozen", False) and "--debug" in sys.argv:
         return LTK_PATCHER_DEBUG_LOG_LEVEL
     return LTK_PATCHER_LOG_LEVEL
-LTK_PATCHER_FLAGS = 4
+LTK_PATCHER_FLAGS = 0
+LTK_MODERN_QA_FLAGS = 0  # Do not request disabling vendor content enforcement
 
 # Backward-compatible alias for older PSM tests/imports.
+def _qa_runtime_identity(host_exe: Path, hook_dll: Path) -> str:
+    """Classify actual selected bytes, not the requested QA variant.
+
+    No file path, source contents, or unsigned vendor binaries are exposed.
+    This is a QA provenance label, never a gameplay authorization decision.
+    """
+    try:
+        digests = {
+            LTK_HOST_NAME: _hash_file(host_exe),
+            LTK_DLL_NAME: _hash_file(hook_dll),
+        }
+    except OSError:
+        return "unreadable"
+    if digests == LTK_QA_UNSIGNED_SHA256:
+        return "unsigned-qa-pair"
+    if digests == LTK_QA_ORIGINAL_SHA256:
+        return "signed-original-pair"
+    return "other-pair"
+
+
 LTK_DEFAULT_FLAGS = LTK_PATCHER_FLAGS
 LATE_JOIN_MESSAGE = "joined too late"
 END_OF_LIFE_MESSAGE = "end of life reached"
@@ -390,6 +417,17 @@ def start_ltk_patcher_host(
         )
         return None
 
+    # Trace ACTUAL host/DLL identity in local --debug QA, not just the
+    # environment override requested by the testing PowerShell script.
+    # Windows UAC relaunch can lose process-local QA environment variables.
+    if "--debug" in sys.argv:
+        log.info(
+            "[INJECT][ltk-host] QA runtime identity: pair=%s, override_present=%s, parent_frozen=%s",
+            _qa_runtime_identity(host_exe, hook_dll),
+            bool(os.environ.get(LTK_QA_RUNTIME_DIR_ENV)),
+            bool(getattr(sys, "frozen", False)),
+        )
+
     if patcher.expired_for(game_dir):
         eol_text = time.strftime("%Y-%m-%d %H:%M", time.localtime(patcher.eol))
         log.error(
@@ -425,15 +463,22 @@ def start_ltk_patcher_host(
         "[INJECT] Starting LTK patcher-host scanner before game launch"
         + (" with elevation" if "--elevate" in cmd else " in normal mode")
     )
-    log.info(
-        "[INJECT] Rose-compatible LTK patcher configuration active "
-        "(flags=%d, anti-skinhack base-skin enforcement disabled)",
-        LTK_PATCHER_FLAGS,
-    )
+    # A modern manifest-pinned LTK candidate must not inherit the historical
+    # Rose flag that opts out of upstream anti-skinhack enforcement.
+    modern_qa = bool(os.environ.get(LTK_QA_MANIFEST_ENV))
+    selected_flags = LTK_MODERN_QA_FLAGS if modern_qa else LTK_PATCHER_FLAGS
+    if modern_qa:
+        log.info("[INJECT] Current LTK private QA selected: enforcing vendor default flags=%d", selected_flags)
+    else:
+        log.info(
+            "[INJECT] LTK default vendor content-enforcement flags active "
+            "(flags=%d; publication remains separately gated)",
+            selected_flags,
+        )
 
     proc = None
     try:
-        proc = subprocess.Popen(
+        proc = popen_external(
             cmd,
             # The LTK DLL is loaded relative to its host binary. An isolated
             # QA pair must run from its own directory, not the source tools dir.
@@ -473,7 +518,7 @@ def start_ltk_patcher_host(
             "DEBUG (local source QA)" if selected_log_level == LTK_PATCHER_DEBUG_LOG_LEVEL else "INFO",
         )
         _send_line(proc, f"config loglevel {selected_log_level}")
-        _send_line(proc, f"config flags {LTK_PATCHER_FLAGS}")
+        _send_line(proc, f"config flags {selected_flags}")
         _send_line(proc, f"config prefix {overlay_prefix}")
         _send_line(proc, "start scan")
 

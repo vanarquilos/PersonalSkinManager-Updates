@@ -27,6 +27,7 @@ except ImportError:
     psutil = None
 
 from utils.core.logging import get_logger, log_action, log_success, log_event
+from utils.core.external_process import popen_external
 from utils.core.issue_reporter import report_issue
 from config import (
     PROCESS_TERMINATE_TIMEOUT_S,
@@ -392,7 +393,7 @@ class OverlayManager:
                 creationflags = subprocess.CREATE_NO_WINDOW
             
             # Capture both stdout and stderr - CSLOL uses logi() which may write to stdout
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=creationflags, text=True, bufsize=1)
+            proc = popen_external(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=creationflags, text=True, bufsize=1)
             
             # Boost process priority to maximize CPU contention if enabled
             if ENABLE_MKOVERLAY_PRIORITY_BOOST and PSUTIL_AVAILABLE:
@@ -616,7 +617,7 @@ class OverlayManager:
             
             try:
                 # Don't capture stdout to avoid pipe buffer deadlock - send to devnull instead
-                proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=creationflags)
+                proc = popen_external(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=creationflags)
                 proc.wait(timeout=timeout)
                 mkoverlay_duration = time.time() - mkoverlay_start
                 
@@ -719,7 +720,7 @@ class OverlayManager:
                     creationflags = subprocess.CREATE_NO_WINDOW
                 
                 # Don't capture stdout to avoid pipe buffer issues - send to devnull instead
-                proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=creationflags)
+                proc = popen_external(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=creationflags)
                 if self.process_manager:
                     self.process_manager.current_overlay_process = proc
                 

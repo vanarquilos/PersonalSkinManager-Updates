@@ -25,7 +25,9 @@ class DistributionCandidateContracts(unittest.TestCase):
         self.assertIn("injection/tools/mod-tools.exe", self.spec)
         self.assertIn("release_ltk_root / 'ltk_patcher_host.exe'", self.spec)
         self.assertIn("release_ltk_root / 'ltk_patcher_dll.dll'", self.spec)
-        self.assertIn("release_ltk_root = Path('injection/tools')", self.spec)
+        # Default Rose-style builds must not bundle developer's signed LTK.
+        self.assertIn("release_ltk_root = None", self.spec)
+        self.assertIn("if release_ltk_root is not None:", self.spec)
         self.assertIn("required_runtime_files()", self.pyinstaller)
 
     def test_verified_vendor_signatures_removed_from_copies_only(self):

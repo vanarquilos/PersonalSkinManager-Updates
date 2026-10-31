@@ -113,8 +113,8 @@ def read_issues_tail(*, max_lines: int = 60) -> list[str]:
         return []
 
 
-def clear_issue(code: str) -> bool:
-    """Remove all diagnostics lines reported for *code* (safe, never raises)."""
+def clear_issue(code: str, *, legacy_only: bool = False) -> bool:
+    """Remove issue text; legacy_only only migrates the old LTK expiry wording."""
     try:
         if code not in _ALLOWED_CODES:
             return False
@@ -127,9 +127,10 @@ def clear_issue(code: str) -> bool:
             # Dedupe key is "code|message", but the file doesn't store the code.
             # We match on the message text associated with this code.
             # Simpler approach: remove from _LAST cache so re-reporting works.
-            keys_to_remove = [k for k in _LAST if k.startswith(f"{code}|")]
-            for k in keys_to_remove:
-                _LAST.pop(k, None)
+            if not legacy_only:
+                keys_to_remove = [k for k in _LAST if k.startswith(f"{code}|")]
+                for k in keys_to_remove:
+                    _LAST.pop(k, None)
             # Remove lines containing the code's known messages.
             _CODE_MARKERS = {
                 "LTK_OVERLAY_REJECTED": (
@@ -137,8 +138,23 @@ def clear_issue(code: str) -> bool:
                     "Skin/mod was not applied because current League Toolkit verification rejected the overlay.",
                     "Selected unowned League skin cannot be applied with the current supported patcher.",
                 ),
+                "LTK_PATCHER_EOL": (
+                    "PSM cannot apply skins: the bundled LTK runtime does not support this League build.",
+                    "LTK patcher outdated: this League build is newer than the selected DLL.",
+                ),
+                "INJECTION_RUNTIME_UNAVAILABLE": (
+                    "Injection unavailable: the current runtime cannot be used with this League build.",
+                    "Injection unavailable: runtime verification failed.",
+                ),
             }
             markers = _CODE_MARKERS.get(code)
+            if legacy_only:
+                # Preserve already-migrated and actively deduplicated errors.
+                if code != "LTK_PATCHER_EOL":
+                    return False
+                markers = (
+                    "PSM cannot apply skins: the bundled LTK runtime does not support this League build.",
+                )
             if not markers:
                 return False
             if isinstance(markers, str):

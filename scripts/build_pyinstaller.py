@@ -7,6 +7,8 @@ Fast builds with Windows UI API support
 
 import sys
 import os
+import hashlib
+import json
 import subprocess
 import shutil
 import time
@@ -27,19 +29,54 @@ if sys.version_info < MIN_PYTHON:
 
 
 def required_runtime_files():
-    # Scope the release override to the two LTK binaries. The selected
-    # directory is validated by the Windows release-candidate builder.
-    supplied = os.environ.get("PSM_RELEASE_LTK_DIR")
-    ltk = Path(supplied) if supplied else ROOT / "injection/tools"
-    return (
+    # Each release override is scoped to its own component; this function
+    # never edits source runtime files or authorizes binary redistribution.
+    supplied_ltk = os.environ.get("PSM_RELEASE_LTK_DIR")
+    supplied_cslol = os.environ.get("PSM_RELEASE_CSLOL_DIR")
+    cslol = Path(supplied_cslol) if supplied_cslol else ROOT / "injection/tools"
+    required = [
         ROOT / "injection/tools/mod-tools.exe",
-        ltk / "ltk_patcher_host.exe",
-        ltk / "ltk_patcher_dll.dll",
-    )
+        cslol / "cslol-dll.dll",
+    ]
+    # The default installer follows Rose's user-provided LTK model. Bundling
+    # a patcher is ONLY possible when a separately reviewed private QA
+    # worktree explicitly opts into an isolated directory.
+    if supplied_ltk:
+        ltk = Path(supplied_ltk)
+        required.extend((ltk / "ltk_patcher_host.exe", ltk / "ltk_patcher_dll.dll"))
+    return tuple(required)
 
 
 def verify_release_runtime_inputs():
-    """Fail closed unless all required local runtime components are present."""
+    """Fail closed unless all required local runtime components are reviewed."""
+    # A missing CSLOL override could accidentally repackage a third-party
+    # signed developer DLL from injection/tools. Require an explicit QA
+    # provenance directory (e.g. the freshly compiled PSM-owned inert stub).
+    if not os.environ.get("PSM_RELEASE_CSLOL_DIR"):
+        print("[ERROR] Explicit PSM_RELEASE_CSLOL_DIR is required for v1.0.5.")
+        print("[INFO] Default builds cannot implicitly bundle the source CSLOL DLL.")
+        return False
+    if not os.environ.get("PSM_RELEASE_LTK_DIR"):
+        # User-provided LTK mode can ONLY bundle a PSM-built inert stub.
+        # The older source-side CSLOL DLL is signed by a different publisher.
+        stub_dir = Path(os.environ["PSM_RELEASE_CSLOL_DIR"])
+        manifest_path = stub_dir / "psm-cslol-stub-manifest.json"
+        native_source = ROOT / "native/cslol_stub/psm_cslol_stub.c"
+        candidate = stub_dir / "cslol-dll.dll"
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if (
+                not isinstance(manifest, dict)
+                or manifest.get("schema") != 1
+                or manifest.get("purpose") != "PSM_V105_INERT_CSLOL_STUB"
+                or manifest.get("public_distribution_approved") is not False
+                or manifest.get("source_sha256") != hashlib.sha256(native_source.read_bytes()).hexdigest().upper()
+                or manifest.get("built_sha256") != hashlib.sha256(candidate.read_bytes()).hexdigest().upper()
+            ):
+                raise ValueError("PSM stand-in manifest integrity check failed")
+        except (OSError, ValueError, UnicodeError) as exc:
+            print(f"[ERROR] The Rose-style build requires a freshly compiled PSM-owned inert stub: {exc}")
+            return False
     missing = [path for path in required_runtime_files() if not path.is_file()]
     if missing:
         print("[ERROR] Required release runtime file(s) are missing:")
@@ -218,8 +255,13 @@ def main():
         print(f"\nYour application is ready!")
         print(f"\nMode: STANDALONE (folder with all dependencies)")
         print(f"  - Bundled application dependencies included")
-        print(f"  - mod-tools + current LTK patcher runtime included")
-        print(f"  - no manual DLL setup required")
+        if os.environ.get("PSM_RELEASE_LTK_DIR"):
+            print("  - PRIVATE QA: external LTK host/DLL files included")
+            print("  - Not authorized for public redistribution by this build")
+        else:
+            print("  - User-provided LTK host/DLL NOT included")
+            print("  - A trusted compatible pair must be provisioned separately")
+        print("  - Runtime compatibility and in-game rendering are NOT verified")
 
         print(f"\nProtection:")
         print(f"  - Python bytecode (not raw source)")

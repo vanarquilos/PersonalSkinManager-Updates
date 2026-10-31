@@ -172,6 +172,16 @@ def run_league_unlock(args: Optional[argparse.Namespace] = None,
     # Setup logging and cleanup
     setup_logging_and_cleanup(args)
 
+    # Rose-style runtime onboarding: a public PSM build never ships upstream
+    # LTK host/DLL binaries. In installed Windows mode, explain the local
+    # user-provisioning requirement, without downloading or replacing files.
+    if getattr(sys, "frozen", False) and not getattr(args, "dev", False):
+        try:
+            from utils.integration.ltk_onboarding import notify_user_provided_ltk_missing
+            notify_user_provided_ltk_missing(_get_tools_dir())
+        except Exception as exc:
+            log.warning("[Main] Optional LTK onboarding unavailable: %s", exc)
+
     # Initialize system tray manager immediately to hide console
     tray_manager = initialize_tray_manager(args)
     
