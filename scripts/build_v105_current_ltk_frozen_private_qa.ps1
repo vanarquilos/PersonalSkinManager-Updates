@@ -5,7 +5,8 @@ param(
     [Parameter(Mandatory = $true)][string]$ModToolsFile,
     [Parameter(Mandatory = $true)][string]$LtkDir,
     [Parameter(Mandatory = $true)][string]$QaManifest,
-    [Parameter(Mandatory = $true)][string]$CslolDir
+    [Parameter(Mandatory = $true)][string]$CslolDir,
+    [string]$GameDir = "C:\Riot Games\League of Legends\Game"
 )
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
@@ -55,6 +56,11 @@ foreach ($Name in $Pair.Keys) {
         throw "Only verified signed upstream binaries are accepted for this PRIVATE integration QA."
     }
 }
+# A manifest with exact SHA-256 and valid Authenticode still cannot
+# authorize an already-expired patcher for this League executable.
+& python (Join-Path $Root "scripts\verify_v105_game_ltk_cutoff.py") `
+    --game-dir $GameDir --ltk-dir $Dir
+Check "League-vs-LTK cutoff preflight"
 $OldBadHost = "5E52DC5A30220E735599BE57308CE7BF52E21416CF2C2D9D449A8637F683C4E9"
 $OldBadDll = "B164A14A2D6C1F1EA6D546782C556050F6F9045DFAB686E4967E7D7CD2E87E29"
 if ($Pair["ltk_patcher_host.exe"] -eq $OldBadHost -and
