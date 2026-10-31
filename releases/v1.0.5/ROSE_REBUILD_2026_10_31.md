@@ -54,6 +54,60 @@ if ($LASTEXITCODE -ne 0) { throw "Private Rose-style QA build failed" }
 
 The bootstrap creates a unique `PSM-v105-Rose-Rebuild-*` worktree and builds the frozen app with the reviewed local mod-tools and a newly compiled inert PSM-owned CSLOL stub. It **does not ship or install LTK**, publish a release or replace the original source/tester. Requires Python 3.11+, MSVC x64 tools and the project's existing build dependencies on Windows. Use `-PrepareOnly` to skip the build if these are unavailable.
 
+## MSVC quoted-path failure and safe in-place retry (2026-10-31)
+
+A first private rebuild reached the inert CSLOL stub compilation but failed with:
+
+```text
+'"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"' is not recognized ...
+[ERROR] MSVC stub build failed (1)
+```
+
+Cause: the original Python builder passed a compound `call "C:\Program Files ...\vcvars64.bat" >nul && cl ...` string directly through `cmd.exe /c`. Quotation was stripped/misparsed before MSVC was configured. The user already has a `vcvars64.bat` path that `vswhere` discovered; this **does not prove Build Tools are missing**.
+
+Fix: `scripts/build_psm_cslol_stub.py` now writes a temporary `build_stub.cmd` and invokes it by its short basename as `cmd.exe /d /c build_stub.cmd` from its own working directory. Inside the batch, `call "path with spaces\vcvars64.bat" >nul` works with normal batch semantics; `cl` and `dumpbin` share the vcvars environment. Failed compilation now reports compiler stdout/stderr. Regression: `tests.test_v105_msvc_space_path_contract`, plus revised `tests.test_v105_rose_style_build_contract` expectations.
+
+The private builder now has a strictly controlled `-ResumeFailedStubBuild` option. It refuses all unexpected/missing state: it must be a clean tracked `qa/v105-rose-*` linked worktree, have the reviewed SHA-pinned mod-tools binary, an existing **empty** inert stub directory, no frozen app, no finished QA manifest and no installer. It does not delete or overwrite any existing output.
+
+The original unsuccessful QA directory can be retried *without* making another QA worktree. From PowerShell:
+
+```powershell
+$ErrorActionPreference = "Stop"
+$QA = "C:\Users\Van Arquilos\Desktop\PSM-v105-Rose-Rebuild-20261031-132306"
+$Original = "C:\Users\Van Arquilos\Desktop\PersonalSkinManager-Updates"
+$Ref = "rebuild/v1.0.5-rose-compatible"
+
+if (-not (Test-Path -LiteralPath $QA -PathType Container)) { throw "QA folder missing" }
+$Branch = (git -C $QA branch --show-current).Trim()
+if ($LASTEXITCODE -ne 0 -or -not $Branch.StartsWith("qa/v105-rose-")) {
+    throw "Not an isolated PSM Rose QA worktree; original left untouched"
+}
+$Dirty = @(git -C $QA status --porcelain --untracked-files=no)
+if ($LASTEXITCODE -ne 0 -or $Dirty.Count -gt 0) {
+    throw "Tracked QA worktree changed. Will not overwrite"
+}
+git -C $QA fetch origin ("+refs/heads/" + $Ref + ":refs/remotes/origin/" + $Ref)
+if ($LASTEXITCODE -ne 0) { throw "Fetch failed" }
+git -C $QA merge --ff-only ("origin/" + $Ref)
+if ($LASTEXITCODE -ne 0) { throw "Fast-forward merge failed" }
+
+Push-Location $QA
+try {
+    python -m unittest -v tests.test_v105_msvc_space_path_contract tests.test_v105_rose_style_build_contract
+    if ($LASTEXITCODE -ne 0) { throw "Source contract tests failed" }
+} finally { Pop-Location }
+
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned `
+    -File (Join-Path $QA "scripts\build_v105_rose_style_frozen_private_qa.ps1") `
+    -ModToolsFile (Join-Path $Original "injection\tools\mod-tools.exe") `
+    -ResumeFailedStubBuild
+
+if ($LASTEXITCODE -ne 0) { throw "Resumed private QA build failed" }
+Write-Host "Private QA output: $(Join-Path $QA 'dist\PersonalSkinManager\PersonalSkinManager.exe')"
+```
+
+No source checkout reset, installer, network LTK download, vendor binary replacement, or game process execution. **A successful inert-stub build only establishes compatibility with the mod-tools loader; skins cannot render until an official current LTK host/DLL pair has been supplied and tested.** The GitHub Windows CI check still reports failure without usable job logs; do not claim remote validation passed.
+
 ## Verification gates
 
 - Windows source contract tests pass, including proper installer ownership, branch preservation and SHA/protocol/cutoff checks.
