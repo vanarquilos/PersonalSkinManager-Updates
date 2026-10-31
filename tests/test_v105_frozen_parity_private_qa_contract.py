@@ -56,6 +56,16 @@ class FrozenParityPrivateQaContracts(unittest.TestCase):
         self.assertIn("exe_sha256", self.script)
         self.assertIn("relative_location", self.script)
 
+    def test_old_unsigned_pair_cannot_be_packaged_for_expired_game(self):
+        self.assertIn("verify_v105_game_ltk_cutoff.py", self.script)
+        self.assertIn('Check-Exit "League-vs-LTK cutoff preflight"', self.script)
+        self.assertLess(
+            self.script.index("verify_v105_game_ltk_cutoff.py"),
+            self.script.index("scripts\\build_pyinstaller.py"),
+        )
+        self.assertIn('unsigned_source_skin_rendering = "UNVERIFIED_ON_CURRENT_LEAGUE"', self.script)
+        self.assertNotIn("user_observed_unsigned_source_visible_skin = $true", self.script)
+
     def test_public_distribution_status_is_explicit_no_go(self):
         self.assertIn('purpose = "LOCAL PRIVATE FROZEN PARITY TEST ONLY"', self.script)
         self.assertIn("contains_third_party_signed_cslol = $true", self.script)
