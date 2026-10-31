@@ -75,7 +75,7 @@ class RoseStyleBuildContracts(unittest.TestCase):
 
     def test_stub_compilation_checks_real_pe_export_table(self):
         self.assertIn("dumpbin /nologo /exports", self.compile)
-        self.assertIn("MSVC dumpbin export validation did not run", self.compile)
+        self.assertIn("MSVC dumpbin export table was not created.", self.compile)
         self.assertIn("PSM stub ABI mismatch", self.compile)
         self.assertIn("cslol_msg_hookproc", self.compile)
         self.assertIn('r"^\\s*\\d+\\s+', self.compile)
