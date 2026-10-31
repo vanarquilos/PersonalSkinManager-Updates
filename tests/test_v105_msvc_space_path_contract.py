@@ -47,6 +47,19 @@ class MsvcBatchWithSpacePathContracts(unittest.TestCase):
         self.assertIn("PSM_V105_INERT_CSLOL_STUB", self.src)
         self.assertNotIn("Invoke-WebRequest", self.src)
 
+    def test_failed_qa_retry_is_explicit_and_hash_guarded(self):
+        qa = (
+            ROOT / "scripts/build_v105_rose_style_frozen_private_qa.ps1"
+        ).read_text("ascii")
+        self.assertIn("[switch]$ResumeFailedStubBuild", qa)
+        self.assertIn('Sha $ModDest', qa)
+        self.assertIn('Get-ChildItem -LiteralPath $StubDir -Force', qa)
+        self.assertIn('Completed or unexpected output exists; refusing resume:', qa)
+        self.assertIn('if (-not $ResumeFailedStubBuild) {', qa)
+        self.assertIn('Branch must start with qa/v105-rose-', qa)
+        self.assertNotIn('Remove-Item', qa)
+        self.assertNotIn('git reset', qa.lower())
+
     def test_failure_preserves_compiler_diagnostic(self):
         self.assertIn("result.stdout", self.src)
         self.assertIn("result.stderr", self.src)
