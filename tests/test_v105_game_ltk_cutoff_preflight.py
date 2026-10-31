@@ -74,6 +74,19 @@ class GameLtkCutoffPreflightTests(TestCase):
                 )
                 self.assertIn('Check "League-vs-LTK cutoff preflight"', script)
 
+    def test_public_path_builder_rejects_expired_pair_before_packaging(self):
+        script = (
+            Path(__file__).resolve().parents[1]
+            / "scripts/build_v105_public_path_local_test.ps1"
+        ).read_text("utf-8")
+        self.assertIn("verify_v105_game_ltk_cutoff.py", script)
+        self.assertIn('Check-Exit "League-vs-LTK cutoff preflight"', script)
+        self.assertLess(
+            script.index("verify_v105_game_ltk_cutoff.py"),
+            script.index("scripts\\build_all.py"),
+        )
+        self.assertNotIn("SOURCE QA now renders skins", script)
+
     def test_preflight_is_read_only(self):
         source = Path(audit.__file__).read_text("utf-8")
         for forbidden in ("subprocess", "requests", "urllib", "Start-Process",
