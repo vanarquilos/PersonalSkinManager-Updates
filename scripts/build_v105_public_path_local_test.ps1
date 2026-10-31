@@ -7,7 +7,8 @@ param(
     [Parameter(Mandatory = $true)][string]$CslolDir,
     [Parameter(Mandatory = $true)]
     [ValidatePattern("^[0-9a-fA-F]{64}$")]
-    [string]$ExpectedDistributorCertSha256
+    [string]$ExpectedDistributorCertSha256,
+    [string]$LeagueGameDir = "C:\Riot Games\League of Legends\Game"
 )
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
@@ -94,7 +95,7 @@ if ($Hashes["cslol-dll.dll"] -eq $KnownThirdPartyCSLOLDllSha256) {
 }
 if ($Hashes["ltk_patcher_host.exe"] -eq $KnownBad["ltk_patcher_host.exe"] -and
     $Hashes["ltk_patcher_dll.dll"] -eq $KnownBad["ltk_patcher_dll.dll"]) {
-    throw "Earlier INSTALLED candidate failed SetWindowsHookEx using this pair, although isolated unsigned SOURCE QA now renders skins. Hold publication until installed packaging parity is explained; no identical public-path rebuild."
+    throw "Earlier INSTALLED candidate failed SetWindowsHookEx with this pair. Its source rendering was never independently verified; do not rebuild or distribute it."
 }
 foreach ($Name in $LTKNames) {
     if ($Hashes[$Name] -eq $KnownOfficialSigned[$Name]) {
@@ -128,6 +129,12 @@ if ($Running.Count -gt 0) { throw "Close PSM, game and LTK host for a reproducib
 foreach ($Cmd in @("python", "git")) {
     if (-not (Get-Command $Cmd -ErrorAction SilentlyContinue)) { throw "$Cmd not found." }
 }
+# Enforce the actual League executable build vs the candidate DLL's embedded
+# cutoff BEFORE tests, copies, PyInstaller or Inno. This has no bypass option.
+& python (Join-Path $Root "scripts\verify_v105_game_ltk_cutoff.py") `
+    --game-dir $LeagueGameDir --ltk-dir $LtkDir
+Check-Exit "League-vs-LTK cutoff preflight"
+
 # Tests precede any local build-file changes.
 & python -m unittest tests.test_v105_public_installer_staging_contract tests.test_release_packaging tests.test_v105_distribution_contract
 Check-Exit "Source packaging regression tests"
