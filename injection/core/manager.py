@@ -88,16 +88,24 @@ class InjectionManager:
                         )
                         self._initialized = False
                     elif not getattr(self.injector, "runtime_ready", False):
+                        # ToolsManager already reported the actionable LTK
+                        # failure (missing files or an expired DLL). Do not
+                        # add an unhelpful second generic Troubleshooting item.
+                        failure = getattr(
+                            getattr(self.injector, "tools_manager", None),
+                            "last_failure_code", None,
+                        )
                         log.error(
-                            "[INJECT] Cannot initialize injection system - "
-                            "runtime validation failed for the installed League build"
+                            "[INJECT] Runtime validation blocked startup: %s",
+                            failure or "UNKNOWN",
                         )
-                        report_issue(
-                            "INJECTION_RUNTIME_UNAVAILABLE",
-                            "error",
-                            "Injection unavailable: the current runtime cannot be used with this League build.",
-                            hint="Update the PSM runtime, then restart Personal Skin Manager.",
-                        )
+                        if not failure:
+                            report_issue(
+                                "INJECTION_RUNTIME_UNAVAILABLE",
+                                "error",
+                                "Injection unavailable: runtime validation failed.",
+                                hint="Inspect PSM's selected LTK host/DLL and League build.",
+                            )
                         self._initialized = False
                     else:
                         self._initialized = True
