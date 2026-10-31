@@ -4,7 +4,8 @@
 param(
     [Parameter(Mandatory = $true)][string]$ModToolsFile,
     [Parameter(Mandatory = $true)][string]$UnsignedLtkDir,
-    [Parameter(Mandatory = $true)][string]$CslolDir
+    [Parameter(Mandatory = $true)][string]$CslolDir,
+    [string]$GameDir = "C:\Riot Games\League of Legends\Game"
 )
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
@@ -67,6 +68,11 @@ foreach ($Name in $Inputs.Keys) {
         throw "Local QA input fingerprint mismatch for $Name. No files changed."
     }
 }
+# Fail before writing anything: this historical unsigned candidate has an
+# old DLL cutoff and must not be rebuilt as a current League gameplay test.
+& python (Join-Path $Root "scripts\verify_v105_game_ltk_cutoff.py") `
+    --game-dir $GameDir --ltk-dir $UnsignedLtkDir
+Check-Exit "League-vs-LTK cutoff preflight"
 $Running = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
     $_.ProcessName -in @("PersonalSkinManager", "League of Legends",
         "League of Legends (TM) Client", "ltk_patcher_host")
@@ -125,7 +131,7 @@ $Report = [ordered]@{
     version = "1.0.5"
     purpose = "LOCAL PRIVATE FROZEN PARITY TEST ONLY"
     source_commit = $Head
-    user_observed_unsigned_source_visible_skin = $true
+    unsigned_source_skin_rendering = "UNVERIFIED_ON_CURRENT_LEAGUE"
     frozen_app_visible_skin = "NOT TESTED"
     installed_candidate_visible_skin = "NOT TESTED"
     contains_third_party_signed_cslol = $true
