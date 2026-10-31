@@ -5,16 +5,18 @@ Tools Manager
 Validates the overlay builder and current LTK runtime.
 """
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Optional
 import time
 
 from utils.core.logging import get_logger
-from utils.core.issue_reporter import report_issue
+from utils.core.issue_reporter import clear_issue, report_issue
 from .patcher import (
     LTK_PATCHER_DLL,
     LTK_PATCHER_HOST,
     check_ltk_patcher,
+    read_game_build,
 )
 
 log = get_logger()
@@ -25,9 +27,11 @@ class ToolsManager:
 
     def __init__(self, tools_dir: Path):
         self.tools_dir = tools_dir
+        self.last_failure_code: Optional[str] = None
 
     def check_tools_available(self, game_dir: Optional[Path] = None) -> bool:
         """Require the runtime set and reject only unsupported League builds."""
+        self.last_failure_code = None
         modtools = self.tools_dir / "mod-tools.exe"
         patcher = check_ltk_patcher(self.tools_dir)
         ltk_host = patcher.host
@@ -41,6 +45,7 @@ class ToolsManager:
         missing = [name for name, path in required.items() if not path.is_file()]
 
         if missing:
+            self.last_failure_code = "LTK_PATCHER_MISSING"
             log.error(f"[INJECT] Missing required runtime files: {missing}")
             log.error(f"[INJECT] Expected runtime tools directory: {self.tools_dir}")
             report_issue(
@@ -53,24 +58,40 @@ class ToolsManager:
             return False
 
         if patcher.expired_for(game_dir):
-            eol_text = time.strftime("%Y-%m-%d %H:%M", time.localtime(patcher.eol))
+            self.last_failure_code = "LTK_PATCHER_EOL"
+            # Replace old duplicated reports without discarding the current
+            # issue's dedupe state on subsequent attempts.
+            clear_issue("INJECTION_RUNTIME_UNAVAILABLE")
+            clear_issue("LTK_PATCHER_EOL", legacy_only=True)
+            eol_text = datetime.fromtimestamp(
+                patcher.eol, tz=timezone.utc
+            ).strftime("%Y-%m-%d %H:%M UTC")
+            game_stamp = read_game_build(game_dir) if game_dir is not None else None
+            game_text = (
+                datetime.fromtimestamp(game_stamp, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+                if game_stamp is not None else "unknown"
+            )
             log.error(
-                "[INJECT] Current LTK runtime does not support this League build "
-                "(build cutoff %s)",
-                eol_text,
+                "[INJECT] Outdated LTK DLL (cutoff=%s; League build=%s)",
+                eol_text, game_text,
             )
             report_issue(
                 "LTK_PATCHER_EOL",
                 "error",
-                "PSM cannot apply skins: the bundled LTK runtime does not support this League build.",
+                "LTK patcher outdated: its DLL does not support this League build.",
                 hint=(
-                    "A compatible and trusted LTK runtime is required. "
-                    "Do not bypass the cutoff or disable game security checks."
+                    f"League executable: {game_text}; LTK cutoff: {eol_text}. "
+                    "Obtain a newer official-compatible host and DLL pair. "
+                    "Do not bypass patcher or game integrity controls."
                 ),
                 dedupe_window_s=120.0,
             )
             return False
 
+        # Remove previous errors only after file/cutoff validation succeeds.
+        # This is not proof that an in-game skin will render.
+        clear_issue("LTK_PATCHER_EOL")
+        clear_issue("INJECTION_RUNTIME_UNAVAILABLE")
         # This check establishes file presence and that no known cutoff was
         # exceeded. It CANNOT prove overlay/material compatibility.
         log.info("[INJECT] Runtime files present; no known League-build cutoff exceeded")
