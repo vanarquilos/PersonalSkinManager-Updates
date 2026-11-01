@@ -38,6 +38,7 @@ except ImportError:
 from utils.core.logging import get_logger
 from utils.core.external_process import popen_external
 from utils.core.issue_reporter import report_issue
+from utils.system.admin_utils import is_admin
 from ..tools.patcher import (
     LTK_PATCHER_DLL,
     LTK_PATCHER_HOST,
@@ -397,6 +398,24 @@ def start_ltk_patcher_host(
     game_dir: Optional[Path] = None,
 ) -> Optional[LtkHostSession]:
     """Start/configure LTK and begin scanning before League is resumed."""
+
+    # Modern LeagueToolkit delivered-DLL hosts must run at normal user
+    # integrity. Starting the entire PSM app elevated makes the child inherit
+    # elevated integrity even without an explicit --elevate flag.
+    if sys.platform == "win32" and is_admin():
+        log.error("[INJECT][ltk-host] Refusing elevated PSM parent for LTK host.")
+        report_issue(
+            "LTK_ADMIN_CONTEXT",
+            "error",
+            "LTK patcher cannot start from an elevated PSM session.",
+            hint=(
+                "Close PSM, then launch it normally (not Run as administrator). "
+                "Disable legacy highest-privilege PSM auto-start if enabled. "
+                "Do not change Vanguard or game security controls."
+            ),
+            dedupe_window_s=120.0,
+        )
+        return None
 
     patcher = check_ltk_patcher(tools_dir)
     host_exe = patcher.host
