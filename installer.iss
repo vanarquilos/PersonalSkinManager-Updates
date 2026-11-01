@@ -70,7 +70,7 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; IconFilename: "{app}\{#MyAppExeName}"
 Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: quicklaunchicon; IconFilename: "{app}\{#MyAppExeName}"
 
-; Deliberately no [Run] post-install launch. A setup started elevated cannot
+; Deliberately no automatic post-install launch. A setup started elevated cannot
 ; reliably switch back to the original user's integrity. Current official LTK
 ; patcher sessions require normal-user integrity: launch PSM from the Start
 ; menu AFTER finishing the installer, without "Run as administrator".
