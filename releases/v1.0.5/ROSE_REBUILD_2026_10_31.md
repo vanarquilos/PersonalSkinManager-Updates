@@ -26,6 +26,12 @@ On October 31, 2026, the maintainer's read-only inventory found seven local LTK 
 
 No cached official LTK Manager installation was found in the probed locations. This is not permission to download unknown binaries, strip signatures, edit expiry values or disable security controls. A newer official-compatible pair must be obtained through a supported LeagueToolkit channel before claiming skin rendering.
 
+## Current official upstream version and license (checked November 1, 2026)
+
+Official LeagueToolkit release history now lists **LTK Manager v1.32.0 (October 30, 2026)**. Earlier v1.31.1 references are superseded. The LTK patcher delivery service can provide independently updated host/DLL bytes; the manager version alone does not establish the selected patcher's build cutoff or current League compatibility. Upstream: https://github.com/LeagueToolkit/ltk-manager/releases
+
+Upstream's LTK Patcher License permits reuse and redistribution under specific conditions, including that official LeagueToolkit code-signing signatures may **not** be distributed under someone else's product without explicit permission. PSM's selected model therefore keeps the official signed host/DLL **user supplied**, avoids modifying vendor signatures, and does not bundle upstream-signed binaries. This is a release-distribution decision, not a claim that all forms of reuse are prohibited. Read the exact terms at https://github.com/LeagueToolkit/ltk-manager/blob/main/LTK-PATCHER-LICENSE.md.
+
 ## Installer rebuild fixes
 
 - Inno source still excludes `ltk_patcher_host.exe`, `ltk_patcher_dll.dll` and `ltk-user-local.json` from its payload.
