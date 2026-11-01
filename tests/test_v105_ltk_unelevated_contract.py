@@ -27,6 +27,12 @@ class ModernLtkUnelevatedContracts(unittest.TestCase):
         self.assertIn('"LTK_ADMIN_CONTEXT"', code)
         self.assertIn("not Run as administrator", code)
 
+    def test_inno_admin_setup_does_not_start_app_elevated(self):
+        installer = (ROOT / "installer.iss").read_text("utf-8-sig")
+        self.assertIn("PrivilegesRequired=admin", installer)
+        self.assertNotIn("[Run]", installer)
+        self.assertNotIn("Verb: runas", installer)
+
     def test_autostart_does_not_elevate_app_implicitly(self):
         admin = (ROOT / "utils/system/admin_utils.py").read_text("utf-8")
         self.assertIn("'/RL', 'LIMITED'", admin)
