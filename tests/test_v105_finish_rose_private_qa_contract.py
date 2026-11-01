@@ -26,7 +26,7 @@ class FinishRosePrivateQAContracts(unittest.TestCase):
             "25FA57EB81ED308DCF8E3E2ABA1E3981E1697C99752F879E84746D1D90B4CB44",
             "Expected empty failed-stub output directory not found.",
             "Partial dist exists without QA report",
-            "Status", "merge --ff-only",
+            "status --porcelain --untracked-files=no", "merge --ff-only",
             "-ResumeFailedStubBuild",
         ):
             with self.subTest(expected=expected):
