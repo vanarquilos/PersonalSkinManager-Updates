@@ -70,8 +70,10 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; IconFilename: "{app}\{#MyAppExeName}"
 Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: quicklaunchicon; IconFilename: "{app}\{#MyAppExeName}"
 
-[Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}} (as Administrator)"; Flags: nowait postinstall skipifsilent shellexec; Verb: runas
+; Deliberately no [Run] post-install launch. A setup started elevated cannot
+; reliably switch back to the original user's integrity. Current official LTK
+; patcher sessions require normal-user integrity: launch PSM from the Start
+; menu AFTER finishing the installer, without "Run as administrator".
 
 [UninstallRun]
 ; PSM owns only its own scheduled task. Never delete an unrelated Rose task
