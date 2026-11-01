@@ -434,7 +434,7 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon='assets/icon.ico',
-    uac_admin=True,  # Request admin rights (required for injection)
+    uac_admin=False,  # LTK delivered-DLL sessions require normal user integrity
 )
 
 coll = COLLECT(
