@@ -223,6 +223,49 @@ Manual source checks remain possible locally using
 until GitHub runners become available. Even a full source/CI pass does not
 replace in-game Practice Tool verification and current authorized LTK DLL.
 
+## Upstream League hotfix confirmed incompatible (November 1, 2026)
+
+The exact game-build failure is independently reported upstream in
+[LeagueToolkit/ltk-manager issue #976](https://github.com/LeagueToolkit/ltk-manager/issues/976),
+opened October 31 and **still open** on November 1. The report covers
+League `16.21.834.2754`, PE build `2026-10-30 19:07:32 UTC`, which matches
+the maintainer's installed executable. Updating official LTK Manager to
+v1.32.0 did **not** fix it: the reported stable delivered patcher
+`ltk_patcher-25` also refused this game executable. Thus recommending an
+installer rebuild or merely installing Manager v1.32.0 as a *skin-rendering
+fix* is incorrect. A newly accepted official LTK patcher release is required.
+Do not modify EOL timestamps, bypass game protections, or mix old host/DLLs.
+
+An upstream manager release and a **patcher DLL release are different**.
+When #976 has an official fix, get a legitimately delivered host/DLL using
+the supported channel, compare the actual DLL cutoff with the **installed**
+League game, verify file identity and provenance, and perform allowed
+Practice Tool tests before approving PSM. Until then preserve the draft and
+avoid telling users the skin can render.
+
+The Inno installer previously ran PSM post-install with `Verb: runas`, which
+forcibly elevated PSM even after changing PyInstaller to `uac_admin=False`.
+The automatic launch has now been removed completely. Start PSM manually
+from Start Menu as a normal user after installing; an elevated setup
+process cannot always reliably relaunch under the pre-UAC user token.
+Regression checks live in `tests.test_v105_rose_rebuild_installer_safety`
+and `tests.test_v105_ltk_unelevated_contract`.
+
+## CI runner failure action
+
+The PSM Windows and minimal Ubuntu jobs all fail with `steps=null`
+before code executes. Use the Github Actions run summary error banner to
+identify an Actions billing/quota/policy/runner-provisioning restriction, and
+check repository `Settings > Actions > General` plus account
+`Settings > Billing and licensing > Budgets and alerts` as applicable.
+Only the repository owner can change those account settings. A retry with
+the same configuration is not evidence of source-test failure.
+
+Manual QA remains possible independently using the isolated Windows
+worktree's `scripts/finish_v105_rose_private_qa.ps1`. Re-enable GitHub
+Actions once the account/platform restriction is resolved, then rerun all
+three jobs. Do not mark CI passed without executed steps and conclusions.
+
 ## Verification gates
 
 - Windows source contract tests pass, including proper installer ownership, branch preservation and SHA/protocol/cutoff checks.
