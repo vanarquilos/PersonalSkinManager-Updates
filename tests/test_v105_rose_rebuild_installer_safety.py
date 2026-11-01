@@ -48,6 +48,12 @@ class RoseRebuildInstallerSafety(unittest.TestCase):
         self.assertNotIn('"{localappdata}\\Rose\\Pengu Loader\\Pengu Loader.exe";', self.source)
         self.assertIn('"/Delete /TN PersonalSkinManager /F"', self.source)
 
+    def test_admin_installer_does_not_launch_elevated_psm(self):
+        self.assertIn("PrivilegesRequired=admin", self.source)
+        self.assertNotIn("[Run]", self.source)
+        self.assertNotIn("Verb: runas", self.source)
+        self.assertIn("launch PSM from the Start", self.source)
+
     def test_app_identity_and_version_are_stable(self):
         self.assertIn('#define MyAppName "Personal Skin Manager"', self.source)
         self.assertIn('#define MyAppVersion "1.0.5"', self.source)
