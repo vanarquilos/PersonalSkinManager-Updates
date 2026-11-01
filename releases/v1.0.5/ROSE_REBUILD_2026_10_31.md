@@ -150,6 +150,79 @@ This completes only **source/private frozen packaging** if Windows build
 dependencies and all earlier QA invariants pass. The build produces **no**
 working LTK host/DLL and does not establish visible skin rendering.
 
+## November 1: official delivery compatibility and CI runner diagnosis
+
+### LTK delivery is authenticated, not a public file mirror
+
+LeagueToolkit's current `crates/ltk-manager-runtime/src/patcher/delivery/mod.rs`
+requires a release-build attestation for a network sync, verifies a minisign
+manifest, downloads `ltk_patcher_dll.dll` into
+`<manager data dir>/patcher/<lowercase dll SHA256>/`, and copies the official
+host into the same directory when selecting a session. Its October 31 ADR-0074
+explicitly requires the delivered DLL and a **normal user integrity** process.
+An unofficial standalone downloader impersonating or replaying an upstream
+attestation is **not** part of PSM.
+
+Our user-provided LTK model remains compatible with that layout: once the
+real official Manager has staged a verified matching host/DLL pair, it may
+be inspected and deliberately imported through the existing
+`scripts/import_user_ltk_v105.ps1` script after independently checking
+SHA-256, Authenticode and the current League build. PSM does not distribute
+vendor signatures or tamper with game integrity controls.
+
+New `scripts/audit_official_ltk_delivery_cache_v105.py` is READ-ONLY. Its
+default roots are `%APPDATA%/dev.leaguetoolkit.manager/patcher` and
+`%LOCALAPPDATA%/dev.leaguetoolkit.manager/patcher`. For a custom LTK Manager
+mod storage directory, specify `--data-dir "D:\\YourLTKStorage"`.
+It inventories immediate SHA-256-named folders only, verifies that a staged
+DLL's SHA matches its directory, confirms a host file is beside the DLL,
+and compares its embedded cutoff with the League executable's PE timestamp.
+**It never reads the delivery.json token, impersonates a manager, downloads
+a DLL, runs external binaries or declares a skin working.** Source test:
+`tests.test_v105_official_ltk_cache_inventory`.
+
+```powershell
+$QA = "C:\Users\Van Arquilos\Desktop\PSM-v105-Rose-Rebuild-20261031-132306"
+Set-Location -LiteralPath $QA
+python scripts/audit_official_ltk_delivery_cache_v105.py --league-dir "C:\Riot Games\League of Legends"
+```
+
+A cache containing no candidate is **not** a PSM packaging bug. The user
+must obtain a legitimate delivered patcher through LeagueToolkit's supported
+manager process. The manager release version alone cannot guarantee a newer
+DLL for the current game build. User can keep PSM installed independently.
+
+### Remove the real privilege mismatch
+
+Before this change the PSM PyInstaller spec set `uac_admin=True`, and source
+`main/core/initialization.py` called `ensure_admin_rights()`. Even with
+`LTK_ELEVATE_INJECTOR=False`, starting the LTK child from an elevated PSM
+parent inherits high integrity, contradicting upstream ADR-0074. The rebuild
+now sets `uac_admin=False`, avoids forcing source startup elevation,
+refuses elevated LTK child startup with a clear diagnostic, and creates
+new auto-start tasks with `/RL LIMITED` instead of `HIGHEST`.
+The changed binary must still be validated on actual Windows and existing
+legacy high-integrity scheduled tasks must be reviewed manually.
+Contract: `tests.test_v105_ltk_unelevated_contract`.
+
+### Why GitHub Windows CI reports failure without logs
+
+GitHub run `41266285801` contained three failures with **no job steps**,
+including a minimal Ubuntu echo job that imports no PSM code, Python or MSVC.
+Another earlier Windows-only run behaved identically even when rerun.
+This isolates the red state to **GitHub Actions job provisioning or
+account/repository configuration**, not an observed PSM unit-test assertion.
+The exact provider-side cause remains unknown. On GitHub, inspect the
+Actions run's summary/annotations and repository
+`Settings > Actions > General`, plus any Actions billing/usage restriction.
+If those show no actionable error, raise GitHub Support with run/job IDs.
+Do not change working PSM production code to suppress or fake these CI checks.
+
+Manual source checks remain possible locally using
+`python -m unittest`; no CI success or public release can be claimed
+until GitHub runners become available. Even a full source/CI pass does not
+replace in-game Practice Tool verification and current authorized LTK DLL.
+
 ## Verification gates
 
 - Windows source contract tests pass, including proper installer ownership, branch preservation and SHA/protocol/cutoff checks.
