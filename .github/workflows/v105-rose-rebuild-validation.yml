@@ -23,6 +23,17 @@ permissions:
   contents: read
 
 jobs:
+  github-runner-smoke:
+    name: GitHub-hosted runner provisioning baseline (no PSM code)
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Confirm runner can execute a step
+        shell: bash
+        run: |
+          echo "Runner provisioned on $RUNNER_OS"
+          echo "Actions execution works independently of PSM tests"
+
   source-contracts:
     name: Windows source and installer contracts (no patcher)
     runs-on: windows-2022
