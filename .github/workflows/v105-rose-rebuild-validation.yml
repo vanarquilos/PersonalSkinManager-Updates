@@ -56,7 +56,7 @@ jobs:
       - name: Run dependency-free Rose rebuild contract tests
         shell: pwsh
         run: |
-          python -m unittest -v tests.test_v105_rose_rebuild_installer_safety tests.test_v105_rose_rebuild_worktree_contract tests.test_v105_rose_style_build_contract tests.test_v105_user_ltk_provisioning tests.test_v105_game_ltk_cutoff_preflight tests.test_v105_msvc_space_path_contract tests.test_v105_no_false_release_ready tests.test_v105_finish_rose_private_qa_contract tests.test_v105_ltk_unelevated_contract
+          python -m unittest -v tests.test_v105_rose_rebuild_installer_safety tests.test_v105_rose_rebuild_worktree_contract tests.test_v105_rose_style_build_contract tests.test_v105_user_ltk_provisioning tests.test_v105_game_ltk_cutoff_preflight tests.test_v105_msvc_space_path_contract tests.test_v105_no_false_release_ready tests.test_v105_finish_rose_private_qa_contract tests.test_v105_ltk_unelevated_contract tests.test_v105_official_ltk_cache_inventory
           if ($LASTEXITCODE -ne 0) { throw "Source contract regression failed" }
 
       - name: Verify no external LTK files in checkout
