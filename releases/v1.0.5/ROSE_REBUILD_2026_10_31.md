@@ -114,6 +114,42 @@ Write-Host "Private QA output: $(Join-Path $QA 'dist\PersonalSkinManager\Persona
 
 No source checkout reset, installer, network LTK download, vendor binary replacement, or game process execution. **A successful inert-stub build only establishes compatibility with the mod-tools loader; skins cannot render until an official current LTK host/DLL pair has been supplied and tested.** The GitHub Windows CI check still reports failure without usable job logs; do not claim remote validation passed.
 
+## One-command completion entry point (November 1, 2026)
+
+The repo now has `scripts/finish_v105_rose_private_qa.ps1`, which validates and
+fast-forwards **only** the existing linked QA worktree, runs focused regression
+tests, resumes the original failed stub compilation, verifies the final EXE
+hash and QA manifest, and keeps the original rollback checkout intact. The
+script refuses to touch an unexpected checkout, a changed mod-tools binary,
+nonempty stub output, partial frozen outputs or a dirty tracked worktree.
+It does not install LTK Manager or publish a release.
+
+Because the user's main checkout stays on its rollback branch, fetch the
+new script from its isolated rebuild branch into a temporary file and run it:
+
+```powershell
+$ErrorActionPreference = "Stop"
+$Repo = "C:\Users\Van Arquilos\Desktop\PersonalSkinManager-Updates"
+$Ref = "rebuild/v1.0.5-rose-compatible"
+$TempScript = Join-Path $env:TEMP "finish-psm-v105-rose-qa.ps1"
+
+git -C $Repo fetch origin ("+refs/heads/" + $Ref + ":refs/remotes/origin/" + $Ref)
+if ($LASTEXITCODE -ne 0) { throw "Fetch failed" }
+
+$ScriptText = @(git -C $Repo show ("origin/" + $Ref + ":scripts/finish_v105_rose_private_qa.ps1"))
+if ($LASTEXITCODE -ne 0 -or $ScriptText.Count -eq 0) {
+    throw "Cannot retrieve QA completion script"
+}
+$ScriptText | Set-Content -LiteralPath $TempScript -Encoding Ascii
+
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $TempScript
+if ($LASTEXITCODE -ne 0) { throw "Isolated PSM private build failed" }
+```
+
+This completes only **source/private frozen packaging** if Windows build
+dependencies and all earlier QA invariants pass. The build produces **no**
+working LTK host/DLL and does not establish visible skin rendering.
+
 ## Verification gates
 
 - Windows source contract tests pass, including proper installer ownership, branch preservation and SHA/protocol/cutoff checks.
