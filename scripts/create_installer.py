@@ -145,9 +145,12 @@ def create_installer():
         print(f"Size: {size_mb:.1f} MB")
 
         print("\n" + "=" * 60)
-        print("Installer Ready!")
+        print("LOCAL QA INSTALLER BUILT - NOT A VERIFIED PUBLIC RELEASE")
         print("=" * 60)
         print(f"File: {installer_file}")
+        print("The official LTK host/DLL pair is NOT included.")
+        print("In-game skin rendering, security/rights and clean-install QA are NOT verified.")
+        print("Do not upload, publish or share this installer as fully working.")
         print("\nFeatures:")
         print("- Windows Apps list integration")
         print("- Start Menu shortcuts")
