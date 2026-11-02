@@ -67,29 +67,44 @@ def main() -> int:
         raise RuntimeError("PSM stand-in source missing.")
     output = output_dir / "cslol-dll.dll"
     with tempfile.TemporaryDirectory() as temp:
-        implib = Path(temp) / "cslol-dll.lib"
-        statement = (
-            f'call "{vcvars}" >nul && '
+        # cmd.exe /c with a constructed string containing vcvars64.bat's
+        # quoted "Program Files (x86)" path can strip the first quote and
+        # fail before cl.exe runs. Use a short-named local .cmd file instead:
+        # within a batch file, CALL "path with spaces" is parsed correctly.
+        # A single session also keeps the vcvars environment for dumpbin.
+        working = Path(temp)
+        implib = working / "cslol-dll.lib"
+        export_log = working / "exports.txt"
+        batch = working / "build_stub.cmd"
+        batch.write_text(
+            "@echo off\n"
+            f'call "{vcvars}" >nul\n'
+            "if errorlevel 1 exit /b 10\n"
             f'cl /nologo /LD /O1 /GS- /TC "{SOURCE}" '
             f'/link /NOENTRY /NODEFAULTLIB '
-            f'/OUT:"{output}" /IMPLIB:"{implib}"'
+            f'/OUT:"{output}" /IMPLIB:"{implib}"\n'
+            "if errorlevel 1 exit /b 11\n"
+            f'dumpbin /nologo /exports "{output}" > "{export_log}"\n'
+            "if errorlevel 1 exit /b 12\n",
+            encoding="ascii",
         )
-        result = subprocess.run(["cmd", "/d", "/c", statement], cwd=temp, check=False)
-        if result.returncode != 0:
-            raise RuntimeError(f"MSVC stub build failed ({result.returncode}).")
-        # Prove the compiled DLL exports what the actual upstream import-table
-        # consumer expects. Do not assume source-level declarations are enough.
-        export_cmd = (
-            f'call "{vcvars}" >nul && '
-            f'dumpbin /nologo /exports "{output}"'
-        )
-        exported = subprocess.run(
-            ["cmd", "/d", "/c", export_cmd],
-            cwd=temp, capture_output=True, text=True, errors="replace",
+        # The batch filename has no spaces. CWD may contain spaces but no
+        # part of the cmd /c argument needs nested path quotation.
+        result = subprocess.run(
+            ["cmd.exe", "/d", "/c", batch.name],
+            cwd=working, capture_output=True, text=True, errors="replace",
             check=False,
         )
-        if exported.returncode != 0:
-            raise RuntimeError("MSVC dumpbin export validation did not run.")
+        if result.returncode != 0:
+            diagnostic = (result.stdout + "\n" + result.stderr).strip()[-4000:]
+            raise RuntimeError(
+                f"MSVC stub build or export dump failed ({result.returncode}). "
+                f"Output: {diagnostic}"
+            )
+        if not export_log.is_file():
+            raise RuntimeError("MSVC dumpbin export table was not created.")
+        # Check real compiled PE export names rather than only source code.
+        export_listing = export_log.read_text(encoding="utf-8", errors="replace")
         expected_exports = {
             "cslol_find", "cslol_hook", "cslol_init", "cslol_log_pull",
             "cslol_msg_hookproc", "cslol_set_config", "cslol_set_flags",
@@ -99,7 +114,7 @@ def main() -> int:
         matched = set(re.findall(
             r"^\s*\d+\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+"
             r"(cslol_[a-z_]+)\s*$",
-            exported.stdout, flags=re.MULTILINE,
+            export_listing, flags=re.MULTILINE,
         ))
         if matched != expected_exports:
             raise RuntimeError(

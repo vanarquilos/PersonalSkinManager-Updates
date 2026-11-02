@@ -1,7 +1,7 @@
 # PSM v1.0.5: Rose-style private QA frozen app, user-provided LTK.
 # Bundles PSM's inert CSLOL loader stub and mod-tools but never LTK.
 # Strictly local. Does not create an installer or publish files.
-param([Parameter(Mandatory=$true)][string]$ModToolsFile)
+param([Parameter(Mandatory=$true)][string]$ModToolsFile, [switch]$ResumeFailedStubBuild)
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 function Check([string]$Name) {
@@ -35,8 +35,31 @@ try {
     $Result = Join-Path $Parent "rose-style-frozen-private-qa.json"
     $Public = Join-Path $Root "installer\PersonalSkinManager_Setup.exe"
     $ModDest = Join-Path $Tools "mod-tools.exe"
-    foreach ($Item in @($Dist, $StubDir, $Result, $Public, $ModDest)) {
-        if (Test-Path -LiteralPath $Item) { throw "Existing output: $Item. Start a new linked worktree." }
+    if ($ResumeFailedStubBuild) {
+        # Only the known failure mode is resumable: pinned mod-tools was
+        # copied; inert stub directory exists but is EMPTY. Never replace a
+        # completed binary, installer, manifest or a nonempty output folder.
+        foreach ($Item in @($Dist, $Result, $Public)) {
+            if (Test-Path -LiteralPath $Item) {
+                throw "Completed or unexpected output exists; refusing resume: $Item"
+            }
+        }
+        if (-not (Test-Path -LiteralPath $ModDest -PathType Leaf) -or
+            (Sha $ModDest) -ne "25FA57EB81ED308DCF8E3E2ABA1E3981E1697C99752F879E84746D1D90B4CB44") {
+            throw "Cannot resume: expected SHA-pinned staged mod-tools is absent/changed."
+        }
+        if (-not (Test-Path -LiteralPath $StubDir -PathType Container) -or
+            @(Get-ChildItem -LiteralPath $StubDir -Force).Count -ne 0) {
+            throw "Cannot resume: original stub output folder is absent or not empty."
+        }
+        Write-Host "Verified empty failed-stub state; keeping original staged mod-tools." -ForegroundColor Cyan
+    }
+    else {
+        foreach ($Item in @($Dist, $StubDir, $Result, $Public, $ModDest)) {
+            if (Test-Path -LiteralPath $Item) {
+                throw "Existing output: $Item. Start a new linked worktree."
+            }
+        }
     }
     if (-not (Test-Path -LiteralPath $ModToolsFile -PathType Leaf) -or
         (Sha $ModToolsFile) -ne "25FA57EB81ED308DCF8E3E2ABA1E3981E1697C99752F879E84746D1D90B4CB44") {
@@ -49,8 +72,10 @@ try {
     if ($Running.Count -gt 0) { throw "Close PSM, LTK host and League gameplay." }
     & python -m unittest tests.test_v105_user_ltk_provisioning tests.test_v105_rose_style_build_contract tests.test_v105_current_ltk_private_manifest tests.test_v105_current_ltk_build_contract tests.test_ltk_host_protocol tests.test_release_packaging
     Check "Rose-style regression tests"
-    New-Item -ItemType Directory -Path $Tools -Force | Out-Null
-    Copy-Item -LiteralPath $ModToolsFile -Destination $ModDest
+    if (-not $ResumeFailedStubBuild) {
+        New-Item -ItemType Directory -Path $Tools -Force | Out-Null
+        Copy-Item -LiteralPath $ModToolsFile -Destination $ModDest
+    }
     if ((Sha $ModDest) -ne (Sha $ModToolsFile)) { throw "Staged mod-tools mismatch." }
     New-Item -ItemType Directory -Path $StubDir -Force | Out-Null
     $OldStub = [Environment]::GetEnvironmentVariable("PSM_LOCAL_STUB_OUTPUT_DIR", "Process")

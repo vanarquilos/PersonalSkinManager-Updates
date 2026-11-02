@@ -106,7 +106,7 @@ def is_registered_for_autostart():
 
 def register_autostart():
     """
-    Register the application in Windows Task Scheduler to auto-start at logon with admin rights.
+    Register the application to start at logon WITHOUT elevated runtime rights.
     This avoids UAC prompts on every startup.
     
     Returns:
@@ -128,14 +128,15 @@ def register_autostart():
         return True, "Already registered for auto-start"
     
     try:
-        # Create a scheduled task that runs at logon with highest privileges
+        # The new delivered LTK DLL requires standard-user integrity. Do not
+    # launch PSM elevated at logon, even if setup ran with administrator rights.
         cmd = [
             'schtasks',
             '/Create',
             '/TN', 'PersonalSkinManager',  # Task name
             '/TR', f'"{exe_path}"',  # Task to run
             '/SC', 'ONLOGON',  # Trigger: On user logon
-            '/RL', 'HIGHEST',  # Run with highest privileges (admin)
+            '/RL', 'LIMITED',  # Run as a normal user; required for LTK
             '/F'  # Force create (overwrite if exists)
         ]
         
@@ -147,7 +148,7 @@ def register_autostart():
         )
         
         if result.returncode == 0:
-            return True, "Successfully registered for auto-start with admin rights"
+            return True, "Successfully registered for normal-user auto-start"
         else:
             return False, f"Failed to register: {result.stderr}"
     

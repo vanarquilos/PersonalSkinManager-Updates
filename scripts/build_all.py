@@ -175,11 +175,16 @@ def build_all():
     print("  • For development/testing:")
     print("    Run: dist\\PersonalSkinManager\\PersonalSkinManager.exe")
     print()
-    print("  • For distribution:")
-    print(f"    Share: {installer_path if installer_path else 'installer/PersonalSkinManager_Setup.exe'}")
+    # Packaging is not a release gate. The Rose-style installer intentionally
+    # contains NO user-provided LTK runtime, and actual in-game skin rendering
+    # has not been established by an EXE or installer compile.
+    print("  • PRIVATE QA ONLY - DO NOT PUBLISH OR DISTRIBUTE THIS BUILD")
+    print("    User-provided LTK host/DLL is NOT bundled.")
+    print("    Compatible vendor runtime + Practice Tool rendering remain unverified.")
+    print("    Installed clean-start/upgrade and distribution authorization remain open.")
     print()
-    print("  • For portable version:")
-    print("    Zip: dist\\PersonalSkinManager\\ folder")
+    print("  • To test the local portable folder:")
+    print("    Use dist\\PersonalSkinManager\\ on this computer only.")
     
     print("\n" + "=" * 70)
     
