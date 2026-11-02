@@ -151,9 +151,16 @@ def main() -> int:
     parser.add_argument("--qa-root", required=True, type=Path)
     parser.add_argument("--league-dir", required=True, type=Path)
     parser.add_argument("--ltk-dir", type=Path)
+    parser.add_argument(
+        "--report-only", action="store_true",
+        help="Print the release audit without failing the shell on NO_GO.",
+    )
     args = parser.parse_args()
-    print(json.dumps(inspect(args.qa_root, args.league_dir, args.ltk_dir), indent=2))
-    return 0
+    report = inspect(args.qa_root, args.league_dir, args.ltk_dir)
+    print(json.dumps(report, indent=2))
+    # Fail-closed default: a build script invoking this without --report-only
+    # cannot accidentally treat a private QA audit as public release approval.
+    return 0 if args.report_only or report["public_release"] == "GO" else 2
 
 
 if __name__ == "__main__":
