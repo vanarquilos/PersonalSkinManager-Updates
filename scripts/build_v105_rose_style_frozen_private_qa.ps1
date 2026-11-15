@@ -70,7 +70,7 @@ try {
             "League of Legends (TM) Client","ltk_patcher_host")
     })
     if ($Running.Count -gt 0) { throw "Close PSM, LTK host and League gameplay." }
-    & python -m unittest tests.test_v105_user_ltk_provisioning tests.test_v105_rose_style_build_contract tests.test_v105_current_ltk_private_manifest tests.test_v105_current_ltk_build_contract tests.test_ltk_host_protocol tests.test_release_packaging
+    & python -m unittest tests.test_v105_user_ltk_provisioning tests.test_v105_rose_style_build_contract tests.test_v105_current_ltk_private_manifest tests.test_v105_current_ltk_build_contract tests.test_ltk_host_protocol tests.test_release_packaging tests.test_runtime_failure_reporting tests.test_v105_ltk_expiry_troubleshooting tests.test_v105_rose_runtime_diagnostics
     Check "Rose-style regression tests"
     if (-not $ResumeFailedStubBuild) {
         New-Item -ItemType Directory -Path $Tools -Force | Out-Null
