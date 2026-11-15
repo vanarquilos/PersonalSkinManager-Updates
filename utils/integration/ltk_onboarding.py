@@ -1,7 +1,8 @@
 """Native startup guidance for missing or expired user-provided LTK runtime.
 
-Follows Rose's supported user-supplied patcher workflow. Never downloads,
-replaces, injects, or modifies external binaries or security settings.
+Current Rose v1.5+ uses installed LTK Manager, not copied patcher files.
+This module describes PSM's legacy, private user-supplied DLL path honestly.
+Never downloads, injects, or modifies external binaries or security settings.
 """
 from __future__ import annotations
 
@@ -20,8 +21,16 @@ def explain_ltk_runtime_problem(tools_dir: Path, game_dir: Optional[Path] = None
     if status.missing:
         return (
             "LTK patcher files are missing or failed integrity verification.\n\n"
-            "PSM needs a matching, trusted ltk_patcher_host.exe and "
-            "ltk_patcher_dll.dll. Use the documented local provisioning workflow."
+            "PSM's old direct-host backend requires ltk_patcher_host.exe and "
+            "ltk_patcher_dll.dll, but recent official LTK releases also restrict "
+            "third-party hosts. Current Alban1911/Rose uses installed LTK Manager. "
+            "Copying patcher files is NOT a confirmed fix for PSM."
+        )
+    if status.eol is None:
+        return (
+            "PSM cannot verify the selected LTK DLL's build cutoff.\n\n"
+            "A copied host/DLL pair does not establish authorization to use "
+            "the official patcher. Do not bypass host or game integrity checks."
         )
     if status.expired_for(game_dir):
         cutoff = datetime.fromtimestamp(status.eol).strftime("%Y-%m-%d")
@@ -34,9 +43,9 @@ def explain_ltk_runtime_problem(tools_dir: Path, game_dir: Optional[Path] = None
             "The installed LTK DLL is TOO OLD for this League build.\n\n"
             f"LTK DLL cutoff: {cutoff}\n"
             f"League executable build: {game_date}\n\n"
-            "Replace BOTH LTK host and DLL with a supported, trusted pair "
-            "and restart Personal Skin Manager. Rebuilding PSM with this old "
-            "DLL cannot make skins work. Do not disable game security checks."
+            "Current Rose uses LTK Manager to obtain updated patchers. "
+            "Simply replacing PSM's DLL cannot guarantee an accepted third-party "
+            "host. Do not disable game security or vendor verification checks."
         )
     return None
 
@@ -75,9 +84,11 @@ def notify_user_provided_ltk_missing(tools_dir: Path) -> bool:
         detail = (
             problem
             + "\n\nPSM does not distribute LTK's signed patcher. "
-              "Obtain the current official pair from LTK Manager, verify "
-              "its signature and SHA-256, then use the included "
-              "tools\\import_user_ltk_v105.ps1. See docs\\USER_LTK_SETUP.md.\n\n"
+              "Rose v1.5+ uses installed LTK Manager; PSM's direct-host "
+              "path is currently unverified even with current DLLs. "
+              "The included tools\\import_user_ltk_v105.ps1 is only for "
+              "explicitly reviewed local QA, not a guaranteed modskin fix. "
+              "See docs\\USER_LTK_SETUP.md.\n\n"
               "Open the local PSM setup-tools folder? No files will be changed."
         )
         answer = ctypes.windll.user32.MessageBoxW(
