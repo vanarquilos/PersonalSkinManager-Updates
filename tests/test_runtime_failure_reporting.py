@@ -46,17 +46,18 @@ class RuntimeFailureReportingTests(unittest.TestCase):
             with (
                 patch("injection.tools.tools_manager.check_ltk_patcher", return_value=status),
                 patch.object(status, "expired_for", return_value=True) as check,
+                patch("injection.tools.tools_manager.read_game_build", return_value=1_000_001),
                 patch("injection.tools.tools_manager.report_issue") as report,
             ):
                 self.assertFalse(ToolsManager(tools).check_tools_available(tools))
             check.assert_called_once_with(tools)
             self.assertEqual(report.call_args.args[0], "LTK_PATCHER_EOL")
 
-    def test_present_files_do_not_claim_verified_skin_compatibility(self):
+    def test_unknown_dll_cutoff_never_claims_runtime_ready(self):
         with tempfile.TemporaryDirectory() as d:
             tools = Path(d)
-            for n in ("mod-tools.exe", "ltk_patcher_host.exe", "ltk_patcher_dll.dll"):
-                (tools / n).write_bytes(b"x")
+            for name in ("mod-tools.exe", "ltk_patcher_host.exe", "ltk_patcher_dll.dll"):
+                (tools / name).write_bytes(b"x")
             status = LtkPatcherStatus(
                 host=tools / "ltk_patcher_host.exe",
                 dll=tools / "ltk_patcher_dll.dll",
@@ -65,13 +66,55 @@ class RuntimeFailureReportingTests(unittest.TestCase):
             )
             with (
                 patch("injection.tools.tools_manager.check_ltk_patcher", return_value=status),
+                patch("injection.tools.tools_manager.report_issue") as reported,
+            ):
+                manager = ToolsManager(tools)
+                self.assertFalse(manager.check_tools_available(tools))
+            self.assertEqual(manager.last_failure_code, "LTK_PATCHER_CUTOFF_UNKNOWN")
+            self.assertEqual(reported.call_args.args[0], "LTK_PATCHER_CUTOFF_UNKNOWN")
+
+    def test_unreadable_league_build_is_not_a_false_ready_state(self):
+        with tempfile.TemporaryDirectory() as d:
+            tools = Path(d)
+            for name in ("mod-tools.exe", "ltk_patcher_host.exe", "ltk_patcher_dll.dll"):
+                (tools / name).write_bytes(b"x")
+            status = LtkPatcherStatus(
+                host=tools / "ltk_patcher_host.exe",
+                dll=tools / "ltk_patcher_dll.dll",
+                missing=[],
+                eol=1_000_000,
+            )
+            with (
+                patch("injection.tools.tools_manager.check_ltk_patcher", return_value=status),
+                patch("injection.tools.tools_manager.read_game_build", return_value=None),
+                patch("injection.tools.tools_manager.report_issue") as reported,
+            ):
+                manager = ToolsManager(tools)
+                self.assertFalse(manager.check_tools_available(tools))
+            self.assertEqual(manager.last_failure_code, "LEAGUE_BUILD_UNREADABLE")
+            self.assertEqual(reported.call_args.args[0], "LEAGUE_BUILD_UNREADABLE")
+
+    def test_known_cutoff_only_logs_preliminary_validation_not_skin_success(self):
+        with tempfile.TemporaryDirectory() as d:
+            tools = Path(d)
+            for name in ("mod-tools.exe", "ltk_patcher_host.exe", "ltk_patcher_dll.dll"):
+                (tools / name).write_bytes(b"x")
+            status = LtkPatcherStatus(
+                host=tools / "ltk_patcher_host.exe",
+                dll=tools / "ltk_patcher_dll.dll",
+                missing=[],
+                eol=1_000_001,
+            )
+            with (
+                patch("injection.tools.tools_manager.check_ltk_patcher", return_value=status),
+                patch("injection.tools.tools_manager.read_game_build", return_value=1_000_000),
                 patch.object(status, "expired_for", return_value=False),
                 patch("injection.tools.tools_manager.log") as logger,
             ):
                 self.assertTrue(ToolsManager(tools).check_tools_available(tools))
-                messages = " ".join(str(call.args) for call in logger.info.call_args_list)
-                self.assertIn("no known League-build cutoff exceeded", messages)
-                self.assertNotIn("compatible with installed League build", messages)
+            messages = " ".join(str(call.args) for call in logger.info.call_args_list)
+            self.assertIn("UNVERIFIED", messages)
+            self.assertNotIn("skin applied successfully", messages.lower())
 
 
 if __name__ == "__main__":

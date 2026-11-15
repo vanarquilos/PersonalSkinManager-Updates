@@ -1,0 +1,25 @@
+name: PSM v1.0.5 Runner Provisioning Probe
+
+on:
+  push:
+    branches:
+      - rebuild/v1.0.5-rose-compatible
+    paths:
+      - ".github/workflows/v105-runner-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  minimal-runner-probe:
+    name: Verify GitHub Actions runner can start
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Confirm runner initialized
+        shell: bash
+        run: |
+          echo "PSM v1.0.5 GitHub Actions runner initialized"
+          echo "runner_os=$RUNNER_OS"
+          echo "commit=$GITHUB_SHA"

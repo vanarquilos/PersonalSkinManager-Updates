@@ -42,7 +42,7 @@ class LtkExpiryTroubleshootingTests(TestCase):
         report.assert_called_once()
         kwargs = report.call_args.kwargs
         self.assertEqual(report.call_args.args[0], "LTK_PATCHER_EOL")
-        self.assertIn("Replace BOTH LTK host and DLL", kwargs["hint"])
+        self.assertIn("official LTK Manager", kwargs["hint"])
         self.assertIn("2026", kwargs["hint"])
         self.assertIn("Do not reuse the expired pair", kwargs["hint"])
 
@@ -67,8 +67,12 @@ class LtkExpiryTroubleshootingTests(TestCase):
             self.assertFalse(self.manager.check_tools_available(self.folder))
         self.assertEqual(self.manager.last_failure_code, "LTK_PATCHER_EOL")
 
-        with mock.patch("injection.tools.tools_manager.check_ltk_patcher",
-                        return_value=self._status(expired=False)):
+        with (
+            mock.patch("injection.tools.tools_manager.check_ltk_patcher",
+                       return_value=self._status(expired=False)),
+            mock.patch("injection.tools.tools_manager.read_game_build",
+                       return_value=1791000000),
+        ):
             self.assertTrue(self.manager.check_tools_available(self.folder))
         self.assertIsNone(self.manager.last_failure_code)
 

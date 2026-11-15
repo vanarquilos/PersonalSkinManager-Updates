@@ -5,7 +5,7 @@ Tools Manager
 Validates the overlay builder and current LTK runtime.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Optional
 import time
@@ -63,6 +63,41 @@ class ToolsManager:
             )
             return False
 
+        # A successful file/hash check alone cannot validate a changing
+        # upstream DLL. The old direct-host backend must not report "ready"
+        # when the game PE timestamp or DLL compatibility cutoff is unknown.
+        if patcher.eol is None:
+            self.last_failure_code = "LTK_PATCHER_CUTOFF_UNKNOWN"
+            report_issue(
+                "LTK_PATCHER_CUTOFF_UNKNOWN",
+                "error",
+                "Cannot verify the selected LTK DLL's League-build compatibility.",
+                hint=(
+                    "Do not assume a copied DLL works. Current Rose uses "
+                    "LTK Manager's delivered patcher, and recent vendor DLLs "
+                    "can reject direct third-party hosts. Use a supported "
+                    "integration; do not bypass host verification."
+                ),
+                dedupe_window_s=120.0,
+            )
+            return False
+
+        game_stamp = read_game_build(game_dir) if game_dir is not None else None
+        if game_stamp is None:
+            self.last_failure_code = "LEAGUE_BUILD_UNREADABLE"
+            report_issue(
+                "LEAGUE_BUILD_UNREADABLE",
+                "error",
+                "Cannot verify the installed League executable build.",
+                hint=(
+                    "Check League's actual Game directory in Settings and "
+                    "repair the game installation if its executable is missing. "
+                    "Do not launch the patcher until the game build is known."
+                ),
+                dedupe_window_s=120.0,
+            )
+            return False
+
         if patcher.expired_for(game_dir):
             self.last_failure_code = "LTK_PATCHER_EOL"
             # Remove the previous generic secondary error before recording
@@ -74,10 +109,9 @@ class ToolsManager:
             # Align with Rose's patcher EOL interpretation: this is the
             # COMPATIBILITY boundary enforced by the DLL, not a packaging
             # warning or a condition that can be solved by retrying injection.
-            eol_text = datetime.fromtimestamp(patcher.eol).strftime("%Y-%m-%d")
-            game_stamp = read_game_build(game_dir) if game_dir is not None else None
+            eol_text = datetime.fromtimestamp(patcher.eol, timezone.utc).strftime("%Y-%m-%d UTC")
             game_text = (
-                datetime.fromtimestamp(game_stamp).strftime("%Y-%m-%d")
+                datetime.fromtimestamp(game_stamp, timezone.utc).strftime("%Y-%m-%d UTC")
                 if game_stamp is not None else "unknown"
             )
             log.error(
@@ -96,8 +130,8 @@ class ToolsManager:
                 },
                 hint=(
                     f"LTK supports game builds through {eol_text}; your League "
-                    f"executable was built {game_text}. Replace BOTH LTK host "
-                    "and DLL with a trusted, compatible pair, then restart PSM. "
+                    f"executable was built {game_text}. The current Rose "
+                    "release uses official LTK Manager rather than copied DLLs. "
                     "Do not reuse the expired pair or bypass compatibility checks."
                 ),
                 dedupe_window_s=120.0,
@@ -111,7 +145,10 @@ class ToolsManager:
         clear_issue("INJECTION_RUNTIME_UNAVAILABLE")
         # This check establishes file presence and that no known cutoff was
         # exceeded. It CANNOT prove overlay/material compatibility.
-        log.info("[INJECT] Runtime files present; no known League-build cutoff exceeded")
+        log.info(
+            "[INJECT] DLL/game timestamps pass a preliminary cutoff check; "
+            "direct host authorization and visible skin rendering remain UNVERIFIED"
+        )
         return True
 
     def detect_tools(self) -> Dict[str, Path]:

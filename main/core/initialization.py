@@ -13,7 +13,7 @@ from state import SharedState, AppStatus
 from injection import InjectionManager
 from injection.mods.storage import ModStorageService
 from utils.core.logging import get_logger, log_success
-from utils.system.admin_utils import ensure_admin_rights
+from utils.system.admin_utils import is_admin
 from config import APP_VERSION, set_config_option
 
 log = get_logger()
@@ -28,8 +28,14 @@ def initialize_core_components(args, injection_threshold: Optional[float] = None
     """
     set_config_option("General", "installed_version", APP_VERSION)
     
-    # Check for admin rights FIRST (required for injection to work)
-    ensure_admin_rights()
+    # Current official LTK sessions are unelevated. Do NOT re-launch the
+    # entire app as Administrator: that would elevate the child LTK host too.
+    # Privileged maintenance/setup must use a separate explicit action.
+    if is_admin():
+        log.warning(
+            "PSM is elevated; current official LTK sessions require normal "
+            "user integrity. Restart PSM normally before applying skins."
+        )
 
     # Ensure mods directory layout exists early (and clean unknown root categories)
     try:

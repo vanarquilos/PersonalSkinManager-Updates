@@ -31,6 +31,12 @@ _ALLOWED_CODES = {
     'LTK_OVERLAY_REJECTED',   # Current LTK verification rejected the requested overlay
     'LTK_PATCHER_EOL',       # The current DLL is older than the installed League build
     'LTK_PATCHER_MISSING',   # Required host or DLL files are not present
+    'LTK_HOST_VERIFICATION_FAILED',  # Official patcher refused the PSM host; cannot apply skins
+    'LTK_ADMIN_CONTEXT',            # LTK requires standard-user process integrity
+    'LTK_NO_WAD_REDIRECTION',       # Host attached but game never served modded WAD
+    'LTK_PATCHER_CUTOFF_UNKNOWN',    # DLL cutoff could not be inspected safely
+    'LEAGUE_BUILD_UNREADABLE',      # Game path exists but executable PE build not readable
+    'LEAGUE_DIR_NOT_FOUND',         # League path missing during initialization
     'INJECTION_RUNTIME_UNAVAILABLE',  # Startup refused an incompatible runtime
 }
 
@@ -135,6 +141,7 @@ def clear_issue(code: str, *, legacy_only: bool = False) -> bool:
             _CODE_MARKERS = {
                 "LTK_OVERLAY_REJECTED": (
                     "Current LTK runtime still disabled the Rose overlay.",
+                    "LTK rejected the PSM overlay; no skin was applied.",
                     "Skin/mod was not applied because current League Toolkit verification rejected the overlay.",
                     "Selected unowned League skin cannot be applied with the current supported patcher.",
                 ),

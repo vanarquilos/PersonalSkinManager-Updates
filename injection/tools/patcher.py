@@ -30,7 +30,7 @@ GAME_EXECUTABLE_NAMES = (
 # The QA selector is intentionally pinned to the reviewed v1.28.1 build.
 LTK_QA_RUNTIME_DIR_ENV = "PSM_LTK_QA_RUNTIME_DIR"
 LTK_QA_MANIFEST_ENV = "PSM_LTK_QA_MANIFEST"
-LTK_CURRENT_HOST_PROTOCOL = 3  # LTK Manager v1.31.1 bundled host protocol; verify candidate API separately
+LTK_CURRENT_HOST_PROTOCOL = 3  # Current official Manager host protocol; verify each delivered candidate separately
 LTK_USER_MANIFEST = "ltk-user-local.json"
 LTK_QA_ORIGINAL_SHA256 = {
     LTK_PATCHER_HOST: "23FA1AAEDA1A0C743DA44227F179084E1FB81C7CD262144A3C8604FFC49D3BC1",
