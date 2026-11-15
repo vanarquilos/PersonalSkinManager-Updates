@@ -5,7 +5,7 @@ Tools Manager
 Validates the overlay builder and current LTK runtime.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Optional
 import time
@@ -109,9 +109,9 @@ class ToolsManager:
             # Align with Rose's patcher EOL interpretation: this is the
             # COMPATIBILITY boundary enforced by the DLL, not a packaging
             # warning or a condition that can be solved by retrying injection.
-            eol_text = datetime.fromtimestamp(patcher.eol).strftime("%Y-%m-%d")
+            eol_text = datetime.fromtimestamp(patcher.eol, timezone.utc).strftime("%Y-%m-%d UTC")
             game_text = (
-                datetime.fromtimestamp(game_stamp).strftime("%Y-%m-%d")
+                datetime.fromtimestamp(game_stamp, timezone.utc).strftime("%Y-%m-%d UTC")
                 if game_stamp is not None else "unknown"
             )
             log.error(
