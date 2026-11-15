@@ -1,5 +1,12 @@
 # Personal Skin Manager v1.0.5 — Rose-compatible rebuild
 
+> **November 15 correction:** This is a **historical direct-host private QA
+> build guide**, not the current Rose runtime architecture. Rose 1.5+ switched
+> to LTK Manager. Copying newer host/DLL files into PSM does not overcome
+> upstream third-party host restrictions. See
+> [ROSE_156_SOURCE_AUDIT_2026-11-15.md](ROSE_156_SOURCE_AUDIT_2026-11-15.md)
+> before using any commands below.
+
 **Status:** new development branch, NOT A PUBLIC RELEASE; actual skin rendering NOT VERIFIED.
 
 ## Source and branch ownership
@@ -18,7 +25,7 @@
 4. A PSM user-owned local manifest pins both SHA-256 hashes, host protocol 3, and a non-distribution status. `scripts/import_user_ltk_v105.ps1` performs an explicit signed-file import into a user-owned installation.
 5. The DLL's embedded end-of-life cutoff is compared against the installed League executable PE build. The supported runtime and successful visible in-game rendering must both be established separately. Do not bypass game/patcher security checks.
 
-This matches Rose's documented user-supplied host/DLL model. **Copying Rose's source cannot generate a newer official signed LTK DLL.**
+**Historical approach only:** This direct host/DLL arrangement does **not** match current Rose v1.5+, which requires installed LTK Manager and an LTF session. **Copying Rose's source cannot generate a newer official signed LTK DLL or satisfy host authorization.**
 
 ## Known incompatible game/runtime
 
