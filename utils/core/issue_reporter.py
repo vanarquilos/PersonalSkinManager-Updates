@@ -141,6 +141,7 @@ def clear_issue(code: str, *, legacy_only: bool = False) -> bool:
             _CODE_MARKERS = {
                 "LTK_OVERLAY_REJECTED": (
                     "Current LTK runtime still disabled the Rose overlay.",
+                    "LTK rejected the PSM overlay; no skin was applied.",
                     "Skin/mod was not applied because current League Toolkit verification rejected the overlay.",
                     "Selected unowned League skin cannot be applied with the current supported patcher.",
                 ),
