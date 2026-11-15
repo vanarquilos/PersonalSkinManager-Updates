@@ -194,14 +194,14 @@ def _report_overlay_rejected(line: str) -> None:
     report_issue(
         "LTK_OVERLAY_REJECTED",
         "error",
-        "Current LTK runtime still disabled the Rose overlay.",
+        "LTK rejected the PSM overlay; no skin was applied.",
         details={
             "backend": "ltk",
             "flags": LTK_PATCHER_FLAGS,
             "verdict": line,
         },
         hint=(
-            "Stop repeated match attempts and send the latest Rose log. "
+            "Stop repeated match attempts and inspect the latest PSM logs. "
             "The current runtime attached, but the overlay was disabled."
         ),
         dedupe_window_s=30.0,
