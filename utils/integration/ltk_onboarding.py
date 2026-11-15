@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -33,10 +33,10 @@ def explain_ltk_runtime_problem(tools_dir: Path, game_dir: Optional[Path] = None
             "the official patcher. Do not bypass host or game integrity checks."
         )
     if status.expired_for(game_dir):
-        cutoff = datetime.fromtimestamp(status.eol).strftime("%Y-%m-%d")
+        cutoff = datetime.fromtimestamp(status.eol, timezone.utc).strftime("%Y-%m-%d UTC")
         game_timestamp = read_game_build(game_dir) if game_dir is not None else None
         game_date = (
-            datetime.fromtimestamp(game_timestamp).strftime("%Y-%m-%d")
+            datetime.fromtimestamp(game_timestamp, timezone.utc).strftime("%Y-%m-%d UTC")
             if game_timestamp is not None else "unknown"
         )
         return (
