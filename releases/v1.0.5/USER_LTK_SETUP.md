@@ -1,11 +1,20 @@
-# Personal Skin Manager v1.0.5 — user-supplied LTK setup
+# Personal Skin Manager v1.0.5 — legacy LTK import for PRIVATE QA
 
-PSM follows the documented Alban1911/Rose user-supplied patcher model. The
-installer intentionally contains **no** `ltk_patcher_host.exe` or
-`ltk_patcher_dll.dll`. PSM can open and manage its local library without
-those files, but applying skins requires a compatible, trusted runtime.
+**This is not the current Rose runtime architecture and is not an end-user
+modskin fix.** As of Rose 1.5.0 (November 5, 2026), Alban1911/Rose requires
+an installed official LTK Manager and controls it through its own LTF bridge.
+Recent official patcher DLLs implement host verification intended to reject
+third-party direct host sessions. Importing two files into PSM, even files
+with valid Authenticode signatures and SHA-256 hashes, **does not make PSM's
+standalone direct-host backend authorized or functional**.
 
-## Supported input
+The PSM installer intentionally contains **no** `ltk_patcher_host.exe` or
+`ltk_patcher_dll.dll`. PSM's library and non-injection features can run
+without those files. This opt-in import procedure is retained only for
+private, controlled diagnostics while an authorized runtime architecture
+is evaluated. Do not distribute or call a resulting build skin-ready.
+
+## Reviewed private QA input only
 
 Obtain **both matching files** from LeagueToolkit's authorized release/update
 channel or an existing official LTK Manager installation. Do not take files
@@ -17,7 +26,7 @@ On October 31, 2026, every LTK pair in the maintainer's seven scanned PSM
 folders was expired for the October 30 League executable build. Reusing
 those files will not resolve the failure.
 
-## Local setup after PSM installation (Windows PowerShell as Administrator)
+## Optional private diagnostic setup after PSM installation (Windows PowerShell as Administrator)
 
 Replace the example official source folder with a real location containing
 the two original, signed files:
@@ -49,7 +58,9 @@ Provisioning writes only to the PSM runtime directory and creates a local
 SHA-256 manifest. PSM uses that manifest to detect later changes. The script
 does not download a binary, extend the DLL's compatibility, execute a game
 process, or grant any redistribution rights. A valid digital signature and
-matching hash are necessary checks, but cannot alone prove skin rendering.
+matching hash are necessary checks, but **cannot bypass host verification or
+prove that the copied DLL will run under PSM**. Current Rose does not use this
+copy-based procedure.
 
 If your PSM was installed in another folder, change `$PsmExe` and
 `$SetupScript` accordingly. The script refuses to overwrite an existing
@@ -58,7 +69,7 @@ old, already-provisioned files through a separate reviewed update path.
 
 ## Troubleshooting
 
-- **Missing runtime:** supply the signed matching host and DLL and restart PSM.
+- **Missing runtime:** the legacy PSM direct-host implementation cannot apply a skin. Supplying a pair is for diagnostics only, not a confirmed fix.
 - **LTK patcher outdated:** the installed game's PE build is newer than the
   selected DLL's embedded cutoff. Acquire a newer compatible official pair.
   Rebuilding the Python EXE cannot fix this.
