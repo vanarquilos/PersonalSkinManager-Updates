@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PSM v1.0.5 official LTK Manager handoff (custom mods only).
+r"""PSM v1.0.5 official LTK Manager handoff (custom mods only).
 
 No patcher control, DLL manipulation, background automation, or success claims.
 Usage:
