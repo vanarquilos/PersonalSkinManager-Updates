@@ -233,16 +233,17 @@ class LtkManagerUIRenderer:
         previous = next(p for p in profiles if p.profile_id == previous_id)
         window, launched_here = self._window(start_manager=True)
         self._focus_library(window)
-        self._switch_profile(window, selected.name)
-
-        # Official library Start and Stop controls. Never blindly toggle
-        # Ctrl+P, which could STOP an already-running patcher.
+        # Never mutate the active profile while the user's existing patcher
+        # is running. Ctrl+P is a toggle, so a blind keypress could stop it.
         if any(b.window_text().strip().casefold() == "stop"
                for b in self._buttons(window)):
             raise ManagerUIError(
                 "LTK patcher is already running. Stop it through LTK Manager "
                 "before PSM switches rendering sessions."
             )
+        self._switch_profile(window, selected.name)
+
+        # Official library Start control, not internal Tauri IPC or DLL calls.
         try:
             self._find_button(window, "Start").click_input()
         except ManagerUIError:
