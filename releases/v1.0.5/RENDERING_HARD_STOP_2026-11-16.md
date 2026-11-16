@@ -32,6 +32,15 @@ it asks the existing manager to resume. It records an actionable
 Three offline regression tests cover no side effects, missing readiness
 state and resume exceptions.
 
+The legacy LTK host session now also refuses to return success on a clean
+process exit or manual stop unless **all three** of these observations were
+recorded: game attachment, DLL overlay initialization and at least one
+modded WAD redirection. This corrects the former false-positive outcome
+when a host exited with zero attachment. Five offline regression tests
+cover both the evidence verdict and complete session return codes.
+A session without observable redirection is unverified; this is not proof
+that an unobserved rendering attempt necessarily failed visually.
+
 These safeguards address a real error path, but **they do not render
 skins**.
 
