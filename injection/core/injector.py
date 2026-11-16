@@ -158,6 +158,35 @@ class SkinInjector:
             chroma_id: Optional chroma ID to inject specific chroma variant
             extra_mods_callback: Optional callback(injector) -> list of extra mod folder names (e.g. party skins)
         """
+        # Reject unavailable renderers before selecting/extracting a skin.
+        # The private QA build contains only an inert CSLOL compatibility stub:
+        # it cannot render skins. Never delete staged mods, create overlays,
+        # or leave a game suspended just because skin assets were selected.
+        if not getattr(self, "runtime_ready", False):
+            log.error(
+                "[INJECT] Skin application blocked: no compatible, authorized "
+                "renderer backend has been validated."
+            )
+            report_issue(
+                "INJECTION_RUNTIME_UNAVAILABLE",
+                "error",
+                "PSM cannot apply the selected skin: the renderer is unavailable.",
+                hint=(
+                    "The installed LTK Manager does not provide PSM an "
+                    "authorized patcher-control interface. A valid installer "
+                    "hash or skin ZIP does not establish in-game rendering."
+                ),
+                dedupe_window_s=120.0,
+            )
+            if injection_manager is not None:
+                try:
+                    injection_manager.resume_if_suspended()
+                except Exception:
+                    log.exception(
+                        "[INJECT] Could not resume game after renderer preflight refusal"
+                    )
+            return False
+
         injection_start_time = time.time()
         
         # Game suspension is now handled entirely by the monitor in InjectionManager

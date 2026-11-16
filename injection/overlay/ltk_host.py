@@ -142,6 +142,20 @@ def _skin_redirect_not_observed(result: "LtkHostResult") -> bool:
     return result.attached and result.overlay_initialized and result.redirected_wads == 0
 
 
+def _skin_application_evidence_observed(result: "LtkHostResult") -> bool:
+    """A skin is not confirmed unless host, DLL and WAD activity all occurred.
+
+    A clean process exit, successful mkoverlay or attached-only state does
+    not establish that League ever read the selected modded skin archive.
+    """
+    return bool(
+        result.attached
+        and result.overlay_initialized
+        and result.redirected_wads > 0
+        and not result.failure
+    )
+
+
 
 class LtkHostResult:
     def __init__(self) -> None:
@@ -658,6 +672,12 @@ def run_ltk_patcher_host_session(
 
         if getattr(session.process_manager, "stopped_by_user", False):
             log.info("[INJECT] LTK patcher stopped by the user")
+            if not _skin_application_evidence_observed(result):
+                log.warning(
+                    "[INJECT][ltk-host] User stopped session before any "
+                    "confirmed skin redirection; not reporting success."
+                )
+                return 3
             return 0
 
         if result.failure:
@@ -704,6 +724,28 @@ def run_ltk_patcher_host_session(
                     "overlay_initialized": result.overlay_initialized,
                 },
                 hint="Check the selected mod archive's WAD path and compare it to the installed League WAD.",
+                dedupe_window_s=60.0,
+            )
+            return 3
+        # Missing attachment, DLL initialization, or recorded WAD delivery
+        # must never be interpreted as the selected skin appearing in-game.
+        if not _skin_application_evidence_observed(result):
+            log.warning(
+                "[INJECT][ltk-host] Session ended without complete skin "
+                "application evidence: attached=%s, overlay_initialized=%s, "
+                "redirected_wads=%s",
+                result.attached,
+                result.overlay_initialized,
+                result.redirected_wads,
+            )
+            report_issue(
+                "LTK_NO_WAD_REDIRECTION",
+                "warning",
+                "PSM cannot confirm that the selected skin rendered in-game.",
+                hint=(
+                    "A patcher exit or attachment alone is not skin application. "
+                    "Check for a supported renderer and recorded WAD delivery."
+                ),
                 dedupe_window_s=60.0,
             )
             return 3
