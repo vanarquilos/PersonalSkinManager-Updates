@@ -117,6 +117,14 @@ class OfficialLtkFileHandoffTests(TestCase):
                     launcher=lambda *a, **kw: None,
                 )
 
+    def test_cli_windows_usage_has_no_syntax_warning(self):
+        import warnings
+        script = (Path(__file__).resolve().parents[1] /
+                  "scripts/ltk_manager_handoff_v105.py")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", SyntaxWarning)
+            compile(script.read_text("utf-8"), str(script), "exec")
+
     def test_no_runtime_injection_or_host_verification_bypass(self):
         code = (Path(__file__).resolve().parents[1] /
                 "utils/integration/ltk_manager_handoff.py").read_text("utf-8")
