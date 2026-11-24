@@ -753,11 +753,13 @@ class InjectionTrigger:
                 if self.injection_manager:
                     self.injection_manager.discard_early_patcher()
                     self.injection_manager.resume_if_suspended()
-                self._force_owned_skin(effective_skin_id)
-                log.info(
-                    "[INJECT] Owned skin selection submitted to League; "
-                    "no overlay required. Visual rendering not verified."
-                )
+                if self._force_owned_skin(effective_skin_id):
+                    log.info(
+                        "[INJECT] League accepted owned skin selection; "
+                        "no overlay required. Visual rendering not verified."
+                    )
+                else:
+                    log.warning("[INJECT] Native skin selection was not accepted.")
                 return
 
             # Owning a base cosmetic does not establish ownership of every
@@ -784,16 +786,15 @@ class InjectionTrigger:
             if self.injection_manager:
                 self.injection_manager.discard_early_patcher()
     
-    def _force_owned_skin(self, skin_id: int):
-        """Force owned skin/chroma selection via LCU"""
+    def _force_owned_skin(self, skin_id: int) -> bool:
+        """Return whether the native client accepted an owned skin/chroma selection."""
         log.info(f"[INJECT] User owns this skin/chroma (skinId={skin_id}), forcing selection via LCU")
         
+        forced_successfully = False
         champ_id = self.state.locked_champ_id or self.state.hovered_champ_id
         if champ_id and self.lcu:
             target_skin_id = skin_id
             log.info(f"[INJECT] Forcing owned skin/chroma (skinId={target_skin_id})")
-            
-            forced_successfully = False
             
             # Find the user's action ID to update
             try:
@@ -856,6 +857,7 @@ class InjectionTrigger:
                     self.injection_manager.resume_if_suspended()
                 except Exception as e:
                     log.warning(f"[INJECT] Failed to resume game after forcing owned skin: {e}")
+        return forced_successfully
     
     def _inject_unowned_skin(self, name: str, cname: str):
         """Route an unowned official skin/chroma through the current Rose-style overlay flow.\n\n        LTK runtime verification remains enabled and authoritative. If the\n        runtime rejects the overlay, ltk_host reports the failure normally.\n        """
