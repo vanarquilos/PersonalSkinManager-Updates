@@ -14,11 +14,24 @@ class ReleaseSkinRoutingTests(unittest.TestCase):
     def setUpClass(cls):
         cls.source = TRIGGER.read_text(encoding="utf-8")
 
-    def test_owned_riot_skins_follow_rose_lcu_and_injection_path(self):
-        self.assertIn("Force owned skins/chromas via LCU", self.source)
-        self.assertIn("self._force_owned_skin(effective_skin_id)", self.source)
-        self.assertIn("self.injection_manager.inject_skin_immediately(", self.source)
-        self.assertNotIn("no overlay required", self.source)
+    def test_owned_riot_skins_use_native_lcu_without_overlay(self):
+        start = self.source.index("# Native client selection needs no overlay")
+        end = self.source.index("# Owning a base cosmetic", start)
+        route = self.source[start:end]
+        self.assertIn("effective_skin_id in (owned_skin_ids or set())", route)
+        self.assertIn("not is_default_skin(effective_skin_id)", route)
+        self.assertIn("self._force_owned_skin(effective_skin_id)", route)
+        self.assertIn("discard_early_patcher()", route)
+        self.assertNotIn("inject_skin_immediately", route)
+        self.assertIn("Visual rendering not verified", route)
+
+    def test_owned_base_does_not_imply_chroma_ownership(self):
+        start = self.source.index("# Owning a base cosmetic")
+        end = self.source.index("# Inject if user doesn't own", start)
+        route = self.source[start:end]
+        self.assertIn("Chroma ownership not confirmed", route)
+        self.assertNotIn("_force_owned_skin(", route)
+        self.assertNotIn("inject_skin_immediately", route)
 
     def test_unowned_official_skin_routes_through_overlay_runtime(self):
         self.assertIn(
