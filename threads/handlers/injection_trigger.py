@@ -788,6 +788,16 @@ class InjectionTrigger:
     
     def _force_owned_skin(self, skin_id: int) -> bool:
         """Return whether the native client accepted an owned skin/chroma selection."""
+        # All callers, including historic/custom selection, must verify the
+        # exact entitlement. Owning a parent skin does not imply chroma ownership.
+        if skin_id is None or skin_id not in (self.state.owned_skin_ids or set()):
+            log.warning("[INJECT] Native skin selection refused: ownership not confirmed.")
+            return False
+        if not self._skin_matches_champion(
+            skin_id, self.state.locked_champ_id or self.state.hovered_champ_id
+        ):
+            log.warning("[INJECT] Native skin selection refused: champion mismatch.")
+            return False
         log.info(f"[INJECT] User owns this skin/chroma (skinId={skin_id}), forcing selection via LCU")
         
         forced_successfully = False
