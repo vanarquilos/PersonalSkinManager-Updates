@@ -70,19 +70,23 @@ def main() -> int:
 
         renderer = LtkManagerUIRenderer(exe, index_file)
         session = renderer.activate(name, confirmed_by_user=True)
-        print(f"LTK PATCHER START REQUEST CONFIRMED: {session.selected_profile}")
-        print("Launch a permitted League Practice Tool game to inspect rendering.")
-        print("This does not verify that a skin appeared.")
-        print("Use Ctrl+C AFTER the game to stop the patcher and restore the profile.")
         try:
+            print(f"LTK PATCHER UI RUNNING: {session.selected_profile}")
+            print("Launch a permitted League Practice Tool game to inspect rendering.")
+            print("This does not verify that a skin appeared.")
+            print("Use Ctrl+C AFTER the game to stop the patcher and restore the profile.")
             while True:
                 time.sleep(0.5)
         except KeyboardInterrupt:
             print("\nStopping session and restoring previous profile...")
-        renderer.finish(session)
-        print("Requested LTK patcher stop and previous-profile restoration.")
+        finally:
+            renderer.finish(session)
+        print("LTK patcher idle and previous profile restored.")
         return 0
-    except ManagerUIError as exc:
+    except KeyboardInterrupt:
+        print("\nInterrupted during setup or cleanup; inspect LTK Manager.", file=sys.stderr)
+        return 130
+    except Exception as exc:
         print(f"LTK UI renderer: {exc}", file=sys.stderr)
         return 2
 
