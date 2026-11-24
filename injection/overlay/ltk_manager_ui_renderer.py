@@ -188,6 +188,28 @@ class LtkManagerUIRenderer:
             )
         return matches[0]
 
+    @classmethod
+    def _patcher_state(cls, window) -> str:
+        # Disabled Start is normal for an empty profile; it still identifies
+        # the idle view. Ambiguous, busy and modern Play states are unknown.
+        labels = [b.window_text().strip().casefold() for b in cls._buttons(window)]
+        if labels.count("start") == 1 and "stop" not in labels:
+            return "idle"
+        if labels.count("stop") == 1 and "start" not in labels:
+            return "running"
+        return "unknown"
+
+    def _active_profile(self) -> LibraryProfile:
+        profiles, active = read_library(self.index_file)
+        return next(p for p in profiles if p.profile_id == active)
+
+    def _restore_if_idle(self, window, selected: LibraryProfile, previous: LibraryProfile):
+        # Never restore over a different user's selection or a busy patcher.
+        if self._patcher_state(window) != "idle":
+            return
+        if self._active_profile().profile_id == selected.profile_id:
+            self._switch_profile(window, previous.name)
+
     @staticmethod
     def _focus_library(window):
         from pywinauto.keyboard import send_keys
@@ -233,34 +255,55 @@ class LtkManagerUIRenderer:
         previous = next(p for p in profiles if p.profile_id == previous_id)
         window, launched_here = self._window(start_manager=True)
         self._focus_library(window)
-        # Never mutate the active profile while the user's existing patcher
-        # is running. Ctrl+P is a toggle, so a blind keypress could stop it.
-        if any(b.window_text().strip().casefold() == "stop"
-               for b in self._buttons(window)):
+        # Require a known idle view before changing any profile.
+        if self._patcher_state(window) != "idle":
             raise ManagerUIError(
-                "LTK patcher is already running. Stop it through LTK Manager "
-                "before PSM switches rendering sessions."
+                "LTK patcher is running or its status is ambiguous. "
+                "Use the official classic Start/Stop interface and stop any existing session."
             )
-        self._switch_profile(window, selected.name)
-
-        # Official library Start control, not internal Tauri IPC or DLL calls.
+        start_attempted = False
         try:
-            self._find_button(window, "Start").click_input()
-        except ManagerUIError:
-            raise
-        except Exception as exc:
-            raise ManagerUIError("Official LTK Start button could not be pressed.") from exc
+            self._switch_profile(window, selected.name)
+            current = self._active_profile()
+            if (current.profile_id != selected.profile_id
+                    or current.enabled_mods != selected.enabled_mods):
+                raise ManagerUIError("Selected LTK profile changed before startup.")
+            if self._patcher_state(window) != "idle":
+                raise ManagerUIError("LTK patcher state changed before startup.")
+            button = self._find_button(window, "Start")
+            start_attempted = True
+            button.click_input()
 
-        deadline = time.monotonic() + 20
-        while time.monotonic() < deadline:
-            if any(b.window_text().strip().casefold() == "stop"
-                   for b in self._buttons(window)):
-                return ManagerSession(selected.name, previous.name, True, launched_here)
-            time.sleep(0.25)
-        raise ManagerUIError(
-            "LTK Manager did not confirm patcher startup. "
-            "Inspect Manager diagnostics; do not resume League on assumption."
-        )
+            deadline = time.monotonic() + 20
+            while time.monotonic() < deadline:
+                current = self._active_profile()
+                if current.profile_id != selected.profile_id:
+                    raise ManagerUIError("Active profile changed during startup; inspect LTK Manager.")
+                # Official Manager can disable rejected content during its
+                # guarded start. Never re-enable it or report that it rendered.
+                if current.enabled_mods != selected.enabled_mods:
+                    raise ManagerUIError(
+                        "LTK changed the enabled mod set during startup. "
+                        "Review its warnings; rejected content remains disabled."
+                    )
+                if self._patcher_state(window) == "running":
+                    return ManagerSession(selected.name, previous.name, True, launched_here)
+                time.sleep(0.25)
+            raise ManagerUIError(
+                "LTK Manager did not confirm patcher startup. Inspect Manager diagnostics."
+            )
+        except BaseException:
+            # Before issuing Start, a confirmed idle profile switch is safe
+            # to restore. After a Start attempt the asynchronous vendor
+            # operation may still be pending; leave its UI for user review.
+            if not start_attempted:
+                try:
+                    self._restore_if_idle(window, selected, previous)
+                except Exception:
+                    log.warning("Could not restore prior LTK profile; inspect Manager.")
+            else:
+                log.warning("LTK Start was requested; inspect Manager before changing profiles.")
+            raise
 
     def finish(self, session: ManagerSession):
         """Stop only this adapter's patcher, restore the user's prior profile.
@@ -271,11 +314,20 @@ class LtkManagerUIRenderer:
             return
         window, _ = self._window(start_manager=False)
         self._focus_library(window)
+        if self._active_profile().name != session.selected_profile:
+            raise ManagerUIError("LTK profile changed outside PSM; leaving the session untouched.")
+        state = self._patcher_state(window)
+        if state == "idle":
+            self._switch_profile(window, session.previous_profile)
+            return
+        if state != "running":
+            raise ManagerUIError("LTK patcher status is ambiguous; no stop action attempted.")
         self._find_button(window, "Stop").click_input()
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
-            if any(b.window_text().strip().casefold() == "start"
-                   for b in self._buttons(window)):
+            if self._active_profile().name != session.selected_profile:
+                raise ManagerUIError("LTK profile changed during cleanup; leaving it untouched.")
+            if self._patcher_state(window) == "idle":
                 self._switch_profile(window, session.previous_profile)
                 return
             time.sleep(0.25)
