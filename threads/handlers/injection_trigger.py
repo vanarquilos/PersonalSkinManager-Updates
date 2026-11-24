@@ -729,7 +729,24 @@ class InjectionTrigger:
             # historic mode is not active — if historic is active, the skin resolver
             # already overrides to the saved skin and injection should proceed normally)
             historic_active = getattr(self.state, 'historic_mode_active', False)
-            if ui_skin_id is not None and is_default_skin(ui_skin_id) and not historic_active:
+            random_active = getattr(self.state, 'random_mode_active', False)
+            native_target_id = effective_skin_id
+            if historic_active or random_active:
+                # The resolver's final key is authoritative in these modes;
+                # the hovered skin may belong to the previous UI selection.
+                prefix, sep, value = name.partition("_")
+                native_target_id = (
+                    int(value) if sep and prefix in ("skin", "chroma")
+                    and value.isascii() and value.isdecimal() else None
+                )
+            if not self._skin_matches_champion(native_target_id, locked_champ_id):
+                log.warning("[INJECT] Resolved native skin does not match the champion.")
+                if self.injection_manager:
+                    self.injection_manager.discard_early_patcher()
+                    self.injection_manager.resume_if_suspended()
+                return
+            if (native_target_id is not None and is_default_skin(native_target_id)
+                    and not historic_active and not random_active):
                 log.info(f"[INJECT] skipping injection for default skin (skinId={ui_skin_id}) - no mods selected")
                 if self.injection_manager:
                     self.injection_manager.resume_if_suspended()
@@ -743,9 +760,9 @@ class InjectionTrigger:
             # Native client selection needs no overlay for a skin the account
             # actually owns. Do not depend on a missing third-party renderer.
             elif (
-                effective_skin_id is not None
-                and effective_skin_id in (owned_skin_ids or set())
-                and not is_default_skin(effective_skin_id)
+                native_target_id is not None
+                and native_target_id in (owned_skin_ids or set())
+                and not is_default_skin(native_target_id)
             ):
                 # Stop unused prearming before selecting the native skin.
                 # Custom and category mods were handled above; this branch
@@ -753,13 +770,13 @@ class InjectionTrigger:
                 if self.injection_manager:
                     self.injection_manager.discard_early_patcher()
                     self.injection_manager.resume_if_suspended()
-                if self._force_owned_skin(effective_skin_id):
+                if self._force_owned_skin(native_target_id):
                     log.info(
-                        "[INJECT] League accepted owned skin selection; "
+                        "[INJECT] League confirmed owned skin selection; "
                         "no overlay required. Visual rendering not verified."
                     )
                 else:
-                    log.warning("[INJECT] Native skin selection was not accepted.")
+                    log.warning("[INJECT] Native skin selection was not confirmed.")
                 return
 
             # Owning a base cosmetic does not establish ownership of every
@@ -787,88 +804,63 @@ class InjectionTrigger:
                 self.injection_manager.discard_early_patcher()
     
     def _force_owned_skin(self, skin_id: int) -> bool:
-        """Return whether the native client accepted an owned skin/chroma selection."""
-        # All callers, including historic/custom selection, must verify the
-        # exact entitlement. Owning a parent skin does not imply chroma ownership.
+        """Apply an explicitly owned cosmetic through LCU and confirm selection."""
         if skin_id is None or skin_id not in (self.state.owned_skin_ids or set()):
             log.warning("[INJECT] Native skin selection refused: ownership not confirmed.")
             return False
-        if not self._skin_matches_champion(
-            skin_id, self.state.locked_champ_id or self.state.hovered_champ_id
-        ):
-            log.warning("[INJECT] Native skin selection refused: champion mismatch.")
-            return False
-        log.info(f"[INJECT] User owns this skin/chroma (skinId={skin_id}), forcing selection via LCU")
-        
-        forced_successfully = False
         champ_id = self.state.locked_champ_id or self.state.hovered_champ_id
-        if champ_id and self.lcu:
-            target_skin_id = skin_id
-            log.info(f"[INJECT] Forcing owned skin/chroma (skinId={target_skin_id})")
-            
-            # Find the user's action ID to update
-            try:
-                sess = self.lcu.session or {}
-                actions = sess.get("actions") or []
-                my_cell = self.state.local_cell_id
-                
-                action_found = False
-                is_action_completed = False
-                
-                for rnd in actions:
-                    for act in rnd:
-                        if act.get("actorCellId") == my_cell and act.get("type") == "pick":
-                            action_id = act.get("id")
-                            is_action_completed = act.get("completed", False)
-                            action_found = True
-                            
-                            if not is_action_completed:
-                                if action_id is not None:
-                                    if self.lcu.set_selected_skin(action_id, target_skin_id):
-                                        log.info(f"[INJECT] Owned skin/chroma forced via action")
-                                        forced_successfully = True
-                                    else:
-                                        log.debug(f"[INJECT] Action-based approach failed")
+        if not champ_id or not self.lcu or not self._skin_matches_champion(skin_id, champ_id):
+            log.warning("[INJECT] Native skin selection refused: champion or client unavailable.")
+            return False
+
+        def local_player(session):
+            if not isinstance(session, dict):
+                return None
+            cell = session.get("localPlayerCellId", self.state.local_cell_id)
+            if cell is None:
+                return None
+            return next((p for p in (session.get("myTeam") or [])
+                         if isinstance(p, dict) and p.get("cellId") == cell), None)
+
+        try:
+            session = self.lcu.session or {}
+            player = local_player(session)
+            if player is None or player.get("championId") != champ_id:
+                log.warning("[INJECT] No matching local champion in active selection session.")
+                return False
+            if player.get("selectedSkinId") == skin_id:
+                return True
+
+            accepted = self.lcu.set_my_selection_skin(skin_id)
+            if not accepted:
+                # Only the local player's own unfinished pick action may be used.
+                cell = player.get("cellId")
+                for group in session.get("actions") or []:
+                    for action in group:
+                        if (action.get("actorCellId") == cell
+                                and action.get("type") == "pick"
+                                and not action.get("completed")
+                                and action.get("id") is not None):
+                            accepted = self.lcu.set_selected_skin(action["id"], skin_id)
                             break
-                    if action_found:
+                    if accepted:
                         break
-                
-                # Try my-selection endpoint if action-based failed
-                if not forced_successfully:
-                    if self.lcu.set_my_selection_skin(target_skin_id):
-                        log.info(f"[INJECT] Owned skin/chroma forced via my-selection")
-                        forced_successfully = True
-                    else:
-                        log.warning(f"[INJECT] Failed to force owned skin/chroma")
-                
-                # Verify the change
-                if forced_successfully:
-                    if not getattr(self.state, 'random_mode_active', False):
-                        time.sleep(BASE_SKIN_VERIFICATION_WAIT_S)
-                        verify_sess = self.lcu.session or {}
-                        verify_team = verify_sess.get("myTeam") or []
-                        for player in verify_team:
-                            if player.get("cellId") == my_cell:
-                                current_skin = player.get("selectedSkinId")
-                                if current_skin == target_skin_id:
-                                    log.info(f"[INJECT] Owned skin/chroma verified: {current_skin}")
-                                else:
-                                    log.warning(f"[INJECT] Verification failed: {current_skin} != {target_skin_id}")
-                                break
-                    else:
-                        log.info(f"[INJECT] Skipping verification wait in random mode")
-            
-            except Exception as e:
-                log.warning(f"[INJECT] Error forcing owned skin/chroma: {e}")
-            
-            # Resume game if suspended
+            if not accepted:
+                return False
+            time.sleep(BASE_SKIN_VERIFICATION_WAIT_S)
+            confirmed = local_player(self.lcu.session or {})
+            return bool(confirmed and confirmed.get("championId") == champ_id
+                        and confirmed.get("selectedSkinId") == skin_id)
+        except Exception as exc:
+            log.warning("[INJECT] Native skin selection failed: %s", exc)
+            return False
+        finally:
             if self.injection_manager:
                 try:
                     self.injection_manager.resume_if_suspended()
-                except Exception as e:
-                    log.warning(f"[INJECT] Failed to resume game after forcing owned skin: {e}")
-        return forced_successfully
-    
+                except Exception as exc:
+                    log.warning("[INJECT] Could not resume game: %s", exc)
+
     def _inject_unowned_skin(self, name: str, cname: str):
         """Route an unowned official skin/chroma through the current Rose-style overlay flow.\n\n        LTK runtime verification remains enabled and authoritative. If the\n        runtime rejects the overlay, ltk_host reports the failure normally.\n        """
         try:
