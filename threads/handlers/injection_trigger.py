@@ -740,34 +740,40 @@ class InjectionTrigger:
                     clear_historic_entry(int(champ_id))
                     log.info(f"[HISTORIC] Cleared historic entry for champion {champ_id} (default skin played)")
 
-            # Force owned skins/chromas via LCU
-            # Use effective_skin_id which includes the selected chroma if applicable
-            elif effective_skin_id in owned_skin_ids and not is_default:
-                self._force_owned_skin(effective_skin_id)
-                # Still run injection so overlay is built with our skin + friends' party skins
-                if self.injection_manager:
-                    self.injection_manager.inject_skin_immediately(
-                        name,
-                        champion_name=cname,
-                        champion_id=self.state.locked_champ_id or self.state.hovered_champ_id,
-                    )
-
-            # Also check if base skin is owned but chroma is selected (for owned chromas)
-            # (only a chroma of the hovered skin: a historic/random skin is a different skin)
+            # Native client selection needs no overlay for a skin the account
+            # actually owns. Do not depend on a missing third-party renderer.
             elif (
-                ui_skin_id in owned_skin_ids
-                and ui_skin_id < effective_skin_id < ui_skin_id + 100
-                and not is_default
+                effective_skin_id is not None
+                and effective_skin_id in (owned_skin_ids or set())
+                and not is_default_skin(effective_skin_id)
             ):
-                # Base skin owned, chroma selected - force the chroma
-                self._force_owned_skin(effective_skin_id)
-                # Still run injection so overlay is built with our skin + friends' party skins
+                # Stop unused prearming before selecting the native skin.
+                # Custom and category mods were handled above; this branch
+                # deliberately does not promise party/custom overlay features.
                 if self.injection_manager:
-                    self.injection_manager.inject_skin_immediately(
-                        name,
-                        champion_name=cname,
-                        champion_id=self.state.locked_champ_id or self.state.hovered_champ_id,
-                    )
+                    self.injection_manager.discard_early_patcher()
+                    self.injection_manager.resume_if_suspended()
+                self._force_owned_skin(effective_skin_id)
+                log.info(
+                    "[INJECT] Owned skin selection submitted to League; "
+                    "no overlay required. Visual rendering not verified."
+                )
+                return
+
+            # Owning a base cosmetic does not establish ownership of every
+            # chroma. Leave the current selection unchanged if ownership of
+            # the requested chroma cannot be confirmed.
+            elif (
+                ui_skin_id is not None
+                and effective_skin_id is not None
+                and ui_skin_id in (owned_skin_ids or set())
+                and ui_skin_id < effective_skin_id < ui_skin_id + 100
+            ):
+                if self.injection_manager:
+                    self.injection_manager.discard_early_patcher()
+                    self.injection_manager.resume_if_suspended()
+                log.warning("[INJECT] Chroma ownership not confirmed; native selection unchanged.")
+                return
 
             # Inject if user doesn't own the hovered skin
             elif self.injection_manager:
